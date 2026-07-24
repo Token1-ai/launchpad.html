@@ -222,7 +222,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
   </div>
 </div>
-<div id="toast"></div> <script>
+<div id="toast"></div>
+<script>
 const LAUNCHPAD_ADDRESS = '0x24DB137722507515E28A295717b73bB074192931';
 const SUPABASE_URL = 'https://hgzthbidfdqomuotdocb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnenRoYmlkZmRxb211b3Rkb2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTI2NjEsImV4cCI6MjA5NjU4ODY2MX0.otgk-jq2k0COrIE3cUEnRBPYKGnzAHRi3LEIQhE7khA';
@@ -573,7 +574,7 @@ async function executeTrade(){
       const rc=await tx.wait(); txHash=rc.hash; toast('Sold! 🎉','ok');
     }
     try{
-      await fetch('/api/launchpad-trade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txHash,tokenAddress:currentToken,wallet:userAddr})});
+      await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})});
     }catch(e){}
     document.getElementById('tradeAmount').value='';
     document.getElementById('receiveAmount').textContent='—';
@@ -593,7 +594,7 @@ function previewImage(input){
 }
 async function uploadTokenImage(file){
   const dataBase64 = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
-  const resp=await fetch('/api/pinata-upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:file.name,type:file.type,dataBase64})});
+  const resp=await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upload',name:file.name,type:file.type,dataBase64})});
   if(!resp.ok) throw new Error('Image upload failed');
   return (await resp.json()).url;
 }
@@ -617,7 +618,7 @@ async function submitLaunch(){
     for(const log of rc.logs){ try{ const parsed=launchpad.interface.parseLog(log); if(parsed&&parsed.name==='TokenCreated'){ tokenAddr=parsed.args.token; break; } }catch(e){} }
     if(tokenAddr){
       try{
-        await fetch('/api/launchpad-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tokenAddress:tokenAddr,wallet:userAddr,meta:{ name,symbol, description:document.getElementById('launchDesc').value.trim(), image_url:imageUrl, twitter:document.getElementById('launchTwitter').value.trim(), telegram:document.getElementById('launchTelegram').value.trim(), website:document.getElementById('launchWebsite').value.trim() }})});
+        await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'token',tokenAddress:tokenAddr,wallet:userAddr,meta:{ name,symbol, description:document.getElementById('launchDesc').value.trim(), image_url:imageUrl, twitter:document.getElementById('launchTwitter').value.trim(), telegram:document.getElementById('launchTelegram').value.trim(), website:document.getElementById('launchWebsite').value.trim() }})});
       }catch(e){}
     }
     toast('Token launched! 🚀','ok');
