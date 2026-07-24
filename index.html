@@ -100,6 +100,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .img-drop{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:14px;cursor:pointer;}
 .img-drop.has-img{padding:8px;}
 .img-preview{max-width:100px;max-height:100px;border-radius:10px;object-fit:cover;}
+.fee-note{font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);}
+.fee-note.warn{border-color:var(--red);color:var(--red);}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;z-index:200;display:none;max-width:90vw;text-align:center;}
 #toast.show{display:block;}
 #toast.ok{border-color:var(--green);}
@@ -213,11 +215,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <input class="field-input" id="launchTelegram" placeholder="https://t.me/..."/>
     <label class="field-label">Website (optional)</label>
     <input class="field-input" id="launchWebsite" placeholder="https://..."/>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">
-      Requires Silver or Gold Pass. Token launches on a bonding curve — price rises
-      as people buy. At the target it auto-lists on PancakeSwap with liquidity burned
-      forever (anti-rug). You earn a share of every trade's fee.
-    </div>
+    <div class="fee-note" id="feeNote">Checking creation fee…</div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="launchSubmitBtn" onclick="submitLaunch()">Launch Token</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
   </div>
@@ -265,7 +263,7 @@ function getReadProvider(){
 }
 function getReadLaunchpad(){ return new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, getReadProvider()); }
 
-function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',3200); }
+function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function fmtBNB(wei){ return (Number(wei)/1e18).toFixed(4); }
 function fmtUsd(bnbAmount){
@@ -557,6 +555,8 @@ async function executeTrade(){
     let txHash;
     if(tradeSide==='buy'){
       const bnbIn=ethers.parseEther(amtStr);
+      const bal=await provider.getBalance(userAddr);
+      if(bal<bnbIn){ toast('Insufficient BNB balance for this amount','err'); btn.disabled=false; btn.textContent='Buy'; return; }
       const [tokensOut]=await launchpad.quoteBuy(currentToken,bnbIn);
       const minOut=tokensOut*95n/100n;
       const tx=await launchpad.buy(currentToken,minOut,{value:bnbIn});
@@ -579,7 +579,10 @@ async function executeTrade(){
     document.getElementById('tradeAmount').value='';
     document.getElementById('receiveAmount').textContent='—';
     refreshTradeInfo(currentToken); updateTradeButton();
-  }catch(e){ toast(e.reason||e.message||'Trade failed','err'); }
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Trade failed';
+    toast(msg,'err');
+  }
   btn.disabled=false; btn.textContent=tradeSide==='buy'?'Buy':'Sell';
 }
 
@@ -595,8 +598,25 @@ function previewImage(input){
 async function uploadTokenImage(file){
   const dataBase64 = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
   const resp=await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upload',name:file.name,type:file.type,dataBase64})});
-  if(!resp.ok) throw new Error('Image upload failed');
+  if(!resp.ok){ let msg='Image upload failed'; try{ const j=await resp.json(); msg=j.error||msg; }catch(e){} throw new Error(msg); }
   return (await resp.json()).url;
+}
+async function updateFeeNote(){
+  const note=document.getElementById('feeNote');
+  if(!launchpad || !userAddr){ note.textContent='Connect your wallet to see the creation fee.'; note.className='fee-note'; return; }
+  try{
+    const fee=await launchpad.creationFee();
+    const bal=await provider.getBalance(userAddr);
+    const feeStr=fmtBNB(fee);
+    const balStr=fmtBNB(bal);
+    if(bal<fee){
+      note.className='fee-note warn';
+      note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough. Top up your wallet before launching.';
+    }else{
+      note.className='fee-note';
+      note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.';
+    }
+  }catch(e){ note.textContent='Requires Silver or Gold Pass. Price rises as people buy on the curve.'; note.className='fee-note'; }
 }
 async function submitLaunch(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
@@ -608,9 +628,11 @@ async function submitLaunch(){
   try{
     const hasPass=await launchpad.hasPass(userAddr);
     if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='Launch Token'; return; }
-    let imageUrl='';
-    if(pendingImageFile){ try{ toast('Uploading image...','ok'); imageUrl=await uploadTokenImage(pendingImageFile); }catch(e){ toast('Image upload failed, continuing','err'); } }
     const fee=await launchpad.creationFee();
+    const bal=await provider.getBalance(userAddr);
+    if(bal<fee){ toast('Not enough BNB for the creation fee ('+fmtBNB(fee)+' BNB required)','err'); btn.disabled=false; btn.textContent='Launch Token'; return; }
+    let imageUrl='';
+    if(pendingImageFile){ try{ toast('Uploading image...','ok'); imageUrl=await uploadTokenImage(pendingImageFile); }catch(e){ toast('Image upload failed: '+(e.message||'')+' — continuing without image','err'); } }
     const tx=await launchpad.createToken(name,symbol,{value:fee});
     toast('Creating token... confirm in wallet','ok');
     const rc=await tx.wait();
@@ -618,7 +640,8 @@ async function submitLaunch(){
     for(const log of rc.logs){ try{ const parsed=launchpad.interface.parseLog(log); if(parsed&&parsed.name==='TokenCreated'){ tokenAddr=parsed.args.token; break; } }catch(e){} }
     if(tokenAddr){
       try{
-        await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'token',tokenAddress:tokenAddr,wallet:userAddr,meta:{ name,symbol, description:document.getElementById('launchDesc').value.trim(), image_url:imageUrl, twitter:document.getElementById('launchTwitter').value.trim(), telegram:document.getElementById('launchTelegram').value.trim(), website:document.getElementById('launchWebsite').value.trim() }})});
+        const r=await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'token',tokenAddress:tokenAddr,wallet:userAddr,meta:{ name,symbol, description:document.getElementById('launchDesc').value.trim(), image_url:imageUrl, twitter:document.getElementById('launchTwitter').value.trim(), telegram:document.getElementById('launchTelegram').value.trim(), website:document.getElementById('launchWebsite').value.trim() }})});
+        if(!r.ok){ const j=await r.json().catch(()=>({})); console.warn('metadata save failed', j.error); }
       }catch(e){}
     }
     toast('Token launched! 🚀','ok');
@@ -630,10 +653,13 @@ async function submitLaunch(){
     document.getElementById('imgDrop').classList.remove('has-img');
     await loadTokens();
     if(tokenAddr) showTrade(tokenAddr);
-  }catch(e){ toast(e.reason||e.message||'Launch failed','err'); }
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Launch failed';
+    toast(msg,'err');
+  }
   btn.disabled=false; btn.textContent='Launch Token';
 }
-function openLaunchModal(){ document.getElementById('launchModal').classList.add('show'); }
+function openLaunchModal(){ document.getElementById('launchModal').classList.add('show'); updateFeeNote(); }
 function closeLaunchModal(){ document.getElementById('launchModal').classList.remove('show'); }
 
 (async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); showHome(); })();
