@@ -1,0 +1,8 @@
+{
+  "name": "opengate-launchpad",
+  "version": "1.0.0",
+  "dependencies": {
+    "ethers": "^6.7.0",
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
