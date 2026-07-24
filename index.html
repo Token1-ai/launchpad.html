@@ -241,7 +241,7 @@ let tradeSide = 'buy', activeFilter = 'hot';
 let tokensCache = [], metaCache = {};
 let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
-let chartTimeMap = {}; // synthetic index -> real Date, для подписей на оси времени
+let chartTimeMap = {};
 
 async function loadBnbPrice(){
   try{
@@ -474,13 +474,13 @@ function initChart(){
     color:'#F5C84266'
   });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
-  chart.timeScale().applyOptions({ barSpacing: 14, rightOffset: 8 });
+  chart.timeScale().applyOptions({ barSpacing: 18, rightOffset: 8 });
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
-// Строит свечи ТОЛЬКО из реальных сделок, сгруппированных по минуте, идущих подряд без
-// заполнения пустых промежутков — так график не превращается в "расчёску" при низком объёме
-// и не бьёт лишний раз по Supabase: один запрос при открытии + событийная подписка на INSERT.
+// Ключевая идея: на бондинг-кривой цена меняется ТОЛЬКО через сделки.
+// Значит цена ДО сделки i равна цене ПОСЛЕ сделки i-1 (реальный факт контракта, не выдумка).
+// Это даёт настоящее тело свечи: покупка -> close > open -> зелёная, продажа -> close < open -> красная.
 async function loadChartFromTrades(token){
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
@@ -494,26 +494,38 @@ async function loadChartFromTrades(token){
       return;
     }
 
-    // группируем реальные сделки по минуте — только там, где реально была сделка
-    const buckets={};
-    const order=[];
+    // строим цепочку open/close по каждой сделке: open[i] = close[i-1]
+    const chained=[];
+    let prevClose=null;
     for(const t of trades){
-      const realDate=new Date(t.created_at);
-      const minuteKey=Math.floor(realDate.getTime()/60000)*60000;
+      const closePrice=Number(t.price);
+      const openPrice = prevClose===null ? closePrice : prevClose;
+      chained.push({
+        date:new Date(t.created_at),
+        open:openPrice, close:closePrice,
+        vol:Number(t.bnb_amount)||0, side:t.side
+      });
+      prevClose=closePrice;
+    }
+
+    // группируем по минуте: open бара = open первой сделки в баре, close = close последней
+    const buckets={}; const order=[];
+    for(const c of chained){
+      const minuteKey=Math.floor(c.date.getTime()/60000)*60000;
       if(!buckets[minuteKey]){
-        buckets[minuteKey]={open:Number(t.price),high:Number(t.price),low:Number(t.price),close:Number(t.price),vol:Number(t.bnb_amount)||0,date:realDate};
+        buckets[minuteKey]={open:c.open,close:c.close,high:Math.max(c.open,c.close),low:Math.min(c.open,c.close),vol:c.vol,date:c.date};
         order.push(minuteKey);
       }else{
         const b=buckets[minuteKey];
-        b.high=Math.max(b.high,Number(t.price));
-        b.low=Math.min(b.low,Number(t.price));
-        b.close=Number(t.price);
-        b.vol+=Number(t.bnb_amount)||0;
-        b.date=realDate;
+        b.close=c.close;
+        b.high=Math.max(b.high,c.open,c.close);
+        b.low=Math.min(b.low,c.open,c.close);
+        b.vol+=c.vol;
+        b.date=c.date;
       }
     }
 
-    const eps=Math.max(currentPrice*0.0015,1e-12);
+    const eps=Math.max(currentPrice*0.001,1e-12);
     const candles=[],volumes=[];
     chartTimeMap={};
     order.forEach((key,idx)=>{
@@ -539,8 +551,6 @@ function renderTradesFeed(trades){
   if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
   el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+fmtUsd(t.bnb_amount*1e18)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
 }
-// Событийная подписка — Supabase realtime присылает событие только когда реально появляется
-// новая строка. Пока никто не покупает, канал полностью в простое, никаких запросов не шлётся.
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
   tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},()=>{ loadTradesFeed(token); loadChartFromTrades(token); refreshTradeInfo(token); }).subscribe();
