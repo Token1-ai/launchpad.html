@@ -474,13 +474,14 @@ function initChart(){
     color:'#F5C84266'
   });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
-  chart.timeScale().applyOptions({ barSpacing: 18, rightOffset: 8 });
+  chart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
-// Ключевая идея: на бондинг-кривой цена меняется ТОЛЬКО через сделки.
-// Значит цена ДО сделки i равна цене ПОСЛЕ сделки i-1 (реальный факт контракта, не выдумка).
-// Это даёт настоящее тело свечи: покупка -> close > open -> зелёная, продажа -> close < open -> красная.
+// Цена на bonding curve меняется ТОЛЬКО через сделки, поэтому open сделки i = close сделки i-1.
+// Тень свечи = реальный диапазон, который прошла цена ВНУТРИ бара (несколько сделок толкнули
+// цену выше/ниже итогового close). У бара с одной сделкой тени нет и не должно быть —
+// никакой искусственной "видимости" тени больше не добавляем.
 async function loadChartFromTrades(token){
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
@@ -488,27 +489,20 @@ async function loadChartFromTrades(token){
 
     if(!trades||!trades.length){
       chartTimeMap={0:new Date()};
-      const eps=Math.max(currentPrice*0.002,1e-12);
-      candleSeries.setData([{time:0,open:currentPrice,high:currentPrice+eps,low:currentPrice-eps,close:currentPrice}]);
+      candleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
     }
 
-    // строим цепочку open/close по каждой сделке: open[i] = close[i-1]
     const chained=[];
     let prevClose=null;
     for(const t of trades){
       const closePrice=Number(t.price);
       const openPrice = prevClose===null ? closePrice : prevClose;
-      chained.push({
-        date:new Date(t.created_at),
-        open:openPrice, close:closePrice,
-        vol:Number(t.bnb_amount)||0, side:t.side
-      });
+      chained.push({ date:new Date(t.created_at), open:openPrice, close:closePrice, vol:Number(t.bnb_amount)||0 });
       prevClose=closePrice;
     }
 
-    // группируем по минуте: open бара = open первой сделки в баре, close = close последней
     const buckets={}; const order=[];
     for(const c of chained){
       const minuteKey=Math.floor(c.date.getTime()/60000)*60000;
@@ -525,15 +519,12 @@ async function loadChartFromTrades(token){
       }
     }
 
-    const eps=Math.max(currentPrice*0.001,1e-12);
     const candles=[],volumes=[];
     chartTimeMap={};
     order.forEach((key,idx)=>{
       const b=buckets[key];
-      let high=b.high, low=b.low;
-      if(high-low < eps){ high=Math.max(b.open,b.close)+eps/2; low=Math.min(b.open,b.close)-eps/2; }
       chartTimeMap[idx]=b.date;
-      candles.push({time:idx,open:b.open,high,low,close:b.close});
+      candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close});
       volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'});
     });
 
