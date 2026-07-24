@@ -239,7 +239,7 @@ let provider, signer, userAddr, launchpad;
 let currentToken = null, currentTokenMeta = null, currentGraduated = false;
 let tradeSide = 'buy', activeFilter = 'hot';
 let tokensCache = [], metaCache = {};
-let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
+let chart, priceSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
 
 async function loadBnbPrice(){
@@ -444,84 +444,52 @@ function initChart(){
     layout:{background:{color:'#111318'},textColor:'#8b909a'},
     grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
     timeScale:{timeVisible:true,borderColor:'#252932',secondsVisible:false},
-    rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.28}},
+    rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
   });
-  candleSeries=chart.addCandlestickSeries({
-    upColor:'#22c55e',downColor:'#ef4444',borderVisible:false,
-    wickUpColor:'#22c55e',wickDownColor:'#ef4444',
+  priceSeries=chart.addAreaSeries({
+    lineColor:'#F5C842', lineWidth:2,
+    topColor:'rgba(245,200,66,0.28)', bottomColor:'rgba(245,200,66,0.02)',
     priceLineVisible:false,
     priceFormat:{type:'price',precision:10,minMove:0.0000000001}
   });
   volumeSeries=chart.addHistogramSeries({
     priceFormat:{type:'volume'},
     priceScaleId:'',
-    color:'#F5C84255'
+    color:'#F5C84266'
   });
-  volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.82,bottom:0} });
+  volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
 async function loadChartFromTrades(token){
   try{
-    const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:false}).limit(3000);
+    const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
     if(!trades||!trades.length){
       const now=Math.floor(Date.now()/1000);
-      candleSeries.setData([{time:now,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
-      volumeSeries.setData([{time:now,value:0,color:'#F5C84255'}]);
+      priceSeries.setData([{time:now,value:currentPrice}]);
+      volumeSeries.setData([{time:now,value:0,color:'#8b909a33'}]);
       chart.timeScale().fitContent(); return;
     }
-    const ordered=trades.slice().reverse();
-    const events=ordered.map(t=>({t:Math.floor(new Date(t.created_at).getTime()/1000),price:Number(t.price),vol:Number(t.bnb_amount)||0}));
-    const {candles,volumes}=buildFilledCandles(events,60,currentPrice);
-    candleSeries.setData(candles);
-    volumeSeries.setData(volumes);
+    // dedupe одинаковые секунды — библиотека требует строго возрастающие уникальные time
+    const seen=new Set();
+    const points=[]; const vols=[];
+    for(const t of trades){
+      let ts=Math.floor(new Date(t.created_at).getTime()/1000);
+      while(seen.has(ts)) ts+=1;
+      seen.add(ts);
+      points.push({time:ts, value:Number(t.price)});
+      vols.push({time:ts, value:Number(t.bnb_amount)||0, color:t.side==='sell'?'#ef444488':'#22c55e88'});
+    }
+    // текущая точка на конце, чтобы линия доходила до "сейчас"
+    const nowT = Math.floor(Date.now()/1000);
+    if(nowT > points[points.length-1].time){
+      points.push({time:nowT, value:currentPrice});
+    }
+    priceSeries.setData(points);
+    volumeSeries.setData(vols);
     chart.timeScale().fitContent();
   }catch(e){}
-}
-
-// Строит непрерывный ряд минутных свечей: между реальными сделками заполняет
-// плоскими свечами по последней известной цене — так график не рвётся на изолированные точки.
-function buildFilledCandles(events,interval,currentPrice){
-  if(!events.length) return {candles:[],volumes:[]};
-  const buckets={};
-  for(const e of events){
-    const b=Math.floor(e.t/interval)*interval;
-    if(!buckets[b]) buckets[b]={time:b,open:e.price,high:e.price,low:e.price,close:e.price,vol:e.vol};
-    else{ const x=buckets[b]; x.high=Math.max(x.high,e.price); x.low=Math.min(x.low,e.price); x.close=e.price; x.vol+=e.vol; }
-  }
-  const times=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
-  const firstT=times[0];
-  const nowBucket=Math.floor(Date.now()/1000/interval)*interval;
-  const lastT=Math.max(times[times.length-1],nowBucket);
-  const candles=[],volumes=[];
-  let lastClose=buckets[firstT].open;
-  const MAX_BARS=1500;
-  let totalBars=Math.floor((lastT-firstT)/interval)+1;
-  let step=interval;
-  if(totalBars>MAX_BARS){ step=Math.ceil(totalBars/MAX_BARS)*interval; }
-  for(let t=firstT;t<=lastT;t+=step){
-    // объединяем реальные бакеты, попавшие в этот шаг
-    let open=null,high=-Infinity,low=Infinity,close=null,vol=0,hasReal=false;
-    for(let s=t;s<t+step;s+=interval){
-      if(buckets[s]){
-        hasReal=true;
-        if(open===null) open=buckets[s].open;
-        high=Math.max(high,buckets[s].high);
-        low=Math.min(low,buckets[s].low);
-        close=buckets[s].close;
-        vol+=buckets[s].vol;
-      }
-    }
-    if(hasReal){
-      candles.push({time:t,open,high,low,close});
-      lastClose=close;
-    }else{
-      candles.push({time:t,open:lastClose,high:lastClose,low:lastClose,close:lastClose});
-    }
-    volumes.push({time:t,value:vol,color:vol>0?(close!==null&&close>=open?'#22c55e88':'#ef444488'):'#8b909a22'});
-  }
-  return {candles,volumes};
 }
 
 async function loadTradesFeed(token){
