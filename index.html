@@ -241,6 +241,7 @@ let tradeSide = 'buy', activeFilter = 'hot';
 let tokensCache = [], metaCache = {};
 let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
+let chartTimeMap = {}; // synthetic index -> real Date, для подписей на оси времени
 
 async function loadBnbPrice(){
   try{
@@ -439,12 +440,26 @@ function applyGraduatedLock(token){
 
 function initChart(){
   const el=document.getElementById('chartContainer'); el.innerHTML='';
+  chartTimeMap = {};
   chart=LightweightCharts.createChart(el,{
     width:el.clientWidth,height:el.clientHeight,
     layout:{background:{color:'#111318'},textColor:'#8b909a'},
     grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
-    timeScale:{timeVisible:true,borderColor:'#252932',secondsVisible:false},
+    timeScale:{
+      borderColor:'#252932',
+      tickMarkFormatter:(time)=>{
+        const real = chartTimeMap[time];
+        if(!real) return '';
+        return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0');
+      }
+    },
     rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
+    localization:{
+      timeFormatter:(time)=>{
+        const real = chartTimeMap[time];
+        return real ? real.toLocaleString() : '';
+      }
+    }
   });
   candleSeries=chart.addCandlestickSeries({
     upColor:'#22c55e',downColor:'#ef4444',
@@ -459,83 +474,61 @@ function initChart(){
     color:'#F5C84266'
   });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
-  chart.timeScale().applyOptions({ barSpacing: 10, rightOffset: 6 });
+  chart.timeScale().applyOptions({ barSpacing: 14, rightOffset: 8 });
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
+// Строит свечи ТОЛЬКО из реальных сделок, сгруппированных по минуте, идущих подряд без
+// заполнения пустых промежутков — так график не превращается в "расчёску" при низком объёме
+// и не бьёт лишний раз по Supabase: один запрос при открытии + событийная подписка на INSERT.
 async function loadChartFromTrades(token){
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
+
     if(!trades||!trades.length){
-      const now=Math.floor(Date.now()/1000);
-      const eps=currentPrice*0.002;
-      candleSeries.setData([{time:now,open:currentPrice,high:currentPrice+eps,low:currentPrice-eps,close:currentPrice}]);
-      volumeSeries.setData([{time:now,value:0,color:'#8b909a33'}]);
-      chart.timeScale().scrollToPosition(0,false);
+      chartTimeMap={0:new Date()};
+      const eps=Math.max(currentPrice*0.002,1e-12);
+      candleSeries.setData([{time:0,open:currentPrice,high:currentPrice+eps,low:currentPrice-eps,close:currentPrice}]);
+      volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
     }
-    const interval=60; // 1-минутные бары
-    const events=trades.map(t=>({t:Math.floor(new Date(t.created_at).getTime()/1000),price:Number(t.price),vol:Number(t.bnb_amount)||0,side:t.side}));
-    const {candles,volumes}=buildContinuousCandles(events,interval,currentPrice);
-    candleSeries.setData(candles);
-    volumeSeries.setData(volumes);
-    chart.timeScale().scrollToPosition(0,false);
-  }catch(e){}
-}
 
-// Строит непрерывный ряд баров от первой сделки до сейчас.
-// Бары без сделок — плоские (open=close=lastClose) с маленьким фитильком для видимости.
-function buildContinuousCandles(events,interval,currentPrice){
-  if(!events.length) return {candles:[],volumes:[]};
-  const buckets={};
-  for(const e of events){
-    const b=Math.floor(e.t/interval)*interval;
-    if(!buckets[b]) buckets[b]={time:b,open:e.price,high:e.price,low:e.price,close:e.price,vol:e.vol,hasSell:e.side==='sell',hasBuy:e.side==='buy'};
-    else{
-      const x=buckets[b];
-      x.high=Math.max(x.high,e.price); x.low=Math.min(x.low,e.price); x.close=e.price; x.vol+=e.vol;
-      if(e.side==='sell') x.hasSell=true; else x.hasBuy=true;
-    }
-  }
-  const times=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
-  const firstT=times[0];
-  const nowBucket=Math.floor(Date.now()/1000/interval)*interval;
-  const lastT=Math.max(times[times.length-1],nowBucket);
-
-  const MAX_BARS=800;
-  let totalBars=Math.floor((lastT-firstT)/interval)+1;
-  let step=interval;
-  if(totalBars>MAX_BARS){ step=Math.ceil(totalBars/MAX_BARS)*interval; }
-
-  const candles=[],volumes=[];
-  let lastClose=buckets[firstT].open;
-  const eps=Math.max(currentPrice*0.0015, 1e-12);
-
-  for(let t=firstT;t<=lastT;t+=step){
-    let open=null,high=-Infinity,low=Infinity,close=null,vol=0,hasReal=false;
-    for(let s=t;s<t+step;s+=interval){
-      if(buckets[s]){
-        hasReal=true;
-        if(open===null) open=buckets[s].open;
-        high=Math.max(high,buckets[s].high);
-        low=Math.min(low,buckets[s].low);
-        close=buckets[s].close;
-        vol+=buckets[s].vol;
+    // группируем реальные сделки по минуте — только там, где реально была сделка
+    const buckets={};
+    const order=[];
+    for(const t of trades){
+      const realDate=new Date(t.created_at);
+      const minuteKey=Math.floor(realDate.getTime()/60000)*60000;
+      if(!buckets[minuteKey]){
+        buckets[minuteKey]={open:Number(t.price),high:Number(t.price),low:Number(t.price),close:Number(t.price),vol:Number(t.bnb_amount)||0,date:realDate};
+        order.push(minuteKey);
+      }else{
+        const b=buckets[minuteKey];
+        b.high=Math.max(b.high,Number(t.price));
+        b.low=Math.min(b.low,Number(t.price));
+        b.close=Number(t.price);
+        b.vol+=Number(t.bnb_amount)||0;
+        b.date=realDate;
       }
     }
-    if(hasReal){
-      // гарантируем видимый минимальный фитиль даже при почти нулевом движении внутри бара
-      if(high-low < eps){ high=Math.max(high,open,close)+eps/2; low=Math.min(low,open,close)-eps/2; }
-      candles.push({time:t,open,high,low,close});
-      volumes.push({time:t,value:vol,color:close>=open?'#22c55e88':'#ef444488'});
-      lastClose=close;
-    }else{
-      candles.push({time:t,open:lastClose,high:lastClose+eps,low:lastClose-eps,close:lastClose});
-      volumes.push({time:t,value:0,color:'#8b909a22'});
-    }
-  }
-  return {candles,volumes};
+
+    const eps=Math.max(currentPrice*0.0015,1e-12);
+    const candles=[],volumes=[];
+    chartTimeMap={};
+    order.forEach((key,idx)=>{
+      const b=buckets[key];
+      let high=b.high, low=b.low;
+      if(high-low < eps){ high=Math.max(b.open,b.close)+eps/2; low=Math.min(b.open,b.close)-eps/2; }
+      chartTimeMap[idx]=b.date;
+      candles.push({time:idx,open:b.open,high,low,close:b.close});
+      volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'});
+    });
+
+    candleSeries.setData(candles);
+    volumeSeries.setData(volumes);
+    chart.timeScale().fitContent();
+  }catch(e){}
 }
 
 async function loadTradesFeed(token){
@@ -546,6 +539,8 @@ function renderTradesFeed(trades){
   if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
   el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+fmtUsd(t.bnb_amount*1e18)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
 }
+// Событийная подписка — Supabase realtime присылает событие только когда реально появляется
+// новая строка. Пока никто не покупает, канал полностью в простое, никаких запросов не шлётся.
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
   tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},()=>{ loadTradesFeed(token); loadChartFromTrades(token); refreshTradeInfo(token); }).subscribe();
