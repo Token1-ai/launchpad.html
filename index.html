@@ -239,7 +239,7 @@ let provider, signer, userAddr, launchpad;
 let currentToken = null, currentTokenMeta = null, currentGraduated = false;
 let tradeSide = 'buy', activeFilter = 'hot';
 let tokensCache = [], metaCache = {};
-let chart, priceSeries, volumeSeries, tradesChannel, pendingImageFile = null;
+let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
 
 async function loadBnbPrice(){
@@ -446,9 +446,10 @@ function initChart(){
     timeScale:{timeVisible:true,borderColor:'#252932',secondsVisible:false},
     rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
   });
-  priceSeries=chart.addAreaSeries({
-    lineColor:'#F5C842', lineWidth:2,
-    topColor:'rgba(245,200,66,0.28)', bottomColor:'rgba(245,200,66,0.02)',
+  candleSeries=chart.addCandlestickSeries({
+    upColor:'#22c55e',downColor:'#ef4444',
+    borderVisible:true, borderUpColor:'#22c55e', borderDownColor:'#ef4444',
+    wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444',
     priceLineVisible:false,
     priceFormat:{type:'price',precision:10,minMove:0.0000000001}
   });
@@ -458,6 +459,7 @@ function initChart(){
     color:'#F5C84266'
   });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
+  chart.timeScale().applyOptions({ barSpacing: 10, rightOffset: 6 });
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
@@ -467,29 +469,73 @@ async function loadChartFromTrades(token){
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
     if(!trades||!trades.length){
       const now=Math.floor(Date.now()/1000);
-      priceSeries.setData([{time:now,value:currentPrice}]);
+      const eps=currentPrice*0.002;
+      candleSeries.setData([{time:now,open:currentPrice,high:currentPrice+eps,low:currentPrice-eps,close:currentPrice}]);
       volumeSeries.setData([{time:now,value:0,color:'#8b909a33'}]);
-      chart.timeScale().fitContent(); return;
+      chart.timeScale().scrollToPosition(0,false);
+      return;
     }
-    // dedupe одинаковые секунды — библиотека требует строго возрастающие уникальные time
-    const seen=new Set();
-    const points=[]; const vols=[];
-    for(const t of trades){
-      let ts=Math.floor(new Date(t.created_at).getTime()/1000);
-      while(seen.has(ts)) ts+=1;
-      seen.add(ts);
-      points.push({time:ts, value:Number(t.price)});
-      vols.push({time:ts, value:Number(t.bnb_amount)||0, color:t.side==='sell'?'#ef444488':'#22c55e88'});
-    }
-    // текущая точка на конце, чтобы линия доходила до "сейчас"
-    const nowT = Math.floor(Date.now()/1000);
-    if(nowT > points[points.length-1].time){
-      points.push({time:nowT, value:currentPrice});
-    }
-    priceSeries.setData(points);
-    volumeSeries.setData(vols);
-    chart.timeScale().fitContent();
+    const interval=60; // 1-минутные бары
+    const events=trades.map(t=>({t:Math.floor(new Date(t.created_at).getTime()/1000),price:Number(t.price),vol:Number(t.bnb_amount)||0,side:t.side}));
+    const {candles,volumes}=buildContinuousCandles(events,interval,currentPrice);
+    candleSeries.setData(candles);
+    volumeSeries.setData(volumes);
+    chart.timeScale().scrollToPosition(0,false);
   }catch(e){}
+}
+
+// Строит непрерывный ряд баров от первой сделки до сейчас.
+// Бары без сделок — плоские (open=close=lastClose) с маленьким фитильком для видимости.
+function buildContinuousCandles(events,interval,currentPrice){
+  if(!events.length) return {candles:[],volumes:[]};
+  const buckets={};
+  for(const e of events){
+    const b=Math.floor(e.t/interval)*interval;
+    if(!buckets[b]) buckets[b]={time:b,open:e.price,high:e.price,low:e.price,close:e.price,vol:e.vol,hasSell:e.side==='sell',hasBuy:e.side==='buy'};
+    else{
+      const x=buckets[b];
+      x.high=Math.max(x.high,e.price); x.low=Math.min(x.low,e.price); x.close=e.price; x.vol+=e.vol;
+      if(e.side==='sell') x.hasSell=true; else x.hasBuy=true;
+    }
+  }
+  const times=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  const firstT=times[0];
+  const nowBucket=Math.floor(Date.now()/1000/interval)*interval;
+  const lastT=Math.max(times[times.length-1],nowBucket);
+
+  const MAX_BARS=800;
+  let totalBars=Math.floor((lastT-firstT)/interval)+1;
+  let step=interval;
+  if(totalBars>MAX_BARS){ step=Math.ceil(totalBars/MAX_BARS)*interval; }
+
+  const candles=[],volumes=[];
+  let lastClose=buckets[firstT].open;
+  const eps=Math.max(currentPrice*0.0015, 1e-12);
+
+  for(let t=firstT;t<=lastT;t+=step){
+    let open=null,high=-Infinity,low=Infinity,close=null,vol=0,hasReal=false;
+    for(let s=t;s<t+step;s+=interval){
+      if(buckets[s]){
+        hasReal=true;
+        if(open===null) open=buckets[s].open;
+        high=Math.max(high,buckets[s].high);
+        low=Math.min(low,buckets[s].low);
+        close=buckets[s].close;
+        vol+=buckets[s].vol;
+      }
+    }
+    if(hasReal){
+      // гарантируем видимый минимальный фитиль даже при почти нулевом движении внутри бара
+      if(high-low < eps){ high=Math.max(high,open,close)+eps/2; low=Math.min(low,open,close)-eps/2; }
+      candles.push({time:t,open,high,low,close});
+      volumes.push({time:t,value:vol,color:close>=open?'#22c55e88':'#ef444488'});
+      lastClose=close;
+    }else{
+      candles.push({time:t,open:lastClose,high:lastClose+eps,low:lastClose-eps,close:lastClose});
+      volumes.push({time:t,value:0,color:'#8b909a22'});
+    }
+  }
+  return {candles,volumes};
 }
 
 async function loadTradesFeed(token){
