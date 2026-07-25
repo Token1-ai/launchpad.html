@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>OpenGate LaunchLab</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
@@ -13,114 +13,115 @@
   --text:#e8eaed; --muted:#8b909a; --gold:#F5C842; --green:#22c55e; --red:#ef4444;
   --purple:#a855f7; --r:14px;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 a{color:inherit;text-decoration:none;}
 button{font-family:inherit;cursor:pointer;}
-input,textarea{font-family:inherit;color:var(--text);-webkit-text-fill-color:var(--text);caret-color:var(--gold);}
+input,textarea{font-family:inherit;color:var(--text);-webkit-text-fill-color:var(--text);caret-color:var(--gold);font-size:16px;}
 input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--text)!important;-webkit-box-shadow:0 0 0 1000px var(--bg3) inset!important;transition:background-color 9999s;}
 .lab-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
 .lab-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;cursor:pointer;}
-.lab-logo .dot{width:28px;height:28px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#000;font-weight:900;}
-.lab-nav-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.btn-gold{background:var(--gold);color:#000;border:none;border-radius:10px;padding:9px 18px;font-weight:700;font-size:14px;}
-.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 16px;font-weight:600;font-size:14px;}
-.wallet-chip{background:var(--bg3);border:1px solid var(--green);color:var(--green);border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;}
-.btn-how{position:relative;background:var(--gold);color:#000;border:none;border-radius:100px;width:38px;height:38px;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.lab-logo .dot{width:28px;height:28px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#000;font-weight:900;flex-shrink:0;}
+.lab-nav-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.btn-gold{background:var(--gold);color:#000;border:none;border-radius:10px;padding:11px 18px;font-weight:700;font-size:14px;min-height:44px;white-space:normal;}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px 16px;font-weight:600;font-size:14px;min-height:44px;white-space:normal;}
+.wallet-chip{background:var(--bg3);border:1px solid var(--green);color:var(--green);border-radius:100px;padding:9px 14px;font-size:13px;font-weight:600;}
+.btn-how{position:relative;background:var(--gold);color:#000;border:none;border-radius:100px;width:40px;height:40px;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;box-shadow:0 0 0 0 rgba(245,200,66,.7);animation:pulseGold 2s infinite;}
 @keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
 .ad-boards-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
 .ad-slot{flex:1;min-width:260px;height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
 .ad-slot img{width:100%;height:100%;object-fit:cover;}
-.ad-remove-btn{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;z-index:2;}
-.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:320px;margin:0 auto 16px;}
-.mode-tab{flex:1;text-align:center;padding:9px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:nowrap;}
+.ad-remove-btn{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;z-index:2;min-height:32px;}
+.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:340px;margin:0 auto 16px;}
+.mode-tab{flex:1;text-align:center;padding:11px 8px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:normal;min-height:44px;}
 .mode-tab.active{background:var(--gold);color:#000;}
 .new-ticker{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;overflow:hidden;}
-.new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;}
+.new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0;}
 .new-ticker-items{display:flex;gap:20px;flex:1;overflow:hidden;}
 .nti{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px;color:var(--muted);cursor:pointer;}
 .nti img{width:20px;height:20px;border-radius:50%;object-fit:cover;}
 .lab-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
-.lab-search{flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;}
-.filter-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;white-space:nowrap;}
+.lab-search{flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:15px;outline:none;min-height:44px;}
+.filter-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:600;white-space:normal;min-height:44px;}
 .filter-btn.active{background:var(--gold);color:#000;border-color:var(--gold);}
-.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
 .token-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:border-color .15s,transform .1s;}
 .token-card:hover{border-color:var(--gold);transform:translateY(-2px);}
 .tc-head{display:flex;gap:12px;align-items:center;margin-bottom:10px;}
 .tc-avatar{width:52px;height:52px;border-radius:12px;background:var(--bg3);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;}
-.tc-name{font-weight:700;font-size:15px;}
+.tc-name{font-weight:700;font-size:15px;word-break:break-word;}
 .tc-ticker{color:var(--muted);font-size:13px;}
 .tc-desc{color:var(--muted);font-size:12px;line-height:1.4;margin:6px 0;height:34px;overflow:hidden;}
 .tc-mc{color:var(--gold);font-weight:700;font-size:14px;}
 .tc-progress{margin-top:8px;height:6px;background:var(--bg3);border-radius:100px;overflow:hidden;}
 .tc-progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--green));border-radius:100px;transition:width .3s;}
 .tc-progress-label{font-size:11px;color:var(--muted);margin-top:4px;}
-.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
-.pool-lock{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
+.pool-lock{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .pool-lock.locked{background:var(--green);color:#000;}
 .pool-lock.removable{background:var(--red);color:#fff;}
-.quote-select{display:flex;gap:8px;margin-bottom:14px;}
-.quote-opt{flex:1;text-align:center;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:700;font-size:13px;}
+.quote-select{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.quote-opt{flex:1;min-width:90px;text-align:center;padding:12px 8px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:700;font-size:13px;white-space:normal;min-height:44px;}
 .quote-opt.active{background:var(--gold);color:#000;border-color:var(--gold);}
-.lock-choice{display:flex;gap:10px;margin-bottom:14px;}
-.lock-opt{flex:1;padding:12px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:12px;color:var(--muted);}
+.lock-choice{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.lock-opt{flex:1;min-width:140px;padding:12px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:12px;color:var(--muted);}
 .lock-opt.active{border-color:var(--gold);color:var(--text);}
 .lock-opt b{display:block;color:var(--text);font-size:13px;margin-bottom:3px;}
 .trade-layout{display:grid;grid-template-columns:1fr 380px;gap:20px;}
 .chart-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .chart-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
 .chart-token{display:flex;align-items:center;gap:10px;}
-.chart-token-name{font-weight:700;font-size:16px;}
+.chart-token-name{font-weight:700;font-size:16px;word-break:break-word;}
 .chart-price{font-size:14px;color:var(--muted);}
 #chartContainer,#poolChartContainer{height:420px;width:100%;}
 .socials{display:flex;gap:8px;}
-.social-link{width:32px;height:32px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.social-link{width:36px;height:36px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;}
 .trade-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;height:fit-content;}
 .bs-tabs{display:flex;gap:8px;margin-bottom:16px;background:var(--bg3);border-radius:10px;padding:4px;}
-.bs-tab{flex:1;text-align:center;padding:10px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:14px;}
+.bs-tab{flex:1;text-align:center;padding:12px 8px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:14px;min-height:44px;white-space:normal;}
 .bs-tab.active-buy{background:var(--green);color:#000;}
 .bs-tab.active-sell{background:var(--red);color:#fff;}
-.bs-label{font-size:13px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;}
+.bs-label{font-size:13px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;}
 .bs-input-row{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
 .bs-input{flex:1;background:none;border:none;color:var(--text);font-size:18px;font-weight:700;outline:none;width:100%;-webkit-text-fill-color:var(--text);}
 .bs-cur{color:var(--muted);font-weight:700;font-size:14px;background:var(--bg2);padding:4px 10px;border-radius:8px;}
-.bs-presets{display:flex;gap:8px;margin-bottom:14px;}
-.bs-preset{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px;font-size:12px;font-weight:600;}
+.bs-presets{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.bs-preset{flex:1;min-width:56px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-size:12px;font-weight:600;min-height:40px;}
 .bs-receive{font-size:13px;color:var(--muted);margin-bottom:14px;}
 .bs-receive b{color:var(--text);}
-.bs-action{width:100%;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;}
+.bs-action{width:100%;border:none;border-radius:10px;padding:15px;font-weight:700;font-size:15px;min-height:48px;}
 .bs-action.buy{background:var(--green);color:#000;}
 .bs-action.sell{background:var(--red);color:#fff;}
 .bs-action:disabled{opacity:.5;}
 .grad-note{background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;font-size:13px;color:var(--green);text-align:center;margin-top:12px;display:none;}
 .info-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-top:16px;}
-.info-row{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;}
 .info-row:last-child{border-bottom:none;}
 .info-row .k{color:var(--muted);}
 .info-row .v{font-weight:600;word-break:break-all;text-align:right;max-width:60%;}
 .feed-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-top:16px;}
 .feed-title{font-weight:700;font-size:14px;margin-bottom:12px;}
-.trade-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.trade-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px;flex-wrap:wrap;}
 .trade-row:last-child{border-bottom:none;}
 .trade-side{font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px;}
 .trade-side.buy{background:rgba(34,197,94,.15);color:var(--green);}
 .trade-side.sell{background:rgba(239,68,68,.15);color:var(--red);}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:14px;}
 .modal-overlay.show{display:flex;}
-.modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;}
+.modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:22px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;}
 .modal-box.wide{max-width:600px;}
 .modal-title{font-size:18px;font-weight:700;margin-bottom:16px;}
 .field-label{font-size:13px;color:var(--muted);margin-bottom:6px;display:block;}
-.field-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:11px 14px;color:var(--text);font-size:14px;margin-bottom:14px;outline:none;-webkit-text-fill-color:var(--text);}
+.field-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:13px 14px;color:var(--text);font-size:16px;margin-bottom:14px;outline:none;-webkit-text-fill-color:var(--text);min-height:48px;}
 .field-input:focus{border-color:var(--gold);}
-.img-drop{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:14px;cursor:pointer;}
+.img-drop{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:8px;cursor:pointer;}
 .img-drop.has-img{padding:8px;}
 .img-preview{max-width:100px;max-height:100px;border-radius:10px;object-fit:cover;}
+.img-hint{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4;}
 .fee-note{font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);}
 .fee-note.warn{border-color:var(--red);color:var(--red);}
 .how-step{display:flex;gap:12px;margin-bottom:16px;}
@@ -128,14 +129,29 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .how-text{font-size:13px;color:var(--muted);line-height:1.5;}
 .how-text b{color:var(--text);}
 .limit-note{font-size:12px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;z-index:200;display:none;max-width:90vw;text-align:center;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;z-index:200;display:none;max-width:92vw;text-align:center;}
 #toast.show{display:block;}
 #toast.ok{border-color:var(--green);}
 #toast.err{border-color:var(--red);}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);grid-column:1/-1;}
 .hidden{display:none!important;}
-@media(max-width:900px){.trade-layout{grid-template-columns:1fr;}#chartContainer,#poolChartContainer{height:340px;}}
-@media(max-width:680px){.lab-wrap{padding:12px;}.token-grid{grid-template-columns:1fr;}.lab-nav{padding:12px;}.lab-logo{font-size:15px;}.btn-gold{padding:8px 12px;font-size:13px;}.info-row .v{max-width:55%;}}
+@media(max-width:900px){.trade-layout{grid-template-columns:1fr;}#chartContainer,#poolChartContainer{height:320px;}}
+@media(max-width:680px){
+  .lab-wrap{padding:12px;}
+  .token-grid{grid-template-columns:1fr;}
+  .lab-nav{padding:10px 12px;}
+  .lab-logo{font-size:14px;}
+  .lab-logo .dot{width:24px;height:24px;font-size:13px;}
+  .lab-nav-actions{gap:8px;width:100%;justify-content:space-between;}
+  .btn-gold,.btn-ghost{padding:10px 12px;font-size:13px;}
+  .info-row .v{max-width:55%;}
+  .ad-slot{min-width:100%;height:100px;}
+  .modal-box{padding:18px;max-width:96vw;}
+  .modal-title{font-size:16px;}
+  .mode-tabs{max-width:100%;}
+  .bs-presets{flex-wrap:wrap;}
+  .quote-opt{min-width:70px;}
+}
 </style>
 </head>
 <body>
@@ -301,6 +317,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span id="imgDropText">📷 Click to upload logo (PNG/JPG/GIF)</span>
       <img id="imgPreview" class="img-preview hidden"/>
     </div>
+    <div class="img-hint">Recommended: square image, at least 200×200px. Max file size 3MB.</div>
     <input type="file" id="launchImage" accept="image/*" class="hidden" onchange="previewImage(this)"/>
     <label class="field-label">Token Name *</label>
     <input class="field-input" id="launchName" placeholder="e.g. My Meme Coin"/>
@@ -378,6 +395,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span id="adImgDropText">📷 Click to upload banner image</span>
       <img id="adImgPreview" class="img-preview hidden"/>
     </div>
+    <div class="img-hint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
     <label class="field-label">Link URL *</label>
     <input class="field-input" id="adLinkUrl" placeholder="https://..."/>
@@ -388,7 +406,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <button class="quote-opt active" data-t="USDT" onclick="setAdToken('USDT')">USDT</button>
       <button class="quote-opt" data-t="USDC" onclick="setAdToken('USDC')">USDC</button>
     </div>
-    <div class="fee-note" id="adTotalNote">Total: —</div>
+    <div class="fee-note" id="adTotalNote">You pay: —</div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="adSubmitBtn" onclick="submitAd()">Pay & Place Ad</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdModal()">Cancel</button>
   </div>
@@ -1000,7 +1018,6 @@ function initPoolChart(){
   poolChart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
 }
 
-// Цена в этом AMM тоже меняется только через сделки — та же честная логика цепочки open=prevClose, что и в Launch
 async function loadPoolChartFromTrades(pid){
   try{
     const {data:trades}=await sb.from('pool_trades').select('price,quote_amount,side,created_at').eq('pool_id',pid).order('created_at',{ascending:true}).limit(3000);
@@ -1232,6 +1249,7 @@ async function openAdModal(slot){
 function closeAdModal(){ document.getElementById('adModal').classList.remove('show'); }
 function previewAdImage(input){
   const f=input.files[0]; if(!f) return;
+  if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
   adPendingImageFile=f;
   const url=URL.createObjectURL(f);
   const prev=document.getElementById('adImgPreview');
@@ -1252,12 +1270,12 @@ async function getAdPricePerDay(){
 async function updateAdPriceDisplay(){
   const note=document.getElementById('adPriceNote');
   const totalNote=document.getElementById('adTotalNote');
-  if(!userAddr){ note.textContent='Connect your wallet to see your price.'; totalNote.textContent='Total: —'; return; }
+  if(!userAddr){ note.textContent='Connect your wallet to see your price.'; totalNote.textContent='You pay: —'; return; }
   const perDay = await getAdPricePerDay();
   const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
   const tier = perDay===adPricing.gold_price_usd?'Gold Pass':perDay===adPricing.silver_price_usd?'Silver Pass':'no pass';
-  note.textContent = '$'+perDay+' / day for your wallet ('+tier+')';
-  totalNote.textContent = 'Total: $'+(perDay*days)+' ('+days+' day'+(days>1?'s':'')+') paid in '+adToken;
+  note.textContent = '$'+perDay+' per day for your wallet ('+tier+')';
+  totalNote.textContent = 'You pay: $'+(perDay*days)+' for '+days+' day'+(days>1?'s':'')+', in '+adToken;
 }
 async function submitAd(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
