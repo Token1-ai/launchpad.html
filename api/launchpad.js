@@ -8,7 +8,7 @@ const fmtEther = v => V6 ? ethers.formatEther(v) : ethers.utils.formatEther(v);
 const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
 const ZERO = '0x0000000000000000000000000000000000000000';
 
-const LAUNCHPAD = '0x24DB137722507515E28A295717b73bB074192931';
+const LAUNCHPAD = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
 const RPCS = [
   'https://bsc-dataseed.binance.org/',
   'https://bsc-dataseed1.defibit.io/',
