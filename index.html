@@ -19,10 +19,10 @@ a{color:inherit;text-decoration:none;}
 button{font-family:inherit;cursor:pointer;}
 input,textarea{font-family:inherit;color:var(--text);-webkit-text-fill-color:var(--text);caret-color:var(--gold);}
 input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--text)!important;-webkit-box-shadow:0 0 0 1000px var(--bg3) inset!important;transition:background-color 9999s;}
-.lab-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--bg2);border-bottom:1px solid var(--border);}
+.lab-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
 .lab-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;cursor:pointer;}
 .lab-logo .dot{width:28px;height:28px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#000;font-weight:900;}
-.lab-nav-actions{display:flex;align-items:center;gap:12px;}
+.lab-nav-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .btn-gold{background:var(--gold);color:#000;border:none;border-radius:10px;padding:9px 18px;font-weight:700;font-size:14px;}
 .btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 16px;font-weight:600;font-size:14px;}
 .wallet-chip{background:var(--bg3);border:1px solid var(--green);color:var(--green);border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;}
@@ -30,8 +30,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;box-shadow:0 0 0 0 rgba(245,200,66,.7);animation:pulseGold 2s infinite;}
 @keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
-.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:280px;margin:0 auto 16px;}
-.mode-tab{flex:1;text-align:center;padding:9px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;}
+.ad-boards-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+.ad-slot{flex:1;min-width:260px;height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
+.ad-slot img{width:100%;height:100%;object-fit:cover;}
+.ad-remove-btn{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;z-index:2;}
+.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:320px;margin:0 auto 16px;}
+.mode-tab{flex:1;text-align:center;padding:9px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:nowrap;}
 .mode-tab.active{background:var(--gold);color:#000;}
 .new-ticker{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;overflow:hidden;}
 .new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;}
@@ -57,8 +61,6 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
-.pool-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:border-color .15s;}
-.pool-card:hover{border-color:var(--gold);}
 .pool-lock{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
 .pool-lock.locked{background:var(--green);color:#000;}
 .pool-lock.removable{background:var(--red);color:#fff;}
@@ -75,7 +77,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .chart-token{display:flex;align-items:center;gap:10px;}
 .chart-token-name{font-weight:700;font-size:16px;}
 .chart-price{font-size:14px;color:var(--muted);}
-#chartContainer{height:420px;width:100%;}
+#chartContainer,#poolChartContainer{height:420px;width:100%;}
 .socials{display:flex;gap:8px;}
 .social-link{width:32px;height:32px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;}
 .trade-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;height:fit-content;}
@@ -132,7 +134,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 #toast.err{border-color:var(--red);}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);grid-column:1/-1;}
 .hidden{display:none!important;}
-@media(max-width:900px){.trade-layout{grid-template-columns:1fr;}#chartContainer{height:340px;}}
+@media(max-width:900px){.trade-layout{grid-template-columns:1fr;}#chartContainer,#poolChartContainer{height:340px;}}
 @media(max-width:680px){.lab-wrap{padding:12px;}.token-grid{grid-template-columns:1fr;}.lab-nav{padding:12px;}.lab-logo{font-size:15px;}.btn-gold{padding:8px 12px;font-size:13px;}.info-row .v{max-width:55%;}}
 </style>
 </head>
@@ -141,17 +143,23 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   <div class="lab-logo" onclick="switchMode('launch')"><div class="dot">O</div> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
   <div class="lab-nav-actions">
     <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How Launch works?">?</button>
-    <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How Pools work?">?</button>
+    <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How List & Trade works?">?</button>
     <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Launch Token</button>
-    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">💧 Create Pool</button>
+    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 List Token</button>
+    <button class="btn-ghost hidden" id="adAdminBtn" onclick="openAdAdminModal()">⚙️ Ad Pricing</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
     <button id="connectBtn" class="btn-ghost" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </nav>
 <div class="lab-wrap">
+  <div class="ad-boards-row">
+    <div id="adSlot1" class="ad-slot" onclick="handleAdSlotClick(1)"><span style="color:var(--muted);font-size:28px;">+</span></div>
+    <div id="adSlot2" class="ad-slot" onclick="handleAdSlotClick(2)"><span style="color:var(--muted);font-size:28px;">+</span></div>
+  </div>
+
   <div class="mode-tabs">
     <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 Launch</button>
-    <button class="mode-tab" id="modePools" onclick="switchMode('pools')">💧 Pools</button>
+    <button class="mode-tab" id="modePools" onclick="switchMode('pools')">🔄 List & Trade</button>
   </div>
 
   <div id="homeView">
@@ -230,9 +238,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
   <div id="poolsHomeView" class="hidden">
     <div class="lab-toolbar">
-      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search pools..." oninput="renderPoolList()"/>
+      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search tokens..." oninput="renderPoolList()"/>
     </div>
-    <div class="token-grid" id="poolGrid"><div class="empty">Loading pools...</div></div>
+    <div class="token-grid" id="poolGrid"><div class="empty">Loading tokens...</div></div>
   </div>
 
   <div id="poolsTradeView" class="hidden">
@@ -242,25 +250,24 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         <div class="chart-panel">
           <div class="chart-head">
             <div class="chart-token">
-              <div class="tc-avatar" id="poolAvatar">💧</div>
+              <div class="tc-avatar" id="poolAvatar">🔄</div>
               <div>
-                <div class="chart-token-name" id="poolName">Pool</div>
+                <div class="chart-token-name" id="poolName">Token</div>
                 <div class="chart-price" id="poolPrice">—</div>
               </div>
             </div>
           </div>
-          <div style="padding:20px;">
-            <div class="info-box" style="margin-top:0;">
-              <div class="info-row"><span class="k">Price</span><span class="v" id="poolInfoPrice">—</span></div>
-              <div class="info-row"><span class="k">Reserve Token</span><span class="v" id="poolReserveToken">—</span></div>
-              <div class="info-row"><span class="k">Reserve Quote</span><span class="v" id="poolReserveQuote">—</span></div>
-              <div class="info-row"><span class="k">Liquidity</span><span class="v" id="poolLockStatus">—</span></div>
-              <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
-            </div>
-            <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
-              <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Remove Liquidity</button>
-            </div>
-          </div>
+          <div id="poolChartContainer"></div>
+        </div>
+        <div class="info-box">
+          <div class="info-row"><span class="k">Price</span><span class="v" id="poolInfoPrice">—</span></div>
+          <div class="info-row"><span class="k">Reserve Token</span><span class="v" id="poolReserveToken">—</span></div>
+          <div class="info-row"><span class="k">Reserve Quote</span><span class="v" id="poolReserveQuote">—</span></div>
+          <div class="info-row"><span class="k">Liquidity</span><span class="v" id="poolLockStatus">—</span></div>
+          <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
+        </div>
+        <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
+          <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Withdraw Liquidity</button>
         </div>
         <div class="feed-box">
           <div class="feed-title">💱 Recent Trades</div>
@@ -315,34 +322,19 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
 <div class="modal-overlay" id="howModal">
   <div class="modal-box wide">
-    <div class="modal-title">💡 How OpenGate LaunchLab works</div>
-    <div class="how-step">
-      <div class="how-num">1</div>
-      <div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-num">2</div>
-      <div class="how-text"><b>Creating a new token requires a Silver or Gold Pass.</b> Silver: up to 7 tokens per week. Gold: up to 3 tokens every day.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-num">3</div>
-      <div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-num">4</div>
-      <div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-num">5</div>
-      <div class="how-text">Once a token raises enough BNB, it <b>"graduates"</b>: liquidity moves to PancakeSwap automatically and the LP is burned forever — nobody, not even the creator, can pull the liquidity out. That's the anti-rug guarantee.</div>
-    </div>
+    <div class="modal-title">💡 How Launch works</div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB.</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Creating a new token requires a Silver or Gold Pass.</b> Silver: up to 7 tokens per week. Gold: up to 3 tokens every day.</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div></div>
+    <div class="how-step"><div class="how-num">5</div><div class="how-text">Once a token raises enough BNB, it <b>"graduates"</b>: liquidity moves to PancakeSwap automatically and the LP is burned forever — nobody, not even the creator, can pull the liquidity out. That's the anti-rug guarantee.</div></div>
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closeHowModal()">Got it</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="createPoolModal">
   <div class="modal-box">
-    <div class="modal-title">💧 Create a Pool</div>
+    <div class="modal-title">🔄 List a Token</div>
     <div class="limit-note" id="poolLimitNote">Connect your wallet to see your remaining launches.</div>
     <label class="field-label">Token Address *</label>
     <input class="field-input" id="poolTokenAddr" placeholder="0x..."/>
@@ -361,20 +353,57 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 Locked</b>Permanent. Builds trust, can't be undone.</div>
       <div class="lock-opt" id="lockOptRemovable" onclick="setPoolLocked(false)"><b>⚠️ Removable</b>You can withdraw later. Riskier for buyers.</div>
     </div>
-    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">Create Pool</button>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">List Token</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeCreatePoolModal()">Cancel</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="poolsHowModal">
   <div class="modal-box wide">
-    <div class="modal-title">💡 How Pools work</div>
-    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>List a token you already have</b> — your own project token, or one created on our LaunchLab.</div></div>
-    <div class="how-step"><div class="how-num">2</div><div class="how-text">Choose the quote currency: <b>BNB, USDT, or USDC</b>. You deposit both your token and the quote currency to seed the pool.</div></div>
-    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>🔒 Locked</b> means the liquidity stays forever — nobody can pull it out. This builds trust with buyers. <b>⚠️ Removable</b> means you can withdraw it later, but buyers take on more risk.</div></div>
-    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy or sell</b> in the pool, no pass required. Creating a pool requires a Silver or Gold Pass, same limits as LaunchLab.</div></div>
-    <div class="how-step"><div class="how-num">5</div><div class="how-text">Every trade has a <b>1% fee</b>: 0.5% to the pool creator automatically, 0.5% to the platform.</div></div>
+    <div class="modal-title">💡 How List & Trade works</div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>List a token you already have</b> — your own project token, or one created on our Launch tab.</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text">Choose the quote currency: <b>BNB, USDT, or USDC</b>. You deposit both your token and the quote currency to seed the market.</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>🔒 Locked</b> means the liquidity stays forever — nobody can withdraw it. This builds trust with buyers. <b>⚠️ Removable</b> means you can withdraw it later, but buyers take on more risk.</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy or sell</b>, no pass required. Listing a token requires a Silver or Gold Pass, same limits as Launch.</div></div>
+    <div class="how-step"><div class="how-num">5</div><div class="how-text">Every trade has a <b>1% fee</b>: 0.5% to the lister automatically, 0.5% to the platform.</div></div>
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closePoolsHowModal()">Got it</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="adModal">
+  <div class="modal-box">
+    <div class="modal-title" id="adModalTitle">📢 Place an Ad</div>
+    <div class="fee-note" id="adPriceNote">Connect your wallet to see your price.</div>
+    <div class="img-drop" id="adImgDrop" onclick="document.getElementById('adImageInput').click()">
+      <span id="adImgDropText">📷 Click to upload banner image</span>
+      <img id="adImgPreview" class="img-preview hidden"/>
+    </div>
+    <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
+    <label class="field-label">Link URL *</label>
+    <input class="field-input" id="adLinkUrl" placeholder="https://..."/>
+    <label class="field-label">Days *</label>
+    <input class="field-input" id="adDays" type="number" min="1" value="1" oninput="updateAdPriceDisplay()"/>
+    <label class="field-label">Pay with</label>
+    <div class="quote-select">
+      <button class="quote-opt active" data-t="USDT" onclick="setAdToken('USDT')">USDT</button>
+      <button class="quote-opt" data-t="USDC" onclick="setAdToken('USDC')">USDC</button>
+    </div>
+    <div class="fee-note" id="adTotalNote">Total: —</div>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="adSubmitBtn" onclick="submitAd()">Pay & Place Ad</button>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdModal()">Cancel</button>
+  </div>
+</div>
+<div class="modal-overlay" id="adAdminModal">
+  <div class="modal-box">
+    <div class="modal-title">⚙️ Ad Pricing (owner only)</div>
+    <label class="field-label">Gold Pass price/day (USD)</label>
+    <input class="field-input" id="adminGoldPrice" type="number"/>
+    <label class="field-label">Silver Pass price/day (USD)</label>
+    <input class="field-input" id="adminSilverPrice" type="number"/>
+    <label class="field-label">No pass price/day (USD)</label>
+    <input class="field-input" id="adminPublicPrice" type="number"/>
+    <button class="btn-gold" style="width:100%;padding:13px;" onclick="submitAdPricing()">Save & Sign</button>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdAdminModal()">Cancel</button>
   </div>
 </div>
 
@@ -396,7 +425,11 @@ const POOLS_ADDRESS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
 const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
 const USDC_ADDR = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const POOLS_ABI = [{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"quoteIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"bool","name":"locked","type":"bool"}],"name":"createPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteAmount","type":"uint256"}],"name":"LiquidityRemoved","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint8","name":"quote","type":"uint8"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"bool","name":"locked","type":"bool"}],"name":"PoolCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"removeLiquidity","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minQuoteOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint16","name":"_trade","type":"uint16"},{"internalType":"uint16","name":"_creator","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_usdt","type":"address"},{"internalType":"address","name":"_usdc","type":"address"}],"name":"setStablecoins","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPool","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint8","name":"","type":"uint8"}],"name":"poolByTokenQuote","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"poolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"pools","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"quoteOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDC","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDT","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
-const ERC20_ABI = ['function name() view returns (string)','function symbol() view returns (string)','function decimals() view returns (uint8)','function balanceOf(address) view returns (uint256)','function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)'];
+const ERC20_ABI = ['function name() view returns (string)','function symbol() view returns (string)','function decimals() view returns (uint8)','function balanceOf(address) view returns (uint256)','function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)','function transfer(address,uint256) returns (bool)'];
+
+const OWNER_WALLET_ADDR = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+const AD_GOLD_PASS = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
+const AD_SILVER_PASS = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let provider, signer, userAddr, launchpad;
@@ -407,6 +440,10 @@ let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
 let chartTimeMap = {};
 let poolsCache = [], currentPoolId = null, currentPoolData = null, poolTradeSide = 'buy', poolQuoteChoice = 0, poolLockedChoice = true;
+let poolChart, poolCandleSeries, poolVolumeSeries, poolTradesChannel, poolChartTimeMap = {};
+let adPricing = { gold_price_usd:10, silver_price_usd:15, public_price_usd:25 };
+let adSlotTarget = null, adPendingImageFile = null, adToken = 'USDT';
+let adBoardsData = {1:null, 2:null};
 
 async function loadBnbPrice(){
   try{
@@ -470,6 +507,8 @@ async function connectWallet(){
     toast('Wallet connected','ok');
     if(currentToken) updateTradeButton();
     if(currentPoolId) updatePoolTradeButton();
+    document.getElementById('adAdminBtn').classList.toggle('hidden', userAddr.toLowerCase()!==OWNER_WALLET_ADDR.toLowerCase());
+    loadAdBoards();
     if(!_walletListenersSet){
       _walletListenersSet = true;
       window.ethereum.on('accountsChanged',()=>location.reload());
@@ -622,88 +661,47 @@ function initChart(){
     width:el.clientWidth,height:el.clientHeight,
     layout:{background:{color:'#111318'},textColor:'#8b909a'},
     grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
-    timeScale:{
-      borderColor:'#252932',
-      tickMarkFormatter:(time)=>{
-        const real = chartTimeMap[time];
-        if(!real) return '';
-        return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0');
-      }
-    },
+    timeScale:{ borderColor:'#252932', tickMarkFormatter:(time)=>{ const real=chartTimeMap[time]; if(!real) return ''; return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0'); } },
     rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
-    localization:{
-      timeFormatter:(time)=>{
-        const real = chartTimeMap[time];
-        return real ? real.toLocaleString() : '';
-      }
-    }
+    localization:{ timeFormatter:(time)=>{ const real=chartTimeMap[time]; return real ? real.toLocaleString() : ''; } }
   });
   candleSeries=chart.addCandlestickSeries({
-    upColor:'#22c55e',downColor:'#ef4444',
-    borderVisible:true, borderUpColor:'#22c55e', borderDownColor:'#ef4444',
-    wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444',
-    priceLineVisible:false,
+    upColor:'#22c55e',downColor:'#ef4444', borderVisible:true, borderUpColor:'#22c55e', borderDownColor:'#ef4444',
+    wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444', priceLineVisible:false,
     priceFormat:{type:'price',precision:10,minMove:0.0000000001}
   });
-  volumeSeries=chart.addHistogramSeries({
-    priceFormat:{type:'volume'},
-    priceScaleId:'',
-    color:'#F5C84266'
-  });
+  volumeSeries=chart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'', color:'#F5C84266' });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
   chart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
-  if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
+  if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} if(poolChart){const e2=document.getElementById('poolChartContainer'); poolChart.applyOptions({width:e2.clientWidth});} }); }
 }
 
 async function loadChartFromTrades(token){
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
-
     if(!trades||!trades.length){
       chartTimeMap={0:new Date()};
       candleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
     }
-
-    const chained=[];
-    let prevClose=null;
+    const chained=[]; let prevClose=null;
     for(const t of trades){
       const closePrice=Number(t.price);
       const openPrice = prevClose===null ? closePrice : prevClose;
       chained.push({ date:new Date(t.created_at), open:openPrice, close:closePrice, vol:Number(t.bnb_amount)||0 });
       prevClose=closePrice;
     }
-
     const buckets={}; const order=[];
     for(const c of chained){
       const minuteKey=Math.floor(c.date.getTime()/60000)*60000;
-      if(!buckets[minuteKey]){
-        buckets[minuteKey]={open:c.open,close:c.close,high:Math.max(c.open,c.close),low:Math.min(c.open,c.close),vol:c.vol,date:c.date};
-        order.push(minuteKey);
-      }else{
-        const b=buckets[minuteKey];
-        b.close=c.close;
-        b.high=Math.max(b.high,c.open,c.close);
-        b.low=Math.min(b.low,c.open,c.close);
-        b.vol+=c.vol;
-        b.date=c.date;
-      }
+      if(!buckets[minuteKey]){ buckets[minuteKey]={open:c.open,close:c.close,high:Math.max(c.open,c.close),low:Math.min(c.open,c.close),vol:c.vol,date:c.date}; order.push(minuteKey); }
+      else{ const b=buckets[minuteKey]; b.close=c.close; b.high=Math.max(b.high,c.open,c.close); b.low=Math.min(b.low,c.open,c.close); b.vol+=c.vol; b.date=c.date; }
     }
-
-    const candles=[],volumes=[];
-    chartTimeMap={};
-    order.forEach((key,idx)=>{
-      const b=buckets[key];
-      chartTimeMap[idx]=b.date;
-      candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close});
-      volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'});
-    });
-
-    candleSeries.setData(candles);
-    volumeSeries.setData(volumes);
-    chart.timeScale().fitContent();
+    const candles=[],volumes=[]; chartTimeMap={};
+    order.forEach((key,idx)=>{ const b=buckets[key]; chartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
+    candleSeries.setData(candles); volumeSeries.setData(volumes); chart.timeScale().fitContent();
   }catch(e){}
 }
 
@@ -809,9 +807,7 @@ async function executeTrade(){
       toast('Selling... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Sold! 🎉','ok');
     }
-    try{
-      await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})});
-    }catch(e){}
+    try{ await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})}); }catch(e){}
     document.getElementById('tradeAmount').value='';
     document.getElementById('receiveAmount').textContent='—';
     refreshTradeInfo(currentToken); updateTradeButton();
@@ -850,15 +846,9 @@ async function updateFeeNote(){
     const bal=await provider.getBalance(userAddr);
     const feeStr=fmtBNB(fee);
     const balStr=fmtBNB(bal);
-    if(bal<fee){
-      note.className='fee-note warn';
-      note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough. Top up your wallet before launching.';
-    }else{
-      note.className='fee-note';
-      note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.';
-    }
+    if(bal<fee){ note.className='fee-note warn'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough. Top up your wallet before launching.'; }
+    else{ note.className='fee-note'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.'; }
   }catch(e){ note.textContent='Requires Silver or Gold Pass. Price rises as people buy on the curve.'; note.className='fee-note'; }
-
   try{
     const goldPassAddr = await launchpad.goldPass();
     let isGold=false;
@@ -867,13 +857,8 @@ async function updateFeeNote(){
       const gp=new ethers.Contract(goldPassAddr, goldAbi, provider);
       isGold = (await gp.balanceOf(userAddr)) > 0n;
     }
-    if(isGold){
-      const [used,limit]=await launchpad.getGoldUsedToday(userAddr);
-      limitNote.textContent='🥇 Gold Pass: '+used+' / '+limit+' tokens launched today. Resets at midnight UTC.';
-    }else{
-      const [used,limit]=await launchpad.getSilverUsedThisWeek(userAddr);
-      limitNote.textContent='🥈 Silver Pass: '+used+' / '+limit+' tokens launched this week.';
-    }
+    if(isGold){ const [used,limit]=await launchpad.getGoldUsedToday(userAddr); limitNote.textContent='🥇 Gold Pass: '+used+' / '+limit+' tokens launched today. Resets at midnight UTC.'; }
+    else{ const [used,limit]=await launchpad.getSilverUsedThisWeek(userAddr); limitNote.textContent='🥈 Silver Pass: '+used+' / '+limit+' tokens launched this week.'; }
   }catch(e){ limitNote.textContent='Requires Silver or Gold Pass to launch a token.'; }
 }
 async function submitLaunch(){
@@ -921,8 +906,9 @@ function openLaunchModal(){ document.getElementById('launchModal').classList.add
 function closeLaunchModal(){ document.getElementById('launchModal').classList.remove('show'); }
 function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
 function closeHowModal(){ document.getElementById('howModal').classList.remove('show'); }
-
-// ─── POOLS ───
+</script>
+<script>
+// ─── LIST & TRADE (pools) ───
 function showPoolsHome(){
   document.getElementById('poolsHomeView').classList.remove('hidden');
   document.getElementById('poolsTradeView').classList.add('hidden');
@@ -933,7 +919,7 @@ async function loadPools(){
   try{
     const pl=getReadPools();
     const count=Number(await pl.poolCount());
-    if(count===0){ grid.innerHTML='<div class="empty">No pools yet. Be the first to list! 💧</div>'; return; }
+    if(count===0){ grid.innerHTML='<div class="empty">No tokens listed yet. Be the first! 🔄</div>'; return; }
     const items=await Promise.all(Array.from({length:count},(_,i)=>i+1).reverse().map(async pid=>{
       try{
         const p=await pl.getPool(pid);
@@ -945,18 +931,18 @@ async function loadPools(){
     }));
     poolsCache = items.filter(Boolean);
     renderPoolList();
-  }catch(e){ grid.innerHTML='<div class="empty">Failed to load pools</div>'; }
+  }catch(e){ grid.innerHTML='<div class="empty">Failed to load</div>'; }
 }
 function renderPoolList(){
   const grid=document.getElementById('poolGrid');
   const q=(document.getElementById('poolSearchInput').value||'').toLowerCase();
   let list=poolsCache.filter(p=>!q||p.name.toLowerCase().includes(q)||p.symbol.toLowerCase().includes(q));
-  if(!list.length){ grid.innerHTML='<div class="empty">No pools match.</div>'; return; }
+  if(!list.length){ grid.innerHTML='<div class="empty">No tokens match.</div>'; return; }
   grid.innerHTML='';
   list.forEach(p=>{
     const lockBadge = p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>';
     const card=document.createElement('div');
-    card.className='pool-card'; card.onclick=()=>showPoolTrade(p.pid);
+    card.className='token-card'; card.onclick=()=>showPoolTrade(p.pid);
     card.innerHTML='<div class="tc-head"><div class="tc-avatar">'+esc(p.symbol.charAt(0))+'</div><div><div class="tc-name">'+esc(p.name)+lockBadge+'</div><div class="tc-ticker">$'+esc(p.symbol)+' / '+quoteLabel(p.quote)+'</div></div></div>';
     grid.appendChild(card);
   });
@@ -982,15 +968,68 @@ async function openPoolTradePage(pid){
     document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
     document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(currentPoolData.quote);
-    document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Removed by creator' : '⚠️ Removable');
+    document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Withdrawn by lister' : '⚠️ Removable');
     document.getElementById('poolCreator').textContent = shortAddr(p.creator);
     document.getElementById('poolTradeCur').textContent = quoteLabel(currentPoolData.quote);
     const removeBox = document.getElementById('removeLiqBox');
     if(userAddr && userAddr.toLowerCase()===p.creator.toLowerCase() && !p.locked && !p.liquidityPulled){ removeBox.classList.remove('hidden'); } else { removeBox.classList.add('hidden'); }
-    await loadPoolTradesFeed(pid);
+    initPoolChart(); await loadPoolChartFromTrades(pid); await loadPoolTradesFeed(pid);
+    subscribePoolTrades(pid);
     updatePoolTradeButton(); updatePoolReceive();
-  }catch(e){ toast('Failed to load pool','err'); }
+  }catch(e){ toast('Failed to load token','err'); }
 }
+
+function initPoolChart(){
+  const el=document.getElementById('poolChartContainer'); el.innerHTML='';
+  poolChartTimeMap = {};
+  poolChart=LightweightCharts.createChart(el,{
+    width:el.clientWidth,height:el.clientHeight,
+    layout:{background:{color:'#111318'},textColor:'#8b909a'},
+    grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
+    timeScale:{ borderColor:'#252932', tickMarkFormatter:(time)=>{ const real=poolChartTimeMap[time]; if(!real) return ''; return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0'); } },
+    rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
+    localization:{ timeFormatter:(time)=>{ const real=poolChartTimeMap[time]; return real ? real.toLocaleString() : ''; } }
+  });
+  poolCandleSeries=poolChart.addCandlestickSeries({
+    upColor:'#22c55e',downColor:'#ef4444', borderVisible:true, borderUpColor:'#22c55e', borderDownColor:'#ef4444',
+    wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444', priceLineVisible:false,
+    priceFormat:{type:'price',precision:10,minMove:0.0000000001}
+  });
+  poolVolumeSeries=poolChart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'', color:'#F5C84266' });
+  poolVolumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
+  poolChart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
+}
+
+// Цена в этом AMM тоже меняется только через сделки — та же честная логика цепочки open=prevClose, что и в Launch
+async function loadPoolChartFromTrades(pid){
+  try{
+    const {data:trades}=await sb.from('pool_trades').select('price,quote_amount,side,created_at').eq('pool_id',pid).order('created_at',{ascending:true}).limit(3000);
+    const currentPrice = Number(await getReadPools().getPrice(pid))/1e18;
+    if(!trades||!trades.length){
+      poolChartTimeMap={0:new Date()};
+      poolCandleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
+      poolVolumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
+      return;
+    }
+    const chained=[]; let prevClose=null;
+    for(const t of trades){
+      const closePrice=Number(t.price);
+      const openPrice = prevClose===null ? closePrice : prevClose;
+      chained.push({ date:new Date(t.created_at), open:openPrice, close:closePrice, vol:Number(t.quote_amount)||0 });
+      prevClose=closePrice;
+    }
+    const buckets={}; const order=[];
+    for(const c of chained){
+      const minuteKey=Math.floor(c.date.getTime()/60000)*60000;
+      if(!buckets[minuteKey]){ buckets[minuteKey]={open:c.open,close:c.close,high:Math.max(c.open,c.close),low:Math.min(c.open,c.close),vol:c.vol,date:c.date}; order.push(minuteKey); }
+      else{ const b=buckets[minuteKey]; b.close=c.close; b.high=Math.max(b.high,c.open,c.close); b.low=Math.min(b.low,c.open,c.close); b.vol+=c.vol; b.date=c.date; }
+    }
+    const candles=[],volumes=[]; poolChartTimeMap={};
+    order.forEach((key,idx)=>{ const b=buckets[key]; poolChartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
+    poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes); poolChart.timeScale().fitContent();
+  }catch(e){}
+}
+
 async function loadPoolTradesFeed(pid){
   try{ const {data}=await sb.from('pool_trades').select('*').eq('pool_id',pid).order('created_at',{ascending:false}).limit(30); renderPoolTradesFeed(data||[]); }catch(e){}
 }
@@ -999,6 +1038,11 @@ function renderPoolTradesFeed(trades){
   if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
   el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+Number(t.quote_amount).toFixed(4)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
 }
+function subscribePoolTrades(pid){
+  if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
+  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{ loadPoolTradesFeed(pid); loadPoolChartFromTrades(pid); openPoolTradePage(pid); }).subscribe();
+}
+
 function setPoolSide(side){
   poolTradeSide=side;
   document.getElementById('poolTabBuy').classList.toggle('active-buy',side==='buy');
@@ -1026,11 +1070,7 @@ function updatePoolTradeButton(){
 async function ensureApproval(tokenAddr, spender, amountWei){
   const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
   const allowance = await tk.allowance(userAddr, spender);
-  if(allowance < amountWei){
-    toast('Approving token...','ok');
-    const tx = await tk.approve(spender, amountWei);
-    await tx.wait();
-  }
+  if(allowance < amountWei){ toast('Approving token...','ok'); const tx = await tk.approve(spender, amountWei); await tx.wait(); }
 }
 async function executePoolTrade(){
   if(!userAddr){ connectWallet(); return; }
@@ -1074,9 +1114,9 @@ async function removePoolLiquidity(){
   try{
     const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
     const tx = await poolsC.removeLiquidity(currentPoolId);
-    toast('Removing liquidity... confirm in wallet','ok');
+    toast('Withdrawing liquidity... confirm in wallet','ok');
     await tx.wait();
-    toast('Liquidity removed','ok');
+    toast('Liquidity withdrawn','ok');
     await openPoolTradePage(currentPoolId);
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
@@ -1086,7 +1126,7 @@ async function removePoolLiquidity(){
 
 function setPoolQuote(q){
   poolQuoteChoice=q;
-  document.querySelectorAll('.quote-opt').forEach(el=>el.classList.toggle('active', Number(el.dataset.q)===q));
+  document.querySelectorAll('#createPoolModal .quote-opt').forEach(el=>el.classList.toggle('active', Number(el.dataset.q)===q));
   document.getElementById('poolQuoteAmountLabel').textContent='Quote Amount ('+quoteLabel(q)+') *';
 }
 function setPoolLocked(v){
@@ -1110,9 +1150,9 @@ async function updatePoolLimitNote(){
       const gp=new ethers.Contract(goldPassAddr, ['function balanceOf(address) view returns (uint256)'], provider);
       isGold = (await gp.balanceOf(userAddr)) > 0n;
     }
-    if(isGold){ const [used,limit]=await pl.getGoldUsedToday(userAddr); note.textContent='🥇 Gold Pass: '+used+' / '+limit+' pools created today.'; }
-    else{ const [used,limit]=await pl.getSilverUsedThisWeek(userAddr); note.textContent='🥈 Silver Pass: '+used+' / '+limit+' pools created this week.'; }
-  }catch(e){ note.textContent='Requires Silver or Gold Pass to create a pool.'; }
+    if(isGold){ const [used,limit]=await pl.getGoldUsedToday(userAddr); note.textContent='🥇 Gold Pass: '+used+' / '+limit+' tokens listed today.'; }
+    else{ const [used,limit]=await pl.getSilverUsedThisWeek(userAddr); note.textContent='🥈 Silver Pass: '+used+' / '+limit+' tokens listed this week.'; }
+  }catch(e){ note.textContent='Requires Silver or Gold Pass to list a token.'; }
 }
 
 async function submitCreatePool(){
@@ -1123,24 +1163,20 @@ async function submitCreatePool(){
   if(!ethers.isAddress(tokenAddr)){ toast('Enter a valid token address','err'); return; }
   if(!tokenAmtStr || Number(tokenAmtStr)<=0 || !quoteAmtStr || Number(quoteAmtStr)<=0){ toast('Enter valid amounts','err'); return; }
   const btn=document.getElementById('createPoolBtn');
-  btn.disabled=true; btn.textContent='Creating...';
+  btn.disabled=true; btn.textContent='Listing...';
   try{
     const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
     const hasPass = await poolsC.hasPass(userAddr);
-    if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='Create Pool'; return; }
+    if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='List Token'; return; }
     const tokenAmtWei = ethers.parseEther(tokenAmtStr);
     const quoteAmtWei = ethers.parseEther(quoteAmtStr);
     await ensureApproval(tokenAddr, POOLS_ADDRESS, tokenAmtWei);
     let tx;
-    if(poolQuoteChoice===0){
-      tx = await poolsC.createPool(tokenAddr, 0, tokenAmtWei, quoteAmtWei, poolLockedChoice, {value:quoteAmtWei});
-    }else{
-      await ensureApproval(quoteAddr(poolQuoteChoice), POOLS_ADDRESS, quoteAmtWei);
-      tx = await poolsC.createPool(tokenAddr, poolQuoteChoice, tokenAmtWei, quoteAmtWei, poolLockedChoice);
-    }
-    toast('Creating pool... confirm in wallet','ok');
+    if(poolQuoteChoice===0){ tx = await poolsC.createPool(tokenAddr, 0, tokenAmtWei, quoteAmtWei, poolLockedChoice, {value:quoteAmtWei}); }
+    else{ await ensureApproval(quoteAddr(poolQuoteChoice), POOLS_ADDRESS, quoteAmtWei); tx = await poolsC.createPool(tokenAddr, poolQuoteChoice, tokenAmtWei, quoteAmtWei, poolLockedChoice); }
+    toast('Listing token... confirm in wallet','ok');
     await tx.wait();
-    toast('Pool created! 💧','ok');
+    toast('Token listed! 🔄','ok');
     closeCreatePoolModal();
     document.getElementById('poolTokenAddr').value='';
     document.getElementById('poolTokenAmount').value='';
@@ -1150,10 +1186,153 @@ async function submitCreatePool(){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
     toast(msg,'err');
   }
-  btn.disabled=false; btn.textContent='Create Pool';
+  btn.disabled=false; btn.textContent='List Token';
 }
 
-(async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); showHome(); })();
+// ─── ADS ───
+async function loadAdPricing(){
+  try{ const {data} = await sb.from('ad_pricing').select('*').eq('id',1).maybeSingle(); if(data) adPricing = data; }catch(e){}
+}
+async function loadAdBoards(){
+  try{
+    const nowIso = new Date().toISOString();
+    const {data} = await sb.from('ad_boards').select('*').eq('removed', false).gt('end_at', nowIso).in('slot',[1,2]);
+    adBoardsData = {1:null,2:null};
+    (data||[]).forEach(ad=>{ adBoardsData[ad.slot] = ad; });
+    renderAdSlot(1); renderAdSlot(2);
+  }catch(e){}
+}
+function renderAdSlot(slot){
+  const el = document.getElementById('adSlot'+slot);
+  const ad = adBoardsData[slot];
+  if(!ad){ el.innerHTML = '<span style="color:var(--muted);font-size:28px;">+</span>'; return; }
+  const canManage = userAddr && (userAddr.toLowerCase()===ad.wallet.toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
+  const removeBtn = canManage ? '<button class="ad-remove-btn" onclick="event.stopPropagation();requestRemoveAd('+ad.id+',\''+ad.wallet+'\')">🗑 Remove</button>' : '';
+  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+removeBtn;
+}
+function handleAdSlotClick(slot){
+  if(adBoardsData[slot]){
+    const ad = adBoardsData[slot];
+    const canManage = userAddr && (userAddr.toLowerCase()===ad.wallet.toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
+    if(!canManage) window.open(ad.link_url, '_blank');
+    return;
+  }
+  openAdModal(slot);
+}
+async function openAdModal(slot){
+  adSlotTarget = slot; adPendingImageFile=null;
+  document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
+  document.getElementById('adImgPreview').classList.add('hidden');
+  document.getElementById('adImgDropText').classList.remove('hidden');
+  document.getElementById('adLinkUrl').value='';
+  document.getElementById('adDays').value='1';
+  document.getElementById('adModal').classList.add('show');
+  await updateAdPriceDisplay();
+}
+function closeAdModal(){ document.getElementById('adModal').classList.remove('show'); }
+function previewAdImage(input){
+  const f=input.files[0]; if(!f) return;
+  adPendingImageFile=f;
+  const url=URL.createObjectURL(f);
+  const prev=document.getElementById('adImgPreview');
+  prev.src=url; prev.classList.remove('hidden');
+  document.getElementById('adImgDropText').classList.add('hidden');
+}
+function setAdToken(t){
+  adToken=t;
+  document.querySelectorAll('#adModal .quote-opt').forEach(el=>el.classList.toggle('active', el.dataset.t===t));
+  updateAdPriceDisplay();
+}
+async function getAdPricePerDay(){
+  if(!userAddr) return adPricing.public_price_usd;
+  try{ const gp = new ethers.Contract(AD_GOLD_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await gp.balanceOf(userAddr)) > 0n) return adPricing.gold_price_usd; }catch(e){}
+  try{ const sp = new ethers.Contract(AD_SILVER_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await sp.balanceOf(userAddr)) > 0n) return adPricing.silver_price_usd; }catch(e){}
+  return adPricing.public_price_usd;
+}
+async function updateAdPriceDisplay(){
+  const note=document.getElementById('adPriceNote');
+  const totalNote=document.getElementById('adTotalNote');
+  if(!userAddr){ note.textContent='Connect your wallet to see your price.'; totalNote.textContent='Total: —'; return; }
+  const perDay = await getAdPricePerDay();
+  const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
+  const tier = perDay===adPricing.gold_price_usd?'Gold Pass':perDay===adPricing.silver_price_usd?'Silver Pass':'no pass';
+  note.textContent = '$'+perDay+' / day for your wallet ('+tier+')';
+  totalNote.textContent = 'Total: $'+(perDay*days)+' ('+days+' day'+(days>1?'s':'')+') paid in '+adToken;
+}
+async function submitAd(){
+  if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
+  const linkUrl = document.getElementById('adLinkUrl').value.trim();
+  const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
+  if(!/^https?:\/\//i.test(linkUrl)){ toast('Enter a valid link URL','err'); return; }
+  if(!adPendingImageFile){ toast('Upload a banner image','err'); return; }
+  const btn=document.getElementById('adSubmitBtn');
+  btn.disabled=true; btn.textContent='Uploading image...';
+  try{
+    const adImageUrl = await uploadTokenImage(adPendingImageFile);
+    const perDay = await getAdPricePerDay();
+    const totalUsd = perDay*days;
+    const tokenAddr = adToken==='USDT' ? USDT_ADDR : USDC_ADDR;
+    const tk = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+    const amountWei = ethers.parseEther(String(totalUsd));
+    btn.textContent='Confirm payment in wallet...';
+    const tx = await tk.transfer(OWNER_WALLET_ADDR, amountWei);
+    toast('Sending payment...','ok');
+    const rc = await tx.wait();
+    btn.textContent='Activating ad...';
+    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash })});
+    const j = await r.json();
+    if(!r.ok){ toast(j.error||'Failed to activate ad','err'); btn.disabled=false; btn.textContent='Pay & Place Ad'; return; }
+    toast('Ad placed! 📢','ok');
+    closeAdModal();
+    await loadAdBoards();
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
+    toast(msg,'err');
+  }
+  btn.disabled=false; btn.textContent='Pay & Place Ad';
+}
+async function requestRemoveAd(adId, adWallet){
+  if(!userAddr){ connectWallet(); return; }
+  const isOwner = userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase();
+  const isSelf = userAddr.toLowerCase()===adWallet.toLowerCase();
+  if(!isOwner && !isSelf) return;
+  if(!confirm('Remove this ad? No refund will be issued.')) return;
+  try{
+    const message = isOwner ? ('OpenGate admin remove ad #'+adId) : ('Remove my OpenGate ad #'+adId);
+    const signature = await signer.signMessage(message);
+    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action: isOwner ? 'adminRemove':'removeOwn', adId, wallet:userAddr, signature })});
+    const j = await r.json();
+    if(!r.ok){ toast(j.error||'Failed to remove','err'); return; }
+    toast('Ad removed','ok');
+    await loadAdBoards();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+function openAdAdminModal(){
+  document.getElementById('adminGoldPrice').value = adPricing.gold_price_usd;
+  document.getElementById('adminSilverPrice').value = adPricing.silver_price_usd;
+  document.getElementById('adminPublicPrice').value = adPricing.public_price_usd;
+  document.getElementById('adAdminModal').classList.add('show');
+}
+function closeAdAdminModal(){ document.getElementById('adAdminModal').classList.remove('show'); }
+async function submitAdPricing(){
+  if(!userAddr || userAddr.toLowerCase()!==OWNER_WALLET_ADDR.toLowerCase()){ toast('Owner only','err'); return; }
+  const g = Number(document.getElementById('adminGoldPrice').value);
+  const s = Number(document.getElementById('adminSilverPrice').value);
+  const p = Number(document.getElementById('adminPublicPrice').value);
+  if(!(g>0&&s>0&&p>0)){ toast('Enter valid prices','err'); return; }
+  try{
+    const message = 'OpenGate admin set pricing '+g+','+s+','+p;
+    const signature = await signer.signMessage(message);
+    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'adminSetPricing', goldPrice:g, silverPrice:s, publicPrice:p, signature })});
+    const j = await r.json();
+    if(!r.ok){ toast(j.error||'Failed','err'); return; }
+    adPricing = {gold_price_usd:g, silver_price_usd:s, public_price_usd:p};
+    toast('Pricing updated','ok');
+    closeAdAdminModal();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+
+(async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); await loadAdPricing(); await loadAdBoards(); showHome(); })();
 </script>
 </body>
 </html>
