@@ -30,6 +30,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;box-shadow:0 0 0 0 rgba(245,200,66,.7);animation:pulseGold 2s infinite;}
 @keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
+.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:280px;margin:0 auto 16px;}
+.mode-tab{flex:1;text-align:center;padding:9px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;}
+.mode-tab.active{background:var(--gold);color:#000;}
 .new-ticker{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;overflow:hidden;}
 .new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;}
 .new-ticker-items{display:flex;gap:20px;flex:1;overflow:hidden;}
@@ -54,6 +57,18 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
+.pool-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:border-color .15s;}
+.pool-card:hover{border-color:var(--gold);}
+.pool-lock{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;}
+.pool-lock.locked{background:var(--green);color:#000;}
+.pool-lock.removable{background:var(--red);color:#fff;}
+.quote-select{display:flex;gap:8px;margin-bottom:14px;}
+.quote-opt{flex:1;text-align:center;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:700;font-size:13px;}
+.quote-opt.active{background:var(--gold);color:#000;border-color:var(--gold);}
+.lock-choice{display:flex;gap:10px;margin-bottom:14px;}
+.lock-opt{flex:1;padding:12px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:12px;color:var(--muted);}
+.lock-opt.active{border-color:var(--gold);color:var(--text);}
+.lock-opt b{display:block;color:var(--text);font-size:13px;margin-bottom:3px;}
 .trade-layout{display:grid;grid-template-columns:1fr 380px;gap:20px;}
 .chart-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .chart-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
@@ -123,15 +138,22 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 </head>
 <body>
 <nav class="lab-nav">
-  <div class="lab-logo" onclick="showHome()"><div class="dot">O</div> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
+  <div class="lab-logo" onclick="switchMode('launch')"><div class="dot">O</div> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
   <div class="lab-nav-actions">
-    <button class="btn-how" onclick="openHowModal()" title="Как это работает?">?</button>
-    <button class="btn-gold" onclick="openLaunchModal()">🚀 Launch Token</button>
+    <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How Launch works?">?</button>
+    <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How Pools work?">?</button>
+    <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Launch Token</button>
+    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">💧 Create Pool</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
     <button id="connectBtn" class="btn-ghost" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </nav>
 <div class="lab-wrap">
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 Launch</button>
+    <button class="mode-tab" id="modePools" onclick="switchMode('pools')">💧 Pools</button>
+  </div>
+
   <div id="homeView">
     <div class="new-ticker">
       <span class="new-ticker-label">🆕 New</span>
@@ -145,8 +167,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
     <div class="token-grid" id="tokenGrid"><div class="empty">Loading tokens...</div></div>
   </div>
+
   <div id="tradeView" class="hidden">
-    <button class="btn-ghost" onclick="showHome()" style="margin-bottom:16px;">← Back</button>
+    <button class="btn-ghost" onclick="switchMode('launch')" style="margin-bottom:16px;">← Back</button>
     <div class="trade-layout">
       <div>
         <div class="chart-panel">
@@ -204,7 +227,65 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       </div>
     </div>
   </div>
+
+  <div id="poolsHomeView" class="hidden">
+    <div class="lab-toolbar">
+      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search pools..." oninput="renderPoolList()"/>
+    </div>
+    <div class="token-grid" id="poolGrid"><div class="empty">Loading pools...</div></div>
+  </div>
+
+  <div id="poolsTradeView" class="hidden">
+    <button class="btn-ghost" onclick="showPoolsHome()" style="margin-bottom:16px;">← Back</button>
+    <div class="trade-layout">
+      <div>
+        <div class="chart-panel">
+          <div class="chart-head">
+            <div class="chart-token">
+              <div class="tc-avatar" id="poolAvatar">💧</div>
+              <div>
+                <div class="chart-token-name" id="poolName">Pool</div>
+                <div class="chart-price" id="poolPrice">—</div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:20px;">
+            <div class="info-box" style="margin-top:0;">
+              <div class="info-row"><span class="k">Price</span><span class="v" id="poolInfoPrice">—</span></div>
+              <div class="info-row"><span class="k">Reserve Token</span><span class="v" id="poolReserveToken">—</span></div>
+              <div class="info-row"><span class="k">Reserve Quote</span><span class="v" id="poolReserveQuote">—</span></div>
+              <div class="info-row"><span class="k">Liquidity</span><span class="v" id="poolLockStatus">—</span></div>
+              <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
+            </div>
+            <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
+              <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Remove Liquidity</button>
+            </div>
+          </div>
+        </div>
+        <div class="feed-box">
+          <div class="feed-title">💱 Recent Trades</div>
+          <div id="poolTradesFeed"><div style="color:var(--muted);font-size:12px;">No trades yet</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="trade-box">
+          <div class="bs-tabs">
+            <button class="bs-tab active-buy" id="poolTabBuy" onclick="setPoolSide('buy')">Buy</button>
+            <button class="bs-tab" id="poolTabSell" onclick="setPoolSide('sell')">Sell</button>
+          </div>
+          <div class="bs-label"><span id="poolAmountLabel">Amount</span><span id="poolBalanceLabel"></span></div>
+          <div class="bs-input-row">
+            <input class="bs-input" id="poolTradeAmount" type="number" placeholder="0.0" oninput="updatePoolReceive()"/>
+            <span class="bs-cur" id="poolTradeCur">BNB</span>
+          </div>
+          <div class="bs-receive">You receive: <b id="poolReceiveAmount">—</b></div>
+          <button class="bs-action buy" id="poolTradeActionBtn" onclick="executePoolTrade()">Connect Wallet</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
 <div class="modal-overlay" id="launchModal">
   <div class="modal-box">
     <div class="modal-title">🚀 Launch a Token</div>
@@ -231,6 +312,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
   </div>
 </div>
+
 <div class="modal-overlay" id="howModal">
   <div class="modal-box wide">
     <div class="modal-title">💡 How OpenGate LaunchLab works</div>
@@ -257,6 +339,45 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closeHowModal()">Got it</button>
   </div>
 </div>
+
+<div class="modal-overlay" id="createPoolModal">
+  <div class="modal-box">
+    <div class="modal-title">💧 Create a Pool</div>
+    <div class="limit-note" id="poolLimitNote">Connect your wallet to see your remaining launches.</div>
+    <label class="field-label">Token Address *</label>
+    <input class="field-input" id="poolTokenAddr" placeholder="0x..."/>
+    <label class="field-label">Quote Currency *</label>
+    <div class="quote-select">
+      <button class="quote-opt active" data-q="0" onclick="setPoolQuote(0)">BNB</button>
+      <button class="quote-opt" data-q="1" onclick="setPoolQuote(1)">USDT</button>
+      <button class="quote-opt" data-q="2" onclick="setPoolQuote(2)">USDC</button>
+    </div>
+    <label class="field-label">Token Amount *</label>
+    <input class="field-input" id="poolTokenAmount" type="number" placeholder="e.g. 500000"/>
+    <label class="field-label" id="poolQuoteAmountLabel">Quote Amount (BNB) *</label>
+    <input class="field-input" id="poolQuoteAmount" type="number" placeholder="e.g. 1"/>
+    <label class="field-label">Liquidity Type</label>
+    <div class="lock-choice">
+      <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 Locked</b>Permanent. Builds trust, can't be undone.</div>
+      <div class="lock-opt" id="lockOptRemovable" onclick="setPoolLocked(false)"><b>⚠️ Removable</b>You can withdraw later. Riskier for buyers.</div>
+    </div>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">Create Pool</button>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeCreatePoolModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="poolsHowModal">
+  <div class="modal-box wide">
+    <div class="modal-title">💡 How Pools work</div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>List a token you already have</b> — your own project token, or one created on our LaunchLab.</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text">Choose the quote currency: <b>BNB, USDT, or USDC</b>. You deposit both your token and the quote currency to seed the pool.</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>🔒 Locked</b> means the liquidity stays forever — nobody can pull it out. This builds trust with buyers. <b>⚠️ Removable</b> means you can withdraw it later, but buyers take on more risk.</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy or sell</b> in the pool, no pass required. Creating a pool requires a Silver or Gold Pass, same limits as LaunchLab.</div></div>
+    <div class="how-step"><div class="how-num">5</div><div class="how-text">Every trade has a <b>1% fee</b>: 0.5% to the pool creator automatically, 0.5% to the platform.</div></div>
+    <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closePoolsHowModal()">Got it</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script>
 const LAUNCHPAD_ADDRESS = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
@@ -271,6 +392,12 @@ const BNB_PARAMS = {
 const LAUNCHPAD_ABI = [{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"}],"name":"createToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_router","type":"address"},{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbToLP","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensToLP","type":"uint256"}],"name":"Graduated","type":"event"},{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minBNBOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setCreationFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint16","name":"_tradeFee","type":"uint16"},{"internalType":"uint16","name":"_creatorFee","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_r","type":"address"}],"name":"setRouter","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_target","type":"uint256"}],"name":"setTargetBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_v","type":"uint256"}],"name":"setVirtualBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"string","name":"symbol","type":"string"}],"name":"TokenCreated","type":"event"},{"stateMutability":"payable","type":"receive"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allTokens","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creationFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"CURVE_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"curves","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DEAD","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getCurve","outputs":[{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getProgress","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"LP_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pancakeRouter","outputs":[{"internalType":"contract IPancakeRouter","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"bnbIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"bnbOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"targetBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"TOTAL_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"virtualBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
 const TOKEN_ABI = [{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}];
 
+const POOLS_ADDRESS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
+const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
+const USDC_ADDR = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+const POOLS_ABI = [{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"quoteIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"bool","name":"locked","type":"bool"}],"name":"createPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteAmount","type":"uint256"}],"name":"LiquidityRemoved","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint8","name":"quote","type":"uint8"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"bool","name":"locked","type":"bool"}],"name":"PoolCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"removeLiquidity","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minQuoteOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint16","name":"_trade","type":"uint16"},{"internalType":"uint16","name":"_creator","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_usdt","type":"address"},{"internalType":"address","name":"_usdc","type":"address"}],"name":"setStablecoins","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPool","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint8","name":"","type":"uint8"}],"name":"poolByTokenQuote","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"poolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"pools","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"quoteOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDC","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDT","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+const ERC20_ABI = ['function name() view returns (string)','function symbol() view returns (string)','function decimals() view returns (uint8)','function balanceOf(address) view returns (uint256)','function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)'];
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let provider, signer, userAddr, launchpad;
 let currentToken = null, currentTokenMeta = null, currentGraduated = false;
@@ -279,6 +406,7 @@ let tokensCache = [], metaCache = {};
 let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
 let chartTimeMap = {};
+let poolsCache = [], currentPoolId = null, currentPoolData = null, poolTradeSide = 'buy', poolQuoteChoice = 0, poolLockedChoice = true;
 
 async function loadBnbPrice(){
   try{
@@ -300,6 +428,9 @@ function getReadProvider(){
   return new ethers.JsonRpcProvider(BNB_PARAMS.rpcUrls[_rpIndex]);
 }
 function getReadLaunchpad(){ return new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, getReadProvider()); }
+function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
+function quoteLabel(q){ return q===0?'BNB':(q===1?'USDT':'USDC'); }
+function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
 
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -338,6 +469,7 @@ async function connectWallet(){
     chip.classList.remove('hidden'); chip.textContent=shortAddr(userAddr);
     toast('Wallet connected','ok');
     if(currentToken) updateTradeButton();
+    if(currentPoolId) updatePoolTradeButton();
     if(!_walletListenersSet){
       _walletListenersSet = true;
       window.ethereum.on('accountsChanged',()=>location.reload());
@@ -346,13 +478,21 @@ async function connectWallet(){
   }catch(e){ toast(e.message||'Connect failed','err'); }
 }
 
-function showHome(){
-  document.getElementById('homeView').classList.remove('hidden');
+function switchMode(mode){
+  const isLaunch = mode==='launch';
+  document.getElementById('modeLaunch').classList.toggle('active', isLaunch);
+  document.getElementById('modePools').classList.toggle('active', !isLaunch);
+  document.getElementById('homeView').classList.toggle('hidden', !isLaunch);
   document.getElementById('tradeView').classList.add('hidden');
-  currentToken=null;
-  if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
-  loadTokens();
+  document.getElementById('poolsHomeView').classList.toggle('hidden', isLaunch);
+  document.getElementById('poolsTradeView').classList.add('hidden');
+  document.getElementById('howBtnLaunch').classList.toggle('hidden', !isLaunch);
+  document.getElementById('howBtnPools').classList.toggle('hidden', isLaunch);
+  document.getElementById('launchNavBtn').classList.toggle('hidden', !isLaunch);
+  document.getElementById('poolsNavBtn').classList.toggle('hidden', isLaunch);
+  if(isLaunch) loadTokens(); else loadPools();
 }
+function showHome(){ switchMode('launch'); }
 function showTrade(token){
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tradeView').classList.remove('hidden');
@@ -781,6 +921,237 @@ function openLaunchModal(){ document.getElementById('launchModal').classList.add
 function closeLaunchModal(){ document.getElementById('launchModal').classList.remove('show'); }
 function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
 function closeHowModal(){ document.getElementById('howModal').classList.remove('show'); }
+
+// ─── POOLS ───
+function showPoolsHome(){
+  document.getElementById('poolsHomeView').classList.remove('hidden');
+  document.getElementById('poolsTradeView').classList.add('hidden');
+  loadPools();
+}
+async function loadPools(){
+  const grid=document.getElementById('poolGrid');
+  try{
+    const pl=getReadPools();
+    const count=Number(await pl.poolCount());
+    if(count===0){ grid.innerHTML='<div class="empty">No pools yet. Be the first to list! 💧</div>'; return; }
+    const items=await Promise.all(Array.from({length:count},(_,i)=>i+1).reverse().map(async pid=>{
+      try{
+        const p=await pl.getPool(pid);
+        const tk=new ethers.Contract(p.token, ERC20_ABI, getReadProvider());
+        let name='Token', symbol='TKN';
+        try{ [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }catch(e){}
+        return {pid, token:p.token, name, symbol, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled};
+      }catch(e){ return null; }
+    }));
+    poolsCache = items.filter(Boolean);
+    renderPoolList();
+  }catch(e){ grid.innerHTML='<div class="empty">Failed to load pools</div>'; }
+}
+function renderPoolList(){
+  const grid=document.getElementById('poolGrid');
+  const q=(document.getElementById('poolSearchInput').value||'').toLowerCase();
+  let list=poolsCache.filter(p=>!q||p.name.toLowerCase().includes(q)||p.symbol.toLowerCase().includes(q));
+  if(!list.length){ grid.innerHTML='<div class="empty">No pools match.</div>'; return; }
+  grid.innerHTML='';
+  list.forEach(p=>{
+    const lockBadge = p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>';
+    const card=document.createElement('div');
+    card.className='pool-card'; card.onclick=()=>showPoolTrade(p.pid);
+    card.innerHTML='<div class="tc-head"><div class="tc-avatar">'+esc(p.symbol.charAt(0))+'</div><div><div class="tc-name">'+esc(p.name)+lockBadge+'</div><div class="tc-ticker">$'+esc(p.symbol)+' / '+quoteLabel(p.quote)+'</div></div></div>';
+    grid.appendChild(card);
+  });
+}
+async function showPoolTrade(pid){
+  document.getElementById('poolsHomeView').classList.add('hidden');
+  document.getElementById('poolsTradeView').classList.remove('hidden');
+  currentPoolId = pid;
+  await openPoolTradePage(pid);
+}
+async function openPoolTradePage(pid){
+  try{
+    const pl=getReadPools();
+    const p=await pl.getPool(pid);
+    const tk=new ethers.Contract(p.token, ERC20_ABI, getReadProvider());
+    let name='Token', symbol='TKN';
+    try{ [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }catch(e){}
+    currentPoolData = {token:p.token, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled, symbol, name};
+    const price = await pl.getPrice(pid);
+    document.getElementById('poolAvatar').textContent = symbol.charAt(0);
+    document.getElementById('poolName').textContent = name+' ($'+symbol+') / '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
+    document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Removed by creator' : '⚠️ Removable');
+    document.getElementById('poolCreator').textContent = shortAddr(p.creator);
+    document.getElementById('poolTradeCur').textContent = quoteLabel(currentPoolData.quote);
+    const removeBox = document.getElementById('removeLiqBox');
+    if(userAddr && userAddr.toLowerCase()===p.creator.toLowerCase() && !p.locked && !p.liquidityPulled){ removeBox.classList.remove('hidden'); } else { removeBox.classList.add('hidden'); }
+    await loadPoolTradesFeed(pid);
+    updatePoolTradeButton(); updatePoolReceive();
+  }catch(e){ toast('Failed to load pool','err'); }
+}
+async function loadPoolTradesFeed(pid){
+  try{ const {data}=await sb.from('pool_trades').select('*').eq('pool_id',pid).order('created_at',{ascending:false}).limit(30); renderPoolTradesFeed(data||[]); }catch(e){}
+}
+function renderPoolTradesFeed(trades){
+  const el=document.getElementById('poolTradesFeed');
+  if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
+  el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+Number(t.quote_amount).toFixed(4)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
+}
+function setPoolSide(side){
+  poolTradeSide=side;
+  document.getElementById('poolTabBuy').classList.toggle('active-buy',side==='buy');
+  document.getElementById('poolTabSell').classList.toggle('active-sell',side==='sell');
+  document.getElementById('poolAmountLabel').textContent = side==='buy' ? ('Amount ('+quoteLabel(currentPoolData.quote)+')') : 'Amount (tokens)';
+  document.getElementById('poolTradeCur').textContent = side==='buy' ? quoteLabel(currentPoolData.quote) : currentPoolData.symbol;
+  document.getElementById('poolTradeActionBtn').className='bs-action '+side;
+  updatePoolReceive(); updatePoolTradeButton();
+}
+async function updatePoolReceive(){
+  const el=document.getElementById('poolReceiveAmount');
+  const amtStr=document.getElementById('poolTradeAmount').value;
+  if(!amtStr||Number(amtStr)<=0||!currentPoolId){ el.textContent='—'; return; }
+  try{
+    const pl=getReadPools();
+    if(poolTradeSide==='buy'){ const [out]=await pl.quoteBuy(currentPoolId, ethers.parseEther(amtStr)); el.textContent=fmtTokens(out)+' '+currentPoolData.symbol; }
+    else{ const [out]=await pl.quoteSell(currentPoolId, ethers.parseEther(amtStr)); el.textContent=ethers.formatEther(out)+' '+quoteLabel(currentPoolData.quote); }
+  }catch(e){ el.textContent='—'; }
+}
+function updatePoolTradeButton(){
+  const btn=document.getElementById('poolTradeActionBtn');
+  if(!userAddr){ btn.textContent='Connect Wallet'; return; }
+  btn.textContent = poolTradeSide==='buy' ? 'Buy' : 'Sell';
+}
+async function ensureApproval(tokenAddr, spender, amountWei){
+  const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+  const allowance = await tk.allowance(userAddr, spender);
+  if(allowance < amountWei){
+    toast('Approving token...','ok');
+    const tx = await tk.approve(spender, amountWei);
+    await tx.wait();
+  }
+}
+async function executePoolTrade(){
+  if(!userAddr){ connectWallet(); return; }
+  const amtStr=document.getElementById('poolTradeAmount').value;
+  if(!amtStr||Number(amtStr)<=0){ toast('Enter amount','err'); return; }
+  const btn=document.getElementById('poolTradeActionBtn');
+  btn.disabled=true; btn.textContent='Processing...';
+  try{
+    const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
+    let txHash;
+    if(poolTradeSide==='buy'){
+      const amtWei = ethers.parseEther(amtStr);
+      if(currentPoolData.quote===0){
+        const tx=await poolsC.buy(currentPoolId, 0, 0, {value:amtWei});
+        toast('Buying... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
+      }else{
+        await ensureApproval(quoteAddr(currentPoolData.quote), POOLS_ADDRESS, amtWei);
+        const tx=await poolsC.buy(currentPoolId, amtWei, 0);
+        toast('Buying... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
+      }
+      toast('Bought! 🎉','ok');
+    }else{
+      const amtWei = ethers.parseEther(amtStr);
+      await ensureApproval(currentPoolData.token, POOLS_ADDRESS, amtWei);
+      const tx=await poolsC.sell(currentPoolId, amtWei, 0);
+      toast('Selling... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
+      toast('Sold! 🎉','ok');
+    }
+    try{ await fetch('/api/pools',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,poolId:currentPoolId,wallet:userAddr})}); }catch(e){}
+    document.getElementById('poolTradeAmount').value='';
+    document.getElementById('poolReceiveAmount').textContent='—';
+    await openPoolTradePage(currentPoolId);
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Trade failed';
+    toast(msg,'err');
+  }
+  btn.disabled=false; btn.textContent = poolTradeSide==='buy'?'Buy':'Sell';
+}
+async function removePoolLiquidity(){
+  if(!userAddr){ connectWallet(); return; }
+  try{
+    const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
+    const tx = await poolsC.removeLiquidity(currentPoolId);
+    toast('Removing liquidity... confirm in wallet','ok');
+    await tx.wait();
+    toast('Liquidity removed','ok');
+    await openPoolTradePage(currentPoolId);
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
+    toast(msg,'err');
+  }
+}
+
+function setPoolQuote(q){
+  poolQuoteChoice=q;
+  document.querySelectorAll('.quote-opt').forEach(el=>el.classList.toggle('active', Number(el.dataset.q)===q));
+  document.getElementById('poolQuoteAmountLabel').textContent='Quote Amount ('+quoteLabel(q)+') *';
+}
+function setPoolLocked(v){
+  poolLockedChoice=v;
+  document.getElementById('lockOptLocked').classList.toggle('active', v);
+  document.getElementById('lockOptRemovable').classList.toggle('active', !v);
+}
+function openCreatePoolModal(){ document.getElementById('createPoolModal').classList.add('show'); updatePoolLimitNote(); }
+function closeCreatePoolModal(){ document.getElementById('createPoolModal').classList.remove('show'); }
+function openPoolsHowModal(){ document.getElementById('poolsHowModal').classList.add('show'); }
+function closePoolsHowModal(){ document.getElementById('poolsHowModal').classList.remove('show'); }
+
+async function updatePoolLimitNote(){
+  const note=document.getElementById('poolLimitNote');
+  if(!userAddr){ note.textContent='Connect your wallet to see your remaining launches.'; return; }
+  try{
+    const pl = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, provider);
+    const goldPassAddr = await pl.goldPass();
+    let isGold=false;
+    if(goldPassAddr && goldPassAddr!=='0x0000000000000000000000000000000000000000'){
+      const gp=new ethers.Contract(goldPassAddr, ['function balanceOf(address) view returns (uint256)'], provider);
+      isGold = (await gp.balanceOf(userAddr)) > 0n;
+    }
+    if(isGold){ const [used,limit]=await pl.getGoldUsedToday(userAddr); note.textContent='🥇 Gold Pass: '+used+' / '+limit+' pools created today.'; }
+    else{ const [used,limit]=await pl.getSilverUsedThisWeek(userAddr); note.textContent='🥈 Silver Pass: '+used+' / '+limit+' pools created this week.'; }
+  }catch(e){ note.textContent='Requires Silver or Gold Pass to create a pool.'; }
+}
+
+async function submitCreatePool(){
+  if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
+  const tokenAddr = document.getElementById('poolTokenAddr').value.trim();
+  const tokenAmtStr = document.getElementById('poolTokenAmount').value;
+  const quoteAmtStr = document.getElementById('poolQuoteAmount').value;
+  if(!ethers.isAddress(tokenAddr)){ toast('Enter a valid token address','err'); return; }
+  if(!tokenAmtStr || Number(tokenAmtStr)<=0 || !quoteAmtStr || Number(quoteAmtStr)<=0){ toast('Enter valid amounts','err'); return; }
+  const btn=document.getElementById('createPoolBtn');
+  btn.disabled=true; btn.textContent='Creating...';
+  try{
+    const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
+    const hasPass = await poolsC.hasPass(userAddr);
+    if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='Create Pool'; return; }
+    const tokenAmtWei = ethers.parseEther(tokenAmtStr);
+    const quoteAmtWei = ethers.parseEther(quoteAmtStr);
+    await ensureApproval(tokenAddr, POOLS_ADDRESS, tokenAmtWei);
+    let tx;
+    if(poolQuoteChoice===0){
+      tx = await poolsC.createPool(tokenAddr, 0, tokenAmtWei, quoteAmtWei, poolLockedChoice, {value:quoteAmtWei});
+    }else{
+      await ensureApproval(quoteAddr(poolQuoteChoice), POOLS_ADDRESS, quoteAmtWei);
+      tx = await poolsC.createPool(tokenAddr, poolQuoteChoice, tokenAmtWei, quoteAmtWei, poolLockedChoice);
+    }
+    toast('Creating pool... confirm in wallet','ok');
+    await tx.wait();
+    toast('Pool created! 💧','ok');
+    closeCreatePoolModal();
+    document.getElementById('poolTokenAddr').value='';
+    document.getElementById('poolTokenAmount').value='';
+    document.getElementById('poolQuoteAmount').value='';
+    await loadPools();
+  }catch(e){
+    const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
+    toast(msg,'err');
+  }
+  btn.disabled=false; btn.textContent='Create Pool';
+}
 
 (async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); showHome(); })();
 </script>
