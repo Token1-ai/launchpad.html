@@ -26,6 +26,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .btn-gold{background:var(--gold);color:#000;border:none;border-radius:10px;padding:9px 18px;font-weight:700;font-size:14px;}
 .btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 16px;font-weight:600;font-size:14px;}
 .wallet-chip{background:var(--bg3);border:1px solid var(--green);color:var(--green);border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;}
+.btn-how{position:relative;background:var(--gold);color:#000;border:none;border-radius:100px;width:38px;height:38px;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;box-shadow:0 0 0 0 rgba(245,200,66,.7);animation:pulseGold 2s infinite;}
+@keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
 .new-ticker{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;overflow:hidden;}
 .new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;}
@@ -93,6 +96,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px;}
 .modal-overlay.show{display:flex;}
 .modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;}
+.modal-box.wide{max-width:600px;}
 .modal-title{font-size:18px;font-weight:700;margin-bottom:16px;}
 .field-label{font-size:13px;color:var(--muted);margin-bottom:6px;display:block;}
 .field-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:11px 14px;color:var(--text);font-size:14px;margin-bottom:14px;outline:none;-webkit-text-fill-color:var(--text);}
@@ -102,6 +106,11 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .img-preview{max-width:100px;max-height:100px;border-radius:10px;object-fit:cover;}
 .fee-note{font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);}
 .fee-note.warn{border-color:var(--red);color:var(--red);}
+.how-step{display:flex;gap:12px;margin-bottom:16px;}
+.how-num{width:28px;height:28px;border-radius:100px;background:var(--gold);color:#000;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.how-text{font-size:13px;color:var(--muted);line-height:1.5;}
+.how-text b{color:var(--text);}
+.limit-note{font-size:12px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;z-index:200;display:none;max-width:90vw;text-align:center;}
 #toast.show{display:block;}
 #toast.ok{border-color:var(--green);}
@@ -116,6 +125,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 <nav class="lab-nav">
   <div class="lab-logo" onclick="showHome()"><div class="dot">O</div> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
   <div class="lab-nav-actions">
+    <button class="btn-how" onclick="openHowModal()" title="Как это работает?">?</button>
     <button class="btn-gold" onclick="openLaunchModal()">🚀 Launch Token</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
     <button id="connectBtn" class="btn-ghost" onclick="connectWallet()">Connect Wallet</button>
@@ -198,6 +208,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 <div class="modal-overlay" id="launchModal">
   <div class="modal-box">
     <div class="modal-title">🚀 Launch a Token</div>
+    <div class="limit-note" id="limitNote">Connect your wallet to see your remaining launches.</div>
     <div class="img-drop" id="imgDrop" onclick="document.getElementById('launchImage').click()">
       <span id="imgDropText">📷 Click to upload logo (PNG/JPG/GIF)</span>
       <img id="imgPreview" class="img-preview hidden"/>
@@ -220,9 +231,35 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
   </div>
 </div>
+<div class="modal-overlay" id="howModal">
+  <div class="modal-box wide">
+    <div class="modal-title">💡 How OpenGate LaunchLab works</div>
+    <div class="how-step">
+      <div class="how-num">1</div>
+      <div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">2</div>
+      <div class="how-text"><b>Creating a new token requires a Silver or Gold Pass.</b> Silver: up to 7 tokens per week. Gold: up to 3 tokens every day.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">3</div>
+      <div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">4</div>
+      <div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">5</div>
+      <div class="how-text">Once a token raises enough BNB, it <b>"graduates"</b>: liquidity moves to PancakeSwap automatically and the LP is burned forever — nobody, not even the creator, can pull the liquidity out. That's the anti-rug guarantee.</div>
+    </div>
+    <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closeHowModal()">Got it</button>
+  </div>
+</div>
 <div id="toast"></div>
 <script>
-const LAUNCHPAD_ADDRESS = '0x24DB137722507515E28A295717b73bB074192931';
+const LAUNCHPAD_ADDRESS = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
 const SUPABASE_URL = 'https://hgzthbidfdqomuotdocb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnenRoYmlkZmRxb211b3Rkb2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTI2NjEsImV4cCI6MjA5NjU4ODY2MX0.otgk-jq2k0COrIE3cUEnRBPYKGnzAHRi3LEIQhE7khA';
 const BNB_PARAMS = {
@@ -231,7 +268,7 @@ const BNB_PARAMS = {
   rpcUrls:['https://bsc-dataseed.binance.org/','https://bsc-dataseed1.defibit.io/','https://bsc-dataseed1.ninicoin.io/'],
   blockExplorerUrls:['https://bscscan.com/']
 };
-const LAUNCHPAD_ABI = [{"inputs":[{"internalType":"address","name":"_router","type":"address"},{"internalType":"address[]","name":"_passes","type":"address[]"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbToLP","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensToLP","type":"uint256"}],"name":"Graduated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"string","name":"symbol","type":"string"}],"name":"TokenCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allTokens","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"}],"name":"createToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"creationFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getCurve","outputs":[{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getProgress","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"bnbIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"bnbOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minBNBOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"tokenCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+const LAUNCHPAD_ABI = [{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"}],"name":"createToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_router","type":"address"},{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbToLP","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensToLP","type":"uint256"}],"name":"Graduated","type":"event"},{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minBNBOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setCreationFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint16","name":"_tradeFee","type":"uint16"},{"internalType":"uint16","name":"_creatorFee","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_r","type":"address"}],"name":"setRouter","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_target","type":"uint256"}],"name":"setTargetBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_v","type":"uint256"}],"name":"setVirtualBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"string","name":"symbol","type":"string"}],"name":"TokenCreated","type":"event"},{"stateMutability":"payable","type":"receive"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allTokens","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creationFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"CURVE_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"curves","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DEAD","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getCurve","outputs":[{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getProgress","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"LP_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pancakeRouter","outputs":[{"internalType":"contract IPancakeRouter","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"bnbIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"bnbOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"targetBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"TOTAL_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"virtualBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
 const TOKEN_ABI = [{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}];
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -478,10 +515,6 @@ function initChart(){
   if(!window._lpResize){ window._lpResize=true; window.addEventListener('resize',()=>{ if(chart){const e=document.getElementById('chartContainer'); chart.applyOptions({width:e.clientWidth});} }); }
 }
 
-// Цена на bonding curve меняется ТОЛЬКО через сделки, поэтому open сделки i = close сделки i-1.
-// Тень свечи = реальный диапазон, который прошла цена ВНУТРИ бара (несколько сделок толкнули
-// цену выше/ниже итогового close). У бара с одной сделкой тени нет и не должно быть —
-// никакой искусственной "видимости" тени больше не добавляем.
 async function loadChartFromTrades(token){
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
@@ -666,7 +699,12 @@ async function uploadTokenImage(file){
 }
 async function updateFeeNote(){
   const note=document.getElementById('feeNote');
-  if(!launchpad || !userAddr){ note.textContent='Connect your wallet to see the creation fee.'; note.className='fee-note'; return; }
+  const limitNote=document.getElementById('limitNote');
+  if(!launchpad || !userAddr){
+    note.textContent='Connect your wallet to see the creation fee.'; note.className='fee-note';
+    limitNote.textContent='Connect your wallet to see your remaining launches.';
+    return;
+  }
   try{
     const fee=await launchpad.creationFee();
     const bal=await provider.getBalance(userAddr);
@@ -680,6 +718,23 @@ async function updateFeeNote(){
       note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.';
     }
   }catch(e){ note.textContent='Requires Silver or Gold Pass. Price rises as people buy on the curve.'; note.className='fee-note'; }
+
+  try{
+    const goldPassAddr = await launchpad.goldPass();
+    let isGold=false;
+    if(goldPassAddr && goldPassAddr!=='0x0000000000000000000000000000000000000000'){
+      const goldAbi=['function balanceOf(address) view returns (uint256)'];
+      const gp=new ethers.Contract(goldPassAddr, goldAbi, provider);
+      isGold = (await gp.balanceOf(userAddr)) > 0n;
+    }
+    if(isGold){
+      const [used,limit]=await launchpad.getGoldUsedToday(userAddr);
+      limitNote.textContent='🥇 Gold Pass: '+used+' / '+limit+' tokens launched today. Resets at midnight UTC.';
+    }else{
+      const [used,limit]=await launchpad.getSilverUsedThisWeek(userAddr);
+      limitNote.textContent='🥈 Silver Pass: '+used+' / '+limit+' tokens launched this week.';
+    }
+  }catch(e){ limitNote.textContent='Requires Silver or Gold Pass to launch a token.'; }
 }
 async function submitLaunch(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
@@ -724,6 +779,8 @@ async function submitLaunch(){
 }
 function openLaunchModal(){ document.getElementById('launchModal').classList.add('show'); updateFeeNote(); }
 function closeLaunchModal(){ document.getElementById('launchModal').classList.remove('show'); }
+function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
+function closeHowModal(){ document.getElementById('howModal').classList.remove('show'); }
 
 (async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); showHome(); })();
 </script>
