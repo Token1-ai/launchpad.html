@@ -303,10 +303,6 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
           <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Withdraw Liquidity</button>
         </div>
-        <div class="feed-box">
-          <div class="feed-title">💱 Recent Trades</div>
-          <div id="poolTradesFeed"><div style="color:var(--muted);font-size:12px;">No trades yet</div></div>
-        </div>
       </div>
       <div>
         <div class="trade-box">
@@ -321,6 +317,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           </div>
           <div class="bs-receive">You receive: <b id="poolReceiveAmount">—</b></div>
           <button class="bs-action buy" id="poolTradeActionBtn" onclick="executePoolTrade()">Connect Wallet</button>
+        </div>
+        <div class="feed-box">
+          <div class="feed-title">💱 Recent Trades</div>
+          <div id="poolTradesFeed"><div style="color:var(--muted);font-size:12px;">No trades yet</div></div>
         </div>
       </div>
     </div>
@@ -1141,7 +1141,24 @@ function renderPoolTradesFeed(trades){
 }
 function subscribePoolTrades(pid){
   if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
-  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{ loadPoolTradesFeed(pid); loadPoolChartFromTrades(pid); openPoolTradePage(pid); }).subscribe();
+  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{ loadPoolTradesFeed(pid); loadPoolChartFromTrades(pid); refreshPoolInfo(pid); }).subscribe();
+}
+// Лёгкое обновление цифр без пересоздания графика и переподписки.
+// Раньше здесь вызывался openPoolTradePage — он сбрасывал масштаб графика
+// и каждый раз заново открывал канал Supabase.
+async function refreshPoolInfo(pid){
+  try{
+    const pl=getReadPools();
+    const p=await pl.getPool(pid);
+    const price=await pl.getPrice(pid);
+    const q=Number(p.quote);
+    document.getElementById('poolPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(q);
+    document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(q);
+    document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+(currentPoolData?currentPoolData.symbol:'');
+    document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(q);
+    if(currentPoolData){ currentPoolData.reserveToken=p.reserveToken; currentPoolData.reserveQuote=p.reserveQuote; }
+    updatePoolTradeButton();
+  }catch(e){ console.error('refreshPoolInfo failed:', e); }
 }
 
 function setPoolSide(side){
