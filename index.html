@@ -289,6 +289,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
                 <div class="chart-price" id="poolPrice">—</div>
               </div>
             </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="socials" id="poolSocials"></div>
+              <button class="btn-ghost hidden" id="poolEditBtn" onclick="openPoolMetaModal()" style="padding:8px 12px;font-size:13px;min-height:38px;">🖼 Edit</button>
+            </div>
           </div>
           <div id="poolChartContainer"></div>
         </div>
@@ -300,6 +304,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="info-row"><span class="k">Contract</span><span class="v" id="poolContract">—</span></div>
           <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
         </div>
+        <div id="poolDescText" style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px;"></div>
         <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
           <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Withdraw Liquidity</button>
         </div>
@@ -383,6 +388,20 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <input class="field-input" id="poolTokenAmount" type="number" placeholder="e.g. 500000"/>
     <label class="field-label" id="poolQuoteAmountLabel">Quote Amount (BNB) *</label>
     <input class="field-input" id="poolQuoteAmount" type="number" placeholder="e.g. 1"/>
+    <div class="img-drop" id="poolImgDrop" onclick="document.getElementById('poolImageInput').click()">
+      <span id="poolImgDropText">📷 Click to upload token logo (optional)</span>
+      <img id="poolImgPreview" class="img-preview hidden"/>
+    </div>
+    <div class="img-hint">Square image, at least 200×200px. Max 3MB. You can add or change it later.</div>
+    <input type="file" id="poolImageInput" accept="image/*" class="hidden" onchange="previewPoolImage(this)"/>
+    <label class="field-label">Description (optional)</label>
+    <input class="field-input" id="poolDesc" placeholder="Tell people about it"/>
+    <label class="field-label">Twitter (optional)</label>
+    <input class="field-input" id="poolTwitter" placeholder="https://x.com/..."/>
+    <label class="field-label">Telegram (optional)</label>
+    <input class="field-input" id="poolTelegram" placeholder="https://t.me/..."/>
+    <label class="field-label">Website (optional)</label>
+    <input class="field-input" id="poolWebsite" placeholder="https://..."/>
     <label class="field-label">Liquidity Type</label>
     <div class="lock-choice">
       <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 Locked</b>Permanent. Builds trust, can't be undone.</div>
@@ -402,6 +421,29 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy or sell</b>, no pass required. Listing a token requires a Silver or Gold Pass, same limits as Launch.</div></div>
     <div class="how-step"><div class="how-num">5</div><div class="how-text">Every trade has a <b>1% fee</b>: 0.5% to the lister automatically, 0.5% to the platform.</div></div>
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closePoolsHowModal()">Got it</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="poolMetaModal">
+  <div class="modal-box">
+    <div class="modal-title">🖼 Edit token info</div>
+    <div class="limit-note" id="poolMetaNote">Only the pool creator can edit this.</div>
+    <div class="img-drop" id="metaImgDrop" onclick="document.getElementById('metaImageInput').click()">
+      <span id="metaImgDropText">📷 Click to upload token logo</span>
+      <img id="metaImgPreview" class="img-preview hidden"/>
+    </div>
+    <div class="img-hint">Square image, at least 200×200px. Max 3MB.</div>
+    <input type="file" id="metaImageInput" accept="image/*" class="hidden" onchange="previewMetaImage(this)"/>
+    <label class="field-label">Description</label>
+    <input class="field-input" id="metaDesc" placeholder="Tell people about it"/>
+    <label class="field-label">Twitter</label>
+    <input class="field-input" id="metaTwitter" placeholder="https://x.com/..."/>
+    <label class="field-label">Telegram</label>
+    <input class="field-input" id="metaTelegram" placeholder="https://t.me/..."/>
+    <label class="field-label">Website</label>
+    <input class="field-input" id="metaWebsite" placeholder="https://..."/>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="metaSaveBtn" onclick="submitPoolMeta()">Save &amp; Sign</button>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closePoolMetaModal()">Cancel</button>
   </div>
 </div>
 
@@ -808,6 +850,32 @@ function resetChartState(state, candles, volumes, lastDate, lastTradeAt){
   state.lastBucket = lastDate ? Math.floor(lastDate.getTime()/60000)*60000 : null;
 }
 
+// Шаг шкалы цены считаем от самих данных. Фиксированный minMove 1e-10
+// давал для токенов с ценой ~1e-9 всего десяток различимых уровней —
+// свечи превращались в ступеньки. Теперь всегда ~4 значащие цифры.
+function fmtTinyPrice(v){
+  if(!isFinite(v)) return '—';
+  if(v === 0) return '0';
+  const a = Math.abs(v);
+  if(a >= 1)      return v.toFixed(4);
+  if(a >= 0.0001) return v.toFixed(6);
+  return v.toExponential(4);
+}
+function priceFormatFor(candles){
+  let lo = Infinity, hi = 0;
+  for(const c of candles){ if(c.low  > 0 && c.low  < lo) lo = c.low; if(c.high > hi) hi = c.high; }
+  const ref = (isFinite(lo) && lo > 0) ? lo : (hi > 0 ? hi : 1);
+  const exp = Math.floor(Math.log10(ref));
+  let minMove = Math.pow(10, exp - 3);
+  if(!isFinite(minMove) || minMove <= 0) minMove = 1e-10;
+  return { type:'custom', minMove:minMove, formatter:fmtTinyPrice };
+}
+function applyPriceFormat(series, candles){
+  if(!series || !candles || !candles.length) return;
+  try{ series.applyOptions({ priceFormat: priceFormatFor(candles) }); }
+  catch(e){ console.error('applyPriceFormat failed:', e); }
+}
+
 function volColor(c){ return c.close >= c.open ? '#22c55e88' : '#ef444488'; }
 
 // true — свеча обновлена на месте; false — базы нет, нужна полная перезагрузка
@@ -902,6 +970,7 @@ async function loadChartFromTrades(token){
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
     if(!trades||!trades.length){
       chartTimeMap={0:new Date()};
+      applyPriceFormat(candleSeries, [{low:currentPrice,high:currentPrice}]);
       candleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
@@ -921,6 +990,7 @@ async function loadChartFromTrades(token){
     }
     const candles=[],volumes=[]; chartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; chartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
+    applyPriceFormat(candleSeries, candles);
     candleSeries.setData(candles); volumeSeries.setData(volumes); chart.timeScale().fitContent();
     resetChartState(lpChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
@@ -1143,6 +1213,108 @@ function closeHowModal(){ document.getElementById('howModal').classList.remove('
 </script>
 <script>
 // ─── LIST & TRADE (pools) ───
+let poolMetaCache = {}, poolPendingImage = null, metaPendingImage = null;
+
+async function loadPoolMeta(){
+  try{
+    const { data, error } = await sb.from('pool_tokens')
+      .select('token_address,description,image_url,twitter,telegram,website');
+    if(error){ console.error('pool_tokens read:', error); return; }
+    poolMetaCache = {};
+    (data||[]).forEach(m => { poolMetaCache[String(m.token_address).toLowerCase()] = m; });
+  }catch(e){ console.error('loadPoolMeta failed:', e); }
+}
+function poolMetaOf(tokenAddr){ return poolMetaCache[String(tokenAddr||'').toLowerCase()] || {}; }
+
+function previewPoolImage(input){
+  const f = input.files[0]; if(!f) return;
+  if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
+  poolPendingImage = f;
+  const p = document.getElementById('poolImgPreview');
+  p.src = URL.createObjectURL(f); p.classList.remove('hidden');
+  document.getElementById('poolImgDropText').classList.add('hidden');
+}
+function previewMetaImage(input){
+  const f = input.files[0]; if(!f) return;
+  if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
+  metaPendingImage = f;
+  const p = document.getElementById('metaImgPreview');
+  p.src = URL.createObjectURL(f); p.classList.remove('hidden');
+  document.getElementById('metaImgDropText').classList.add('hidden');
+}
+
+// Подпись покрывает всё содержимое, поэтому её нельзя переиспользовать
+// с подменённым текстом или на другом токене. Сервер строит ту же строку.
+function poolMetaMessage(tokenAddress, m, ts){
+  return 'OpenGate LaunchLab token metadata\n' +
+    'token: ' + String(tokenAddress).toLowerCase() + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'desc: '  + (m.description || '') + '\n' +
+    'x: '     + (m.twitter || '') + '\n' +
+    'tg: '    + (m.telegram || '') + '\n' +
+    'web: '   + (m.website || '') + '\n' +
+    'ts: '    + ts;
+}
+async function savePoolMeta(tokenAddress, meta){
+  const ts = Date.now();
+  const signature = await signer.signMessage(poolMetaMessage(tokenAddress, meta, ts));
+  const r = await fetch('/api/pools',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ action:'meta', tokenAddress, ts, signature, meta })});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || 'Failed to save token info');
+  return j;
+}
+
+function openPoolMetaModal(){
+  if(!userAddr){ connectWallet(); return; }
+  if(!currentPoolData){ return; }
+  const m = poolMetaOf(currentPoolData.token);
+  metaPendingImage = null;
+  document.getElementById('metaImageInput').value='';
+  document.getElementById('metaImgPreview').classList.add('hidden');
+  document.getElementById('metaImgDropText').classList.remove('hidden');
+  if(m.image_url){
+    const p=document.getElementById('metaImgPreview');
+    p.src=m.image_url; p.classList.remove('hidden');
+    document.getElementById('metaImgDropText').classList.add('hidden');
+  }
+  document.getElementById('metaDesc').value     = m.description || '';
+  document.getElementById('metaTwitter').value  = m.twitter || '';
+  document.getElementById('metaTelegram').value = m.telegram || '';
+  document.getElementById('metaWebsite').value  = m.website || '';
+  document.getElementById('poolMetaNote').textContent =
+    'You will be asked to sign a message. It proves you are the pool creator — no gas, no transaction.';
+  document.getElementById('poolMetaModal').classList.add('show');
+}
+function closePoolMetaModal(){ document.getElementById('poolMetaModal').classList.remove('show'); }
+
+async function submitPoolMeta(){
+  if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
+  if(!currentPoolData){ return; }
+  const btn=document.getElementById('metaSaveBtn');
+  btn.disabled=true;
+  try{
+    let imageUrl = poolMetaOf(currentPoolData.token).image_url || '';
+    if(metaPendingImage){ btn.textContent='Uploading image...'; imageUrl = await uploadTokenImage(metaPendingImage); }
+    btn.textContent='Confirm signature in wallet...';
+    const meta = {
+      description: document.getElementById('metaDesc').value.trim(),
+      image_url:   imageUrl,
+      twitter:     document.getElementById('metaTwitter').value.trim(),
+      telegram:    document.getElementById('metaTelegram').value.trim(),
+      website:     document.getElementById('metaWebsite').value.trim()
+    };
+    await savePoolMeta(currentPoolData.token, meta);
+    toast('Token info saved 🖼','ok');
+    closePoolMetaModal();
+    await loadPoolMeta();
+    await openPoolTradePage(currentPoolId);
+  }catch(e){
+    toast(e.message || 'Failed','err');
+  }
+  btn.disabled=false; btn.textContent='Save & Sign';
+}
+
 function showPoolsHome(){
   document.getElementById('poolsHomeView').classList.remove('hidden');
   document.getElementById('poolsTradeView').classList.add('hidden');
@@ -1153,6 +1325,7 @@ async function loadPools(_retry){
   try{
     const pl=getReadPools();
     const count=Number(await pl.poolCount());
+    await loadPoolMeta();
     if(count===0){ grid.innerHTML='<div class="empty">No tokens listed yet. Be the first! 🔄</div>'; return; }
     const items=await Promise.all(Array.from({length:count},(_,i)=>i+1).reverse().map(async pid=>{
       try{
@@ -1178,9 +1351,20 @@ function renderPoolList(){
   grid.innerHTML='';
   list.forEach(p=>{
     const lockBadge = p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>';
+    const m = poolMetaOf(p.token);
+    const avatar = m.image_url
+      ? '<img class="tc-avatar" src="'+esc(m.image_url)+'" onerror="this.outerHTML=\'<div class=&quot;tc-avatar&quot;>'+esc(p.symbol.charAt(0))+'</div>\'"/>'
+      : '<div class="tc-avatar">'+esc(p.symbol.charAt(0))+'</div>';
+    const desc = m.description ? '<div class="tc-desc">'+esc(m.description)+'</div>' : '';
+    const uTw=safeHref(m.twitter), uTg=safeHref(m.telegram), uWs=safeHref(m.website);
+    let socials='';
+    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
+    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
+    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+    const foot='<div class="tc-foot"><div class="tc-socials">'+socials+'</div><button class="tc-copy" onclick="copyAddr(event,\''+esc(p.token)+'\')" title="Copy contract address">📋 '+esc(shortAddr(p.token))+'</button></div>';
     const card=document.createElement('div');
     card.className='token-card'; card.onclick=()=>showPoolTrade(p.pid);
-    card.innerHTML='<div class="tc-head"><div class="tc-avatar">'+esc(p.symbol.charAt(0))+'</div><div><div class="tc-name">'+esc(p.name)+lockBadge+'</div><div class="tc-ticker">$'+esc(p.symbol)+' / '+quoteLabel(p.quote)+'</div></div></div>';
+    card.innerHTML='<div class="tc-head">'+avatar+'<div style="min-width:0;"><div class="tc-name">'+esc(p.name)+lockBadge+'</div><div class="tc-ticker">$'+esc(p.symbol)+' / '+quoteLabel(p.quote)+'</div></div></div>'+desc+foot;
     grid.appendChild(card);
   });
 }
@@ -1199,7 +1383,18 @@ async function openPoolTradePage(pid,_retry){
     try{ [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }catch(e){}
     currentPoolData = {token:p.token, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled, symbol, name};
     const price = await pl.getPrice(pid);
-    document.getElementById('poolAvatar').textContent = symbol.charAt(0);
+    const meta = poolMetaOf(p.token);
+    const av = document.getElementById('poolAvatar');
+    if(meta.image_url){ av.innerHTML='<img src="'+esc(meta.image_url)+'" style="width:100%;height:100%;border-radius:12px;object-fit:cover;"/>'; }
+    else { av.textContent = symbol.charAt(0); }
+    const psoc = document.getElementById('poolSocials'); psoc.innerHTML='';
+    const sTw=safeHref(meta.twitter), sTg=safeHref(meta.telegram), sWs=safeHref(meta.website);
+    if(sTw) psoc.innerHTML+='<a class="social-link" href="'+esc(sTw)+'" target="_blank" rel="noopener noreferrer">𝕏</a>';
+    if(sTg) psoc.innerHTML+='<a class="social-link" href="'+esc(sTg)+'" target="_blank" rel="noopener noreferrer">✈️</a>';
+    if(sWs) psoc.innerHTML+='<a class="social-link" href="'+esc(sWs)+'" target="_blank" rel="noopener noreferrer">🌐</a>';
+    document.getElementById('poolDescText').textContent = meta.description || '';
+    const canEdit = userAddr && (userAddr.toLowerCase()===String(p.creator).toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
+    document.getElementById('poolEditBtn').classList.toggle('hidden', !canEdit);
     document.getElementById('poolName').textContent = name+' ($'+symbol+') / '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
@@ -1247,6 +1442,7 @@ async function loadPoolChartFromTrades(pid){
     const currentPrice = Number(await getReadPools().getPrice(pid))/1e18;
     if(!trades||!trades.length){
       poolChartTimeMap={0:new Date()};
+      applyPriceFormat(poolCandleSeries, [{low:currentPrice,high:currentPrice}]);
       poolCandleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       poolVolumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
@@ -1266,6 +1462,7 @@ async function loadPoolChartFromTrades(pid){
     }
     const candles=[],volumes=[]; poolChartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; poolChartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
+    applyPriceFormat(poolCandleSeries, candles);
     poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes); poolChart.timeScale().fitContent();
     resetChartState(poolChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
@@ -1463,10 +1660,38 @@ async function submitCreatePool(){
     toast('Listing token... confirm in wallet','ok');
     await tx.wait();
     toast('Token listed! 🔄','ok');
+
+    // Логотип и соцсети сохраняем ПОСЛЕ листинга: пул уже существует,
+    // поэтому сервер сможет проверить, что подписал именно его создатель.
+    const wantMeta = poolPendingImage
+      || document.getElementById('poolDesc').value.trim()
+      || document.getElementById('poolTwitter').value.trim()
+      || document.getElementById('poolTelegram').value.trim()
+      || document.getElementById('poolWebsite').value.trim();
+    if(wantMeta){
+      try{
+        let imageUrl='';
+        if(poolPendingImage){ toast('Uploading logo...','ok'); imageUrl = await uploadTokenImage(poolPendingImage); }
+        await savePoolMeta(tokenAddr, {
+          description: document.getElementById('poolDesc').value.trim(),
+          image_url:   imageUrl,
+          twitter:     document.getElementById('poolTwitter').value.trim(),
+          telegram:    document.getElementById('poolTelegram').value.trim(),
+          website:     document.getElementById('poolWebsite').value.trim()
+        });
+        toast('Token info saved','ok');
+      }catch(e){
+        // Пул уже создан и работает — метаданные можно добавить позже кнопкой Edit
+        toast('Listed, but token info not saved: '+(e.message||'')+' — use 🖼 Edit later','err');
+      }
+    }
+
     closeCreatePoolModal();
-    document.getElementById('poolTokenAddr').value='';
-    document.getElementById('poolTokenAmount').value='';
-    document.getElementById('poolQuoteAmount').value='';
+    ['poolTokenAddr','poolTokenAmount','poolQuoteAmount','poolDesc','poolTwitter','poolTelegram','poolWebsite'].forEach(id=>document.getElementById(id).value='');
+    poolPendingImage=null;
+    document.getElementById('poolImageInput').value='';
+    document.getElementById('poolImgPreview').classList.add('hidden');
+    document.getElementById('poolImgDropText').classList.remove('hidden');
     await loadPools();
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
