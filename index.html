@@ -58,6 +58,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tc-progress{margin-top:8px;height:6px;background:var(--bg3);border-radius:100px;overflow:hidden;}
 .tc-progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--green));border-radius:100px;transition:width .3s;}
 .tc-progress-label{font-size:11px;color:var(--muted);margin-top:4px;}
+.tc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.tc-socials{display:flex;gap:6px;}
+.tc-social{width:34px;height:34px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text);text-decoration:none;flex-shrink:0;}
+.tc-social:hover{border-color:var(--gold);}
+.tc-copy{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;min-height:34px;white-space:normal;}
+.tc-copy:hover{border-color:var(--gold);color:var(--text);}
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
@@ -151,6 +157,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .mode-tabs{max-width:100%;}
   .bs-presets{flex-wrap:wrap;}
   .quote-opt{min-width:70px;}
+  .tc-social{width:40px;height:40px;font-size:17px;}
+  .tc-copy{min-height:40px;padding:9px 12px;font-size:12px;}
 }
 </style>
 </head>
@@ -489,6 +497,22 @@ function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
 
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function safeHref(u){ const v=String(u||'').trim(); return /^https?:\/\//i.test(v) ? v : ''; }
+function fallbackCopy(text){
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Address copied','ok');
+  }catch(e){ toast('Copy failed','err'); }
+}
+function copyAddr(ev,addr){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(addr).then(()=>toast('Address copied','ok')).catch(()=>fallbackCopy(addr));
+  } else fallbackCopy(addr);
+}
 function fmtBNB(wei){ return (Number(wei)/1e18).toFixed(4); }
 function fmtUsd(bnbAmount){
   if(!bnbUsdPrice) return '—';
@@ -605,9 +629,15 @@ function renderTokenList(){
     const gradBadge=t.graduated?'<span class="badge badge-grad">🎓 Graduated</span>':'';
     const hotBadge=(!t.graduated&&t.progress>50)?'<span class="badge badge-hot">🔥</span>':'';
     const desc=meta.description?'<div class="tc-desc">'+esc(meta.description)+'</div>':'';
+    const uTw=safeHref(meta.twitter), uTg=safeHref(meta.telegram), uWs=safeHref(meta.website);
+    let socials='';
+    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
+    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
+    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+    const foot='<div class="tc-foot"><div class="tc-socials">'+socials+'</div><button class="tc-copy" onclick="copyAddr(event,\''+esc(t.address)+'\')" title="Copy contract address">📋 '+esc(shortAddr(t.address))+'</button></div>';
     const card=document.createElement('div');
     card.className='token-card'; card.onclick=()=>showTrade(t.address);
-    card.innerHTML='<div class="tc-head">'+avatar+'<div style="min-width:0;"><div class="tc-name">'+esc(t.name)+gradBadge+hotBadge+'</div><div class="tc-ticker">$'+esc(t.symbol)+'</div></div></div>'+desc+'<div class="tc-mc">Raised: '+fmtUsd(t.realBNB)+'</div><div class="tc-progress"><div class="tc-progress-fill" style="width:'+(t.progress/100)+'%"></div></div><div class="tc-progress-label">'+(t.progress/100).toFixed(1)+'% to graduate</div>';
+    card.innerHTML='<div class="tc-head">'+avatar+'<div style="min-width:0;"><div class="tc-name">'+esc(t.name)+gradBadge+hotBadge+'</div><div class="tc-ticker">$'+esc(t.symbol)+'</div></div></div>'+desc+'<div class="tc-mc">Raised: '+fmtUsd(t.realBNB)+'</div><div class="tc-progress"><div class="tc-progress-fill" style="width:'+(t.progress/100)+'%"></div></div><div class="tc-progress-label">'+(t.progress/100).toFixed(1)+'% to graduate</div>'+foot;
     grid.appendChild(card);
   });
 }
