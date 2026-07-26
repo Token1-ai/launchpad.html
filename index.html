@@ -853,22 +853,36 @@ function resetChartState(state, candles, volumes, lastDate, lastTradeAt){
 // Шаг шкалы цены считаем от самих данных. Фиксированный minMove 1e-10
 // давал для токенов с ценой ~1e-9 всего десяток различимых уровней —
 // свечи превращались в ступеньки. Теперь всегда ~4 значащие цифры.
-function fmtTinyPrice(v){
+function fmtTinyPrice(v, digits){
   if(!isFinite(v)) return '—';
   if(v === 0) return '0';
+  const d = Math.max(2, Math.min(15, digits || 4));
   const a = Math.abs(v);
-  if(a >= 1)      return v.toFixed(4);
-  if(a >= 0.0001) return v.toFixed(6);
-  return v.toExponential(4);
+  if(a >= 1)      return v.toFixed(Math.min(8, d));
+  if(a >= 0.0001) return v.toFixed(Math.min(12, d + 2));
+  return v.toExponential(Math.min(14, d - 1));
 }
+// Шаг шкалы считаем от РАЗМАХА движения, а не от величины цены.
+// Раньше для токена с ценой 1.25e-9 шаг выходил 1e-12, при том что весь
+// разброс за историю был 2e-13 — вся цена умещалась внутри одного деления,
+// и на шкале оставалось три подписи вместо десятка.
 function priceFormatFor(candles){
   let lo = Infinity, hi = 0;
   for(const c of candles){ if(c.low  > 0 && c.low  < lo) lo = c.low; if(c.high > hi) hi = c.high; }
-  const ref = (isFinite(lo) && lo > 0) ? lo : (hi > 0 ? hi : 1);
-  const exp = Math.floor(Math.log10(ref));
-  let minMove = Math.pow(10, exp - 3);
-  if(!isFinite(minMove) || minMove <= 0) minMove = 1e-10;
-  return { type:'custom', minMove:minMove, formatter:fmtTinyPrice };
+  if(!isFinite(lo) || lo <= 0) lo = hi > 0 ? hi : 1;
+  if(hi <= 0) hi = lo;
+  const range = Math.max(0, hi - lo);
+  // ~100 делений на видимый диапазон; если движения нет вовсе — от самой цены
+  const ref = range > 0 ? range / 100 : lo / 1000;
+  let minMove = Math.pow(10, Math.floor(Math.log10(ref)));
+  if(!isFinite(minMove) || minMove <= 0) minMove = 1e-12;
+  // столько значащих цифр, чтобы соседние деления различались на письме
+  let digits = 4;
+  if(minMove > 0 && hi > 0){
+    const need = Math.ceil(Math.log10(hi / minMove));
+    if(isFinite(need)) digits = Math.max(4, Math.min(15, need));
+  }
+  return { type:'custom', minMove:minMove, formatter:(v)=>fmtTinyPrice(v, digits) };
 }
 function applyPriceFormat(series, candles){
   if(!series || !candles || !candles.length) return;
@@ -970,7 +984,7 @@ async function loadChartFromTrades(token){
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
     if(!trades||!trades.length){
       chartTimeMap={0:new Date()};
-      applyPriceFormat(candleSeries, [{low:currentPrice,high:currentPrice}]);
+      applyPriceFormat(candleSeries, [{low:currentPrice*0.995,high:currentPrice*1.005}]);
       candleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
@@ -1442,7 +1456,7 @@ async function loadPoolChartFromTrades(pid){
     const currentPrice = Number(await getReadPools().getPrice(pid))/1e18;
     if(!trades||!trades.length){
       poolChartTimeMap={0:new Date()};
-      applyPriceFormat(poolCandleSeries, [{low:currentPrice,high:currentPrice}]);
+      applyPriceFormat(poolCandleSeries, [{low:currentPrice*0.995,high:currentPrice*1.005}]);
       poolCandleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
       poolVolumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
