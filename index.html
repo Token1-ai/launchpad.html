@@ -67,6 +67,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .bsc-link{color:var(--gold);text-decoration:none;border-bottom:1px dotted rgba(245,200,66,.5);}
 .bsc-link:hover{border-bottom-style:solid;}
 .ad-extend-btn{position:absolute;top:6px;right:96px;background:rgba(0,0,0,.7);color:var(--gold);border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;z-index:2;min-height:32px;}
+.ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;}
+.ad-social{width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;text-decoration:none;backdrop-filter:blur(3px);}
+.ad-social:hover{border-color:var(--gold);background:rgba(0,0,0,.85);}
+.field-hint{font-size:11px;color:var(--muted);margin:-9px 0 12px;line-height:1.4;}
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
@@ -162,6 +166,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .quote-opt{min-width:70px;}
   .tc-social{width:40px;height:40px;font-size:17px;}
   .tc-copy{min-height:40px;padding:9px 12px;font-size:12px;}
+  .ad-social{width:38px;height:38px;font-size:16px;}
+  .ad-socials{left:6px;bottom:6px;gap:5px;}
 }
 </style>
 </head>
@@ -409,8 +415,18 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
     <div class="img-hint" id="adImgHint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
-    <label class="field-label" id="adLinkLabel">Link URL *</label>
-    <input class="field-input" id="adLinkUrl" placeholder="https://..."/>
+    <label class="field-label" id="adLinkLabel">Link URL * — where the banner sends people when clicked</label>
+    <input class="field-input" id="adLinkUrl" placeholder="https://t.me/your_channel"/>
+    <div class="field-hint" id="adLinkHint">Paste the full address, starting with https:// — for example your Telegram channel, website or token page.</div>
+    <div id="adSocialFields">
+      <label class="field-label">Twitter / X icon on the banner (optional)</label>
+      <input class="field-input" id="adTwitter" placeholder="https://x.com/..."/>
+      <label class="field-label">Telegram icon on the banner (optional)</label>
+      <input class="field-input" id="adTelegram" placeholder="https://t.me/..."/>
+      <label class="field-label">Website icon on the banner (optional)</label>
+      <input class="field-input" id="adWebsite" placeholder="https://..."/>
+      <div class="field-hint">These appear as small clickable icons in the corner of your banner. Leave empty to show none.</div>
+    </div>
     <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
     <input class="field-input" id="adDays" type="number" min="1" max="30" value="1" oninput="updateAdPriceDisplay()"/>
     <label class="field-label">Pay with</label>
@@ -1280,13 +1296,19 @@ function renderAdSlot(slot){
   const isSelf = userAddr && userAddr.toLowerCase()===ad.wallet.toLowerCase();
   const removeBtn = canManage ? '<button class="ad-remove-btn" onclick="event.stopPropagation();requestRemoveAd('+ad.id+',\''+ad.wallet+'\')">🗑 Remove</button>' : '';
   const extendBtn = (isSelf && maxExtendDays(ad.end_at) > 0) ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openExtendModal('+ad.id+')">⏱ Extend</button>' : '';
-  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+extendBtn+removeBtn;
+  const aTw=safeHref(ad.twitter), aTg=safeHref(ad.telegram), aWs=safeHref(ad.website);
+  let icons='';
+  if(aTw) icons+='<a class="ad-social" href="'+esc(aTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
+  if(aTg) icons+='<a class="ad-social" href="'+esc(aTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
+  if(aWs) icons+='<a class="ad-social" href="'+esc(aWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+  const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
+  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+extendBtn+removeBtn;
 }
 function handleAdSlotClick(slot){
   if(adBoardsData[slot]){
     const ad = adBoardsData[slot];
-    const canManage = userAddr && (userAddr.toLowerCase()===ad.wallet.toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
-    if(!canManage) window.open(ad.link_url, '_blank');
+    const url = safeHref(ad.link_url);
+    if(url) window.open(url, '_blank', 'noopener');
     return;
   }
   openAdModal(slot);
@@ -1300,7 +1322,10 @@ async function openAdModal(slot){
   document.getElementById('adImgHint').classList.remove('hidden');
   document.getElementById('adLinkLabel').classList.remove('hidden');
   document.getElementById('adLinkUrl').classList.remove('hidden');
-  document.getElementById('adLinkUrl').value='';
+  document.getElementById('adLinkHint').classList.remove('hidden');
+  document.getElementById('adSocialFields').classList.remove('hidden');
+  document.getElementById('adImageInput').value='';
+  ['adLinkUrl','adTwitter','adTelegram','adWebsite'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('adDaysLabel').textContent='Days * (max '+MAX_AD_DAYS+')';
   document.getElementById('adDays').max=String(MAX_AD_DAYS);
   document.getElementById('adDays').value='1';
@@ -1322,6 +1347,8 @@ async function openExtendModal(adId){
   document.getElementById('adImgHint').classList.add('hidden');
   document.getElementById('adLinkLabel').classList.add('hidden');
   document.getElementById('adLinkUrl').classList.add('hidden');
+  document.getElementById('adLinkHint').classList.add('hidden');
+  document.getElementById('adSocialFields').classList.add('hidden');
   document.getElementById('adDaysLabel').textContent='Extra days * (max '+maxAdd+', '+fmtLeft(ad.end_at)+' left)';
   document.getElementById('adDays').max=String(maxAdd);
   document.getElementById('adDays').value='1';
@@ -1344,12 +1371,14 @@ function setAdToken(t){
   document.querySelectorAll('#adModal .quote-opt').forEach(el=>el.classList.toggle('active', el.dataset.t===t));
   updateAdPriceDisplay();
 }
-async function getAdPricePerDay(){
-  if(!userAddr) return adPricing.public_price_usd;
-  try{ const gp = new ethers.Contract(AD_GOLD_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await gp.balanceOf(userAddr)) > 0n) return adPricing.gold_price_usd; }catch(e){}
-  try{ const sp = new ethers.Contract(AD_SILVER_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await sp.balanceOf(userAddr)) > 0n) return adPricing.silver_price_usd; }catch(e){}
-  return adPricing.public_price_usd;
+async function getAdPriceInfo(){
+  if(!userAddr) return { perDay: adPricing.public_price_usd, tier: 'no pass' };
+  if(userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase()) return { perDay: 0, tier: 'owner' };
+  try{ const gp = new ethers.Contract(AD_GOLD_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await gp.balanceOf(userAddr)) > 0n) return { perDay: adPricing.gold_price_usd, tier: 'Gold Pass' }; }catch(e){}
+  try{ const sp = new ethers.Contract(AD_SILVER_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await sp.balanceOf(userAddr)) > 0n) return { perDay: adPricing.silver_price_usd, tier: 'Silver Pass' }; }catch(e){}
+  return { perDay: adPricing.public_price_usd, tier: 'no pass' };
 }
+async function getAdPricePerDay(){ return (await getAdPriceInfo()).perDay; }
 async function updateAdPriceDisplay(){
   const note=document.getElementById('adPriceNote');
   const totalNote=document.getElementById('adTotalNote');
@@ -1358,9 +1387,9 @@ async function updateAdPriceDisplay(){
   const input = document.getElementById('adDays');
   let days = Math.max(1, parseInt(input.value)||1);
   if(days > cap){ days = cap; input.value = String(cap); }
-  const perDay = await getAdPricePerDay();
-  const tier = perDay===adPricing.gold_price_usd?'Gold Pass':perDay===adPricing.silver_price_usd?'Silver Pass':'no pass';
-  note.textContent = '$'+perDay+' per day for your wallet ('+tier+'). Max '+MAX_AD_DAYS+' days booked ahead at any time.';
+  const info = await getAdPriceInfo();
+  const perDay = info.perDay;
+  note.textContent = '$'+perDay+' per day for your wallet ('+info.tier+'). Max '+MAX_AD_DAYS+' days booked ahead at any time.';
   const verb = adExtendAd ? 'extra day' : 'day';
   totalNote.textContent = 'You pay: $'+(perDay*days)+' for '+days+' '+verb+(days>1?'s':'')+', in '+adToken;
 }
@@ -1393,10 +1422,29 @@ async function submitAd(){
     btn.textContent = isExtend ? 'Extending ad...' : 'Activating ad...';
     const payload = isExtend
       ? { action:'extend', adId:adExtendAd.id, wallet:userAddr, days, token:adToken, txHash:rc.hash }
-      : { action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash };
-    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const j = await r.json();
-    if(!r.ok){ toast(j.error||'Failed','err'); btn.disabled=false; btn.textContent=btnLabel; return; }
+      : { action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash,
+          twitter:document.getElementById('adTwitter').value.trim(),
+          telegram:document.getElementById('adTelegram').value.trim(),
+          website:document.getElementById('adWebsite').value.trim() };
+    // Оплата уже прошла. Если активация не удалась из-за сети — пробуем ещё,
+    // иначе деньги ушли, а объявления нет. txHash тот же, повторный зачёт
+    // невозможен: сервер держит журнал использованных транзакций.
+    let j=null, ok=false, lastErr='';
+    for(let attempt=1; attempt<=3; attempt++){
+      try{
+        const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        j = await r.json().catch(()=>({}));
+        if(r.ok){ ok=true; break; }
+        lastErr = j.error || ('HTTP '+r.status);
+        if(r.status>=400 && r.status<500) break;   // отказ по существу — повтор не поможет
+      }catch(e){ lastErr = e.message||'network error'; }
+      if(attempt<3){ btn.textContent='Retrying ('+attempt+'/3)...'; await new Promise(s=>setTimeout(s,2500)); }
+    }
+    if(!ok){
+      toast('Payment went through but activation failed: '+lastErr+'. Save this tx: '+rc.hash,'err');
+      console.error('AD ACTIVATION FAILED — txHash:', rc.hash, 'payload:', payload);
+      btn.disabled=false; btn.textContent=btnLabel; return;
+    }
     toast(isExtend ? 'Ad extended ⏱' : 'Ad placed! 📢','ok');
     adExtendAd = null;
     closeAdModal();
