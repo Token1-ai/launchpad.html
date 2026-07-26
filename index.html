@@ -64,6 +64,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tc-social:hover{border-color:var(--gold);}
 .tc-copy{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;min-height:34px;white-space:normal;}
 .tc-copy:hover{border-color:var(--gold);color:var(--text);}
+.bsc-link{color:var(--gold);text-decoration:none;border-bottom:1px dotted rgba(245,200,66,.5);}
+.bsc-link:hover{border-bottom-style:solid;}
+.ad-extend-btn{position:absolute;top:6px;right:96px;background:rgba(0,0,0,.7);color:var(--gold);border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;z-index:2;min-height:32px;}
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .badge-grad{background:var(--green);color:#000;}
 .badge-hot{background:var(--red);color:#fff;}
@@ -288,6 +291,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="info-row"><span class="k">Reserve Token</span><span class="v" id="poolReserveToken">—</span></div>
           <div class="info-row"><span class="k">Reserve Quote</span><span class="v" id="poolReserveQuote">—</span></div>
           <div class="info-row"><span class="k">Liquidity</span><span class="v" id="poolLockStatus">—</span></div>
+          <div class="info-row"><span class="k">Contract</span><span class="v" id="poolContract">—</span></div>
           <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
         </div>
         <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
@@ -403,12 +407,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span id="adImgDropText">📷 Click to upload banner image</span>
       <img id="adImgPreview" class="img-preview hidden"/>
     </div>
-    <div class="img-hint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
+    <div class="img-hint" id="adImgHint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
-    <label class="field-label">Link URL *</label>
+    <label class="field-label" id="adLinkLabel">Link URL *</label>
     <input class="field-input" id="adLinkUrl" placeholder="https://..."/>
-    <label class="field-label">Days *</label>
-    <input class="field-input" id="adDays" type="number" min="1" value="1" oninput="updateAdPriceDisplay()"/>
+    <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
+    <input class="field-input" id="adDays" type="number" min="1" max="30" value="1" oninput="updateAdPriceDisplay()"/>
     <label class="field-label">Pay with</label>
     <div class="quote-select">
       <button class="quote-opt active" data-t="USDT" onclick="setAdToken('USDT')">USDT</button>
@@ -469,6 +473,8 @@ let poolsCache = [], currentPoolId = null, currentPoolData = null, poolTradeSide
 let poolChart, poolCandleSeries, poolVolumeSeries, poolTradesChannel, poolChartTimeMap = {};
 let adPricing = { gold_price_usd:10, silver_price_usd:15, public_price_usd:25 };
 let adSlotTarget = null, adPendingImageFile = null, adToken = 'USDT';
+let adExtendAd = null;
+const MAX_AD_DAYS = 30;
 let adBoardsData = {1:null, 2:null};
 
 async function loadBnbPrice(){
@@ -498,6 +504,22 @@ function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function safeHref(u){ const v=String(u||'').trim(); return /^https?:\/\//i.test(v) ? v : ''; }
+function bscLink(addr,kind){
+  if(!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) return '—';
+  const path = kind==='token' ? 'token/' : 'address/';
+  return '<a class="bsc-link" href="https://bscscan.com/'+path+esc(addr)+'" target="_blank" rel="noopener noreferrer" title="'+esc(addr)+'">'+esc(shortAddr(addr))+' ↗</a>';
+}
+function msLeft(endAt){ return new Date(endAt).getTime() - Date.now(); }
+function fmtLeft(endAt){
+  const ms = msLeft(endAt);
+  if(ms <= 0) return 'expired';
+  const d = Math.floor(ms/86400000), h = Math.floor((ms%86400000)/3600000);
+  return d > 0 ? (d+'d '+h+'h') : (h+'h');
+}
+function maxExtendDays(endAt){
+  const leftDays = msLeft(endAt)/86400000;
+  return Math.max(0, Math.floor(MAX_AD_DAYS - leftDays));
+}
 function fallbackCopy(text){
   try{
     const ta=document.createElement('textarea');
@@ -670,8 +692,8 @@ async function openTradePage(token){
     document.getElementById('infoMC').textContent=fmtUsd(c[1]);
     document.getElementById('infoProgress').textContent=(progress/100).toFixed(1)+'%';
     document.getElementById('infoCreatorFee').textContent=(creatorFeeBps/100).toFixed(2)+'% of each trade';
-    document.getElementById('infoCreator').textContent=shortAddr(c[0]);
-    document.getElementById('infoContract').textContent=shortAddr(token);
+    document.getElementById('infoCreator').innerHTML=bscLink(c[0],'address');
+    document.getElementById('infoContract').innerHTML=bscLink(token,'token');
     if(c[3]){
       document.getElementById('infoGradRow').style.display='flex';
       document.getElementById('infoPancake').href='https://pancakeswap.finance/swap?outputCurrency='+token;
@@ -1017,7 +1039,8 @@ async function openPoolTradePage(pid){
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
     document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Withdrawn by lister' : '⚠️ Removable');
-    document.getElementById('poolCreator').textContent = shortAddr(p.creator);
+    document.getElementById('poolContract').innerHTML = bscLink(p.token,'token');
+    document.getElementById('poolCreator').innerHTML = bscLink(p.creator,'address');
     document.getElementById('poolTradeCur').textContent = quoteLabel(currentPoolData.quote);
     const removeBox = document.getElementById('removeLiqBox');
     if(userAddr && userAddr.toLowerCase()===p.creator.toLowerCase() && !p.locked && !p.liquidityPulled){ removeBox.classList.remove('hidden'); } else { removeBox.classList.add('hidden'); }
@@ -1254,8 +1277,10 @@ function renderAdSlot(slot){
   const ad = adBoardsData[slot];
   if(!ad){ el.innerHTML = '<span style="color:var(--muted);font-size:28px;">+</span>'; return; }
   const canManage = userAddr && (userAddr.toLowerCase()===ad.wallet.toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
+  const isSelf = userAddr && userAddr.toLowerCase()===ad.wallet.toLowerCase();
   const removeBtn = canManage ? '<button class="ad-remove-btn" onclick="event.stopPropagation();requestRemoveAd('+ad.id+',\''+ad.wallet+'\')">🗑 Remove</button>' : '';
-  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+removeBtn;
+  const extendBtn = (isSelf && maxExtendDays(ad.end_at) > 0) ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openExtendModal('+ad.id+')">⏱ Extend</button>' : '';
+  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+extendBtn+removeBtn;
 }
 function handleAdSlotClick(slot){
   if(adBoardsData[slot]){
@@ -1267,16 +1292,44 @@ function handleAdSlotClick(slot){
   openAdModal(slot);
 }
 async function openAdModal(slot){
-  adSlotTarget = slot; adPendingImageFile=null;
+  adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null;
   document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
   document.getElementById('adImgPreview').classList.add('hidden');
   document.getElementById('adImgDropText').classList.remove('hidden');
+  document.getElementById('adImgDrop').classList.remove('hidden');
+  document.getElementById('adImgHint').classList.remove('hidden');
+  document.getElementById('adLinkLabel').classList.remove('hidden');
+  document.getElementById('adLinkUrl').classList.remove('hidden');
   document.getElementById('adLinkUrl').value='';
+  document.getElementById('adDaysLabel').textContent='Days * (max '+MAX_AD_DAYS+')';
+  document.getElementById('adDays').max=String(MAX_AD_DAYS);
   document.getElementById('adDays').value='1';
+  document.getElementById('adSubmitBtn').textContent='Pay & Place Ad';
   document.getElementById('adModal').classList.add('show');
   await updateAdPriceDisplay();
 }
-function closeAdModal(){ document.getElementById('adModal').classList.remove('show'); }
+async function openExtendModal(adId){
+  if(!userAddr){ connectWallet(); return; }
+  const ad = adBoardsData[1] && adBoardsData[1].id===adId ? adBoardsData[1]
+           : (adBoardsData[2] && adBoardsData[2].id===adId ? adBoardsData[2] : null);
+  if(!ad){ toast('Ad not found','err'); return; }
+  if(userAddr.toLowerCase() !== ad.wallet.toLowerCase()){ toast('Not your ad','err'); return; }
+  const maxAdd = maxExtendDays(ad.end_at);
+  if(maxAdd <= 0){ toast('Already booked '+MAX_AD_DAYS+' days ahead — extend later','err'); return; }
+  adExtendAd = ad; adSlotTarget = ad.slot; adPendingImageFile = null;
+  document.getElementById('adModalTitle').textContent = '⏱ Extend your ad — Board '+ad.slot;
+  document.getElementById('adImgDrop').classList.add('hidden');
+  document.getElementById('adImgHint').classList.add('hidden');
+  document.getElementById('adLinkLabel').classList.add('hidden');
+  document.getElementById('adLinkUrl').classList.add('hidden');
+  document.getElementById('adDaysLabel').textContent='Extra days * (max '+maxAdd+', '+fmtLeft(ad.end_at)+' left)';
+  document.getElementById('adDays').max=String(maxAdd);
+  document.getElementById('adDays').value='1';
+  document.getElementById('adSubmitBtn').textContent='Pay & Extend';
+  document.getElementById('adModal').classList.add('show');
+  await updateAdPriceDisplay();
+}
+function closeAdModal(){ adExtendAd=null; document.getElementById('adModal').classList.remove('show'); }
 function previewAdImage(input){
   const f=input.files[0]; if(!f) return;
   if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
@@ -1301,22 +1354,33 @@ async function updateAdPriceDisplay(){
   const note=document.getElementById('adPriceNote');
   const totalNote=document.getElementById('adTotalNote');
   if(!userAddr){ note.textContent='Connect your wallet to see your price.'; totalNote.textContent='You pay: —'; return; }
+  const cap = adExtendAd ? maxExtendDays(adExtendAd.end_at) : MAX_AD_DAYS;
+  const input = document.getElementById('adDays');
+  let days = Math.max(1, parseInt(input.value)||1);
+  if(days > cap){ days = cap; input.value = String(cap); }
   const perDay = await getAdPricePerDay();
-  const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
   const tier = perDay===adPricing.gold_price_usd?'Gold Pass':perDay===adPricing.silver_price_usd?'Silver Pass':'no pass';
-  note.textContent = '$'+perDay+' per day for your wallet ('+tier+')';
-  totalNote.textContent = 'You pay: $'+(perDay*days)+' for '+days+' day'+(days>1?'s':'')+', in '+adToken;
+  note.textContent = '$'+perDay+' per day for your wallet ('+tier+'). Max '+MAX_AD_DAYS+' days booked ahead at any time.';
+  const verb = adExtendAd ? 'extra day' : 'day';
+  totalNote.textContent = 'You pay: $'+(perDay*days)+' for '+days+' '+verb+(days>1?'s':'')+', in '+adToken;
 }
 async function submitAd(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
-  const linkUrl = document.getElementById('adLinkUrl').value.trim();
+  const isExtend = !!adExtendAd;
+  const btnLabel = isExtend ? 'Pay & Extend' : 'Pay & Place Ad';
+  const cap = isExtend ? maxExtendDays(adExtendAd.end_at) : MAX_AD_DAYS;
   const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
-  if(!/^https?:\/\//i.test(linkUrl)){ toast('Enter a valid link URL','err'); return; }
-  if(!adPendingImageFile){ toast('Upload a banner image','err'); return; }
+  if(days > cap){ toast('Max '+cap+' day'+(cap>1?'s':'')+' — total booking is capped at '+MAX_AD_DAYS+' days ahead','err'); return; }
+  const linkUrl = document.getElementById('adLinkUrl').value.trim();
+  if(!isExtend){
+    if(!/^https?:\/\//i.test(linkUrl)){ toast('Enter a valid link URL','err'); return; }
+    if(!adPendingImageFile){ toast('Upload a banner image','err'); return; }
+  }
   const btn=document.getElementById('adSubmitBtn');
-  btn.disabled=true; btn.textContent='Uploading image...';
+  btn.disabled=true;
   try{
-    const adImageUrl = await uploadTokenImage(adPendingImageFile);
+    let adImageUrl = '';
+    if(!isExtend){ btn.textContent='Uploading image...'; adImageUrl = await uploadTokenImage(adPendingImageFile); }
     const perDay = await getAdPricePerDay();
     const totalUsd = perDay*days;
     const tokenAddr = adToken==='USDT' ? USDT_ADDR : USDC_ADDR;
@@ -1326,18 +1390,22 @@ async function submitAd(){
     const tx = await tk.transfer(OWNER_WALLET_ADDR, amountWei);
     toast('Sending payment...','ok');
     const rc = await tx.wait();
-    btn.textContent='Activating ad...';
-    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash })});
+    btn.textContent = isExtend ? 'Extending ad...' : 'Activating ad...';
+    const payload = isExtend
+      ? { action:'extend', adId:adExtendAd.id, wallet:userAddr, days, token:adToken, txHash:rc.hash }
+      : { action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash };
+    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const j = await r.json();
-    if(!r.ok){ toast(j.error||'Failed to activate ad','err'); btn.disabled=false; btn.textContent='Pay & Place Ad'; return; }
-    toast('Ad placed! 📢','ok');
+    if(!r.ok){ toast(j.error||'Failed','err'); btn.disabled=false; btn.textContent=btnLabel; return; }
+    toast(isExtend ? 'Ad extended ⏱' : 'Ad placed! 📢','ok');
+    adExtendAd = null;
     closeAdModal();
     await loadAdBoards();
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Failed';
     toast(msg,'err');
   }
-  btn.disabled=false; btn.textContent='Pay & Place Ad';
+  btn.disabled=false; btn.textContent=btnLabel;
 }
 async function requestRemoveAd(adId, adWallet){
   if(!userAddr){ connectWallet(); return; }
