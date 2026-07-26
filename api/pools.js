@@ -17,6 +17,29 @@ const EVENT_ABI = [
   'event Sell(uint256 indexed poolId,address indexed seller,uint256 tokensIn,uint256 quoteOut,uint256 newPrice)'
 ];
 
+const verifyMsg = (m, sig) => V6 ? ethers.verifyMessage(m, sig) : ethers.utils.verifyMessage(m, sig);
+const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
+const safeUrl = v => { const x = String(v || '').trim().slice(0, 300); return /^https?:\/\//i.test(x) ? x : ''; };
+
+const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+const POOLS_META_ABI = [
+  'function poolByTokenQuote(address,uint8) view returns (uint256)',
+  'function getPool(uint256) view returns (address token,uint8 quote,uint256 reserveToken,uint256 reserveQuote,address creator,bool locked,bool liquidityPulled,uint256 createdAt)'
+];
+
+// Подпись покрывает САМО содержимое. Если бы она покрывала только адрес токена,
+// любой, кто однажды увидел подпись, мог бы подставить под неё чужой текст.
+function metaMessage(tokenAddress, m, ts) {
+  return 'OpenGate LaunchLab token metadata\n' +
+    'token: ' + String(tokenAddress).toLowerCase() + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'desc: '  + (m.description || '') + '\n' +
+    'x: '     + (m.twitter || '') + '\n' +
+    'tg: '    + (m.telegram || '') + '\n' +
+    'web: '   + (m.website || '') + '\n' +
+    'ts: '    + ts;
+}
+
 const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
@@ -24,6 +47,7 @@ export default async function handler(req, res) {
   const body = req.body || {};
   try {
     if (body.action === 'trade') return await doTrade(body, res);
+    if (body.action === 'meta')  return await doMeta(body, res);
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Failed' });
@@ -72,6 +96,59 @@ async function doTrade(body, res) {
     price: Number(fmtEther(found.price)),
     tx_hash: txHash
   });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+async function doMeta(body, res) {
+  const { tokenAddress, signature, ts, meta } = body;
+  if (!tokenAddress || !isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad token address' }); return; }
+  if (!signature || !meta) { res.status(400).json({ error: 'Missing params' }); return; }
+
+  // Свежесть подписи: старую перехваченную нельзя применить через сутки
+  const tsNum = Number(ts);
+  if (!isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 10 * 60 * 1000) {
+    res.status(400).json({ error: 'Signature expired — try again' }); return;
+  }
+
+  const clean = {
+    description: String(meta.description || '').trim().slice(0, 500),
+    image_url:   safeUrl(meta.image_url),
+    twitter:     safeUrl(meta.twitter),
+    telegram:    safeUrl(meta.telegram),
+    website:     safeUrl(meta.website)
+  };
+
+  let signer = null;
+  try { signer = verifyMsg(metaMessage(tokenAddress, clean, tsNum), signature); } catch (e) {}
+  if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
+
+  // Право на правку есть у создателя пула по этому токену и у владельца площадки
+  let allowed = signer.toLowerCase() === OWNER_WALLET.toLowerCase();
+  if (!allowed) {
+    let creator = null;
+    for (const url of RPCS) {
+      try {
+        const c = new ethers.Contract(POOLS, POOLS_META_ABI, mkProvider(url));
+        for (const q of [0, 1, 2]) {
+          const pid = await c.poolByTokenQuote(tokenAddress, q);
+          if (Number(pid) > 0) { creator = String((await c.getPool(pid)).creator); break; }
+        }
+        break;
+      } catch (e) {}
+    }
+    if (!creator) { res.status(404).json({ error: 'No pool found for this token' }); return; }
+    allowed = creator.toLowerCase() === signer.toLowerCase();
+  }
+  if (!allowed) { res.status(403).json({ error: 'Only the pool creator can edit this token' }); return; }
+
+  const sb = sbClient();
+  const { error } = await sb.from('pool_tokens').upsert({
+    token_address: tokenAddress.toLowerCase(),
+    ...clean,
+    updated_by: signer.toLowerCase(),
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'token_address' });
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
 }
