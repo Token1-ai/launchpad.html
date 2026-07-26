@@ -792,12 +792,18 @@ async function loadChartFromTrades(token){
 }
 
 async function loadTradesFeed(token){
-  try{ const {data:trades}=await sb.from('launchpad_trades').select('*').eq('token_address',token.toLowerCase()).order('created_at',{ascending:false}).limit(30); renderTradesFeed(trades||[]); }catch(e){}
+  try{
+    const {data,error}=await sb.from('launchpad_trades')
+      .select('wallet,side,bnb_amount,price,created_at')
+      .eq('token_address',token.toLowerCase()).order('created_at',{ascending:false}).limit(30);
+    if(error){ console.error('launchpad_trades feed error:', error); }
+    renderTradesFeed(data||[]);
+  }catch(e){ console.error('launchpad_trades feed exception:', e); }
 }
 function renderTradesFeed(trades){
   const el=document.getElementById('tradesFeed');
   if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
-  el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+fmtUsd(t.bnb_amount*1e18)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
+  el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+bscLink(t.wallet,'address')+'</span><span>'+fmtUsd(t.bnb_amount*1e18)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
 }
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
@@ -893,7 +899,10 @@ async function executeTrade(){
       toast('Selling... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Sold! 🎉','ok');
     }
-    try{ await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})}); }catch(e){}
+    try{
+      const rr = await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})});
+      if(!rr.ok){ const jj=await rr.json().catch(()=>({})); console.error('trade not recorded:', jj); toast('Trade done on-chain, but not saved to the feed: '+(jj.error||rr.status),'err'); }
+    }catch(e){ console.error('trade record failed:', e); }
     document.getElementById('tradeAmount').value='';
     document.getElementById('receiveAmount').textContent='—';
     refreshTradeInfo(currentToken); updateTradeButton();
@@ -1117,12 +1126,18 @@ async function loadPoolChartFromTrades(pid){
 }
 
 async function loadPoolTradesFeed(pid){
-  try{ const {data}=await sb.from('pool_trades').select('*').eq('pool_id',pid).order('created_at',{ascending:false}).limit(30); renderPoolTradesFeed(data||[]); }catch(e){}
+  try{
+    const {data,error}=await sb.from('pool_trades')
+      .select('wallet,side,quote_amount,price,created_at')
+      .eq('pool_id',pid).order('created_at',{ascending:false}).limit(30);
+    if(error){ console.error('pool_trades feed error:', error); }
+    renderPoolTradesFeed(data||[]);
+  }catch(e){ console.error('pool_trades feed exception:', e); }
 }
 function renderPoolTradesFeed(trades){
   const el=document.getElementById('poolTradesFeed');
   if(!trades.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;">No trades yet</div>'; return; }
-  el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+shortAddr(t.wallet)+'</span><span>'+Number(t.quote_amount).toFixed(4)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
+  el.innerHTML=trades.map(t=>'<div class="trade-row"><span><span class="trade-side '+t.side+'">'+(t.side==='buy'?'BUY':'SELL')+'</span> '+bscLink(t.wallet,'address')+'</span><span>'+Number(t.quote_amount).toFixed(4)+' • '+timeAgo(t.created_at)+'</span></div>').join('');
 }
 function subscribePoolTrades(pid){
   if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
@@ -1148,10 +1163,24 @@ async function updatePoolReceive(){
     else{ const [out]=await pl.quoteSell(currentPoolId, ethers.parseEther(amtStr)); el.textContent=ethers.formatEther(out)+' '+quoteLabel(currentPoolData.quote); }
   }catch(e){ el.textContent='—'; }
 }
-function updatePoolTradeButton(){
+async function updatePoolTradeButton(){
   const btn=document.getElementById('poolTradeActionBtn');
-  if(!userAddr){ btn.textContent='Connect Wallet'; return; }
+  const lbl=document.getElementById('poolBalanceLabel');
+  if(!userAddr){ btn.textContent='Connect Wallet'; lbl.textContent=''; return; }
   btn.textContent = poolTradeSide==='buy' ? 'Buy' : 'Sell';
+  if(!currentPoolData || !provider){ lbl.textContent=''; return; }
+  try{
+    if(poolTradeSide==='sell'){
+      const tk=new ethers.Contract(currentPoolData.token, ERC20_ABI, provider);
+      lbl.textContent='Balance: '+fmtTokens(await tk.balanceOf(userAddr))+' '+currentPoolData.symbol;
+    } else if(currentPoolData.quote===0){
+      lbl.textContent='Balance: '+fmtBNB(await provider.getBalance(userAddr))+' BNB';
+    } else {
+      const tk=new ethers.Contract(quoteAddr(currentPoolData.quote), ERC20_ABI, provider);
+      const b=await tk.balanceOf(userAddr);
+      lbl.textContent='Balance: '+Number(ethers.formatEther(b)).toFixed(4)+' '+quoteLabel(currentPoolData.quote);
+    }
+  }catch(e){ lbl.textContent=''; }
 }
 async function ensureApproval(tokenAddr, spender, amountWei){
   const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
@@ -1185,7 +1214,10 @@ async function executePoolTrade(){
       toast('Selling... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
       toast('Sold! 🎉','ok');
     }
-    try{ await fetch('/api/pools',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,poolId:currentPoolId,wallet:userAddr})}); }catch(e){}
+    try{
+      const rr = await fetch('/api/pools',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,poolId:currentPoolId,wallet:userAddr})});
+      if(!rr.ok){ const jj=await rr.json().catch(()=>({})); console.error('pool trade not recorded:', jj); toast('Trade done on-chain, but not saved to the feed: '+(jj.error||rr.status),'err'); }
+    }catch(e){ console.error('pool trade record failed:', e); }
     document.getElementById('poolTradeAmount').value='';
     document.getElementById('poolReceiveAmount').textContent='—';
     await openPoolTradePage(currentPoolId);
