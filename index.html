@@ -797,7 +797,8 @@ function applyGraduatedLock(token){
 let lpChartState  = { lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0 };
 let poolChartState = { lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0 };
 
-function resetChartState(state, candles, volumes, lastDate){
+function resetChartState(state, candles, volumes, lastDate, lastTradeAt){
+  state.lastTradeAt = lastTradeAt || null;
   if(!candles.length){ state.lastIndex=-1; state.lastBucket=null; state.lastClose=null; state.lastCandle=null; state.lastVol=0; return; }
   const last = candles[candles.length-1];
   state.lastIndex  = last.time;
@@ -833,6 +834,44 @@ function pushTradeToChart(state, series, volSeries, timeMap, price, vol, date){
   }
   state.lastClose = price;
   return true;
+}
+
+// Догружает сделки, появившиеся после последней нарисованной, и дописывает
+// их по одной. Вызывается и после своей сделки, и по событию Supabase —
+// поэтому график не зависит от того, дошло событие или потерялось.
+async function syncChartTail(token){
+  try{
+    const st = lpChartState;
+    if(st.lastIndex < 0){ await loadChartFromTrades(token); return; }
+    let q = sb.from('launchpad_trades').select('price,bnb_amount,created_at')
+              .eq('token_address', token.toLowerCase()).order('created_at',{ascending:true}).limit(200);
+    if(st.lastTradeAt) q = q.gt('created_at', st.lastTradeAt);
+    const { data, error } = await q;
+    if(error){ console.error('syncChartTail:', error); return; }
+    if(!data || !data.length) return;
+    for(const t of data){
+      const okk = pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, new Date(t.created_at));
+      if(!okk){ await loadChartFromTrades(token); return; }
+      st.lastTradeAt = t.created_at;
+    }
+  }catch(e){ console.error('syncChartTail failed:', e); }
+}
+async function syncPoolChartTail(pid){
+  try{
+    const st = poolChartState;
+    if(st.lastIndex < 0){ await loadPoolChartFromTrades(pid); return; }
+    let q = sb.from('pool_trades').select('price,quote_amount,created_at')
+              .eq('pool_id', pid).order('created_at',{ascending:true}).limit(200);
+    if(st.lastTradeAt) q = q.gt('created_at', st.lastTradeAt);
+    const { data, error } = await q;
+    if(error){ console.error('syncPoolChartTail:', error); return; }
+    if(!data || !data.length) return;
+    for(const t of data){
+      const okk = pushTradeToChart(st, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, new Date(t.created_at));
+      if(!okk){ await loadPoolChartFromTrades(pid); return; }
+      st.lastTradeAt = t.created_at;
+    }
+  }catch(e){ console.error('syncPoolChartTail failed:', e); }
 }
 
 function initChart(){
@@ -883,7 +922,7 @@ async function loadChartFromTrades(token){
     const candles=[],volumes=[]; chartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; chartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     candleSeries.setData(candles); volumeSeries.setData(volumes); chart.timeScale().fitContent();
-    resetChartState(lpChartState, candles, volumes, buckets[order[order.length-1]].date);
+    resetChartState(lpChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
 }
 
@@ -903,11 +942,9 @@ function renderTradesFeed(trades){
 }
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
-  tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},(payload)=>{
+  tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},()=>{
     loadTradesFeed(token); refreshTradeInfo(token);
-    const t = payload && payload.new;
-    const okk = t ? pushTradeToChart(lpChartState, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, new Date(t.created_at)) : false;
-    if(!okk) loadChartFromTrades(token);   // базы нет — разово перезагружаем целиком
+    syncChartTail(token);
   }).subscribe();
 }
 async function refreshTradeInfo(token){
@@ -1007,6 +1044,7 @@ async function executeTrade(){
     document.getElementById('tradeAmount').value='';
     document.getElementById('receiveAmount').textContent='—';
     refreshTradeInfo(currentToken); updateTradeButton();
+    loadTradesFeed(currentToken); syncChartTail(currentToken);   // не ждём события Realtime
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Trade failed';
     toast(msg,'err');
@@ -1229,7 +1267,7 @@ async function loadPoolChartFromTrades(pid){
     const candles=[],volumes=[]; poolChartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; poolChartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes); poolChart.timeScale().fitContent();
-    resetChartState(poolChartState, candles, volumes, buckets[order[order.length-1]].date);
+    resetChartState(poolChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
 }
 
@@ -1249,11 +1287,9 @@ function renderPoolTradesFeed(trades){
 }
 function subscribePoolTrades(pid){
   if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
-  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},(payload)=>{
+  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{
     loadPoolTradesFeed(pid); refreshPoolInfo(pid);
-    const t = payload && payload.new;
-    const okk = t ? pushTradeToChart(poolChartState, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, new Date(t.created_at)) : false;
-    if(!okk) loadPoolChartFromTrades(pid);
+    syncPoolChartTail(pid);
   }).subscribe();
 }
 // Лёгкое обновление цифр без пересоздания графика и переподписки.
@@ -1350,9 +1386,9 @@ async function executePoolTrade(){
     }catch(e){ console.error('pool trade record failed:', e); }
     document.getElementById('poolTradeAmount').value='';
     document.getElementById('poolReceiveAmount').textContent='—';
-    // График обновится сам, одной свечой, когда придёт событие из Supabase
     await refreshPoolInfo(currentPoolId);
     await loadPoolTradesFeed(currentPoolId);
+    await syncPoolChartTail(currentPoolId);   // не ждём события Realtime — догружаем сами
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Trade failed';
     toast(msg,'err');
