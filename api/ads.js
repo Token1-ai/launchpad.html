@@ -32,6 +32,10 @@ const MAX_AD_DAYS = 30;
 
 const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+// Иконки на баннере рисуются из этих ссылок. Пускаем только http/https,
+// чтобы через javascript:/data: нельзя было протащить исполняемый код.
+const safeUrl = s => { const v = String(s || '').trim().slice(0, 300); return /^https?:\/\//i.test(v) ? v : ''; };
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   const body = req.body || {};
@@ -92,7 +96,7 @@ function recoverSigner(message, signature) {
 /* ─── submit (place an ad) ─── */
 
 async function doSubmit(body, res) {
-  const { slot, wallet, imageUrl, linkUrl, days, token, txHash } = body;
+  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website } = body;
   if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
   if (!wallet || !imageUrl || !linkUrl || !days || !token || !txHash) { res.status(400).json({ error: 'Missing params' }); return; }
   if (!isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
@@ -162,6 +166,14 @@ async function doSubmit(body, res) {
     if (m.includes('tx_used'))       { res.status(409).json({ error: 'Transaction already used' }); return; }
     res.status(500).json({ error: error.message }); return;
   }
+
+  // Ссылки для иконок пишем отдельным апдейтом: на защиту от гонки за слот
+  // они не влияют, и так не приходится менять сигнатуру place_ad_atomic.
+  const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
+  if (newId && (tw || tg || ws)) {
+    try { await sb.from('ad_boards').update({ twitter: tw, telegram: tg, website: ws }).eq('id', newId); } catch (e) {}
+  }
+
   res.status(200).json({ ok: true, id: newId });
 }
 
