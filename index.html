@@ -455,13 +455,20 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
 <div id="toast"></div>
 <script>
+// Старый адрес на vercel.app помечен кошельками как подозрительный.
+// Кто попадёт на него по старой ссылке — уедет на нормальный домен.
+(function(){
+  if(location.hostname === 'launchpad-html.vercel.app'){
+    location.replace('https://launchlab.opengate.bond' + location.pathname + location.search + location.hash);
+  }
+})();
 const LAUNCHPAD_ADDRESS = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
 const SUPABASE_URL = 'https://hgzthbidfdqomuotdocb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnenRoYmlkZmRxb211b3Rkb2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTI2NjEsImV4cCI6MjA5NjU4ODY2MX0.otgk-jq2k0COrIE3cUEnRBPYKGnzAHRi3LEIQhE7khA';
 const BNB_PARAMS = {
   chainId:'0x38', chainName:'BNB Smart Chain',
   nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
-  rpcUrls:['https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA','https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA','https://bsc-dataseed.binance.org/'],
+  rpcUrls:['https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA','https://bsc-dataseed.binance.org/','https://bsc-dataseed1.defibit.io/','https://bsc-dataseed1.ninicoin.io/'],
   blockExplorerUrls:['https://bscscan.com/']
 };
 const LAUNCHPAD_ABI = [{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"}],"name":"createToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_router","type":"address"},{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbToLP","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensToLP","type":"uint256"}],"name":"Graduated","type":"event"},{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minBNBOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setCreationFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint16","name":"_tradeFee","type":"uint16"},{"internalType":"uint16","name":"_creatorFee","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_r","type":"address"}],"name":"setRouter","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_target","type":"uint256"}],"name":"setTargetBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_v","type":"uint256"}],"name":"setVirtualBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"string","name":"symbol","type":"string"}],"name":"TokenCreated","type":"event"},{"stateMutability":"payable","type":"receive"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allTokens","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creationFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"CURVE_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"curves","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DEAD","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getCurve","outputs":[{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getProgress","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"LP_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pancakeRouter","outputs":[{"internalType":"contract IPancakeRouter","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"bnbIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"bnbOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"targetBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"TOTAL_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"virtualBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
@@ -507,10 +514,47 @@ async function loadBnbPrice(){
   }
 }
 
-let _rpIndex = 0;
+// Список для чтения блокчейна. Alchemy первым (быстрый, но с ограничением
+// по домену и лимитами), дальше бесплатные публичные ноды BSC без ключей.
+const READ_RPCS = [
+  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  'https://bsc-dataseed.binance.org/',
+  'https://bsc-dataseed1.defibit.io/',
+  'https://bsc-dataseed1.ninicoin.io/',
+  'https://bsc-dataseed2.binance.org/'
+];
+let _providers = null, _activeIdx = 0;
+const RPC_TIMEOUT_MS = 7000;
+
+// ВНИМАНИЕ: сайт грузит ethers 6.7.0. В ней staticNetwork принимает только
+// объект Network (от true падает), FetchRequest.timeout игнорируется, а
+// FallbackProvider намертво виснет, если узел принял соединение и молчит.
+// Поэтому переключение и тайм-ауты сделаны вручную — работает на любой версии.
+function buildProviders(){
+  const NET = ethers.Network.from(56);
+  return READ_RPCS.map(u => new ethers.JsonRpcProvider(u, NET, { staticNetwork: NET }));
+}
 function getReadProvider(){
-  _rpIndex = (_rpIndex + 1) % BNB_PARAMS.rpcUrls.length;
-  return new ethers.JsonRpcProvider(BNB_PARAMS.rpcUrls[_rpIndex]);
+  if(!_providers) _providers = buildProviders();
+  return _providers[_activeIdx];
+}
+function rotateReadProvider(){
+  if(!_providers) _providers = buildProviders();
+  _activeIdx = (_activeIdx + 1) % _providers.length;
+  console.warn('RPC переключён на', READ_RPCS[_activeIdx]);
+  return _providers[_activeIdx];
+}
+function withTimeout(p, ms){
+  return Promise.race([p, new Promise((_,rj)=>setTimeout(()=>rj(new Error('RPC timeout')), ms || RPC_TIMEOUT_MS))]);
+}
+// Выбирает самый быстрый отвечающий узел. Заблокированные (403), лежащие
+// и зависшие отсеиваются сами: Promise.any берёт первый успешный.
+async function pickHealthyProvider(){
+  if(!_providers) _providers = buildProviders();
+  try{
+    _activeIdx = await Promise.any(_providers.map((p,i)=> withTimeout(p.getBlockNumber(), 5000).then(()=>i)));
+    console.log('RPC выбран:', READ_RPCS[_activeIdx]);
+  }catch(e){ console.error('ни один RPC не ответил при старте'); }
 }
 function getReadLaunchpad(){ return new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, getReadProvider()); }
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
@@ -618,7 +662,7 @@ function showTrade(token){
   currentToken=token; openTradePage(token);
 }
 
-async function loadTokens(){
+async function loadTokens(_retry){
   const grid=document.getElementById('tokenGrid');
   try{
     const lp=getReadLaunchpad();
@@ -641,7 +685,10 @@ async function loadTokens(){
     }));
     tokensCache=tokens.filter(Boolean);
     renderTokenList(); renderNewTicker();
-  }catch(e){ grid.innerHTML='<div class="empty">Failed to load: '+esc(e.message||'')+'</div>'; }
+  }catch(e){
+    if(!_retry){ await pickHealthyProvider(); return loadTokens(true); }
+    grid.innerHTML='<div class="empty">Failed to load: '+esc(e.message||'')+'</div>';
+  }
 }
 
 function renderNewTicker(){
@@ -682,7 +729,7 @@ function renderTokenList(){
 
 function setFilter(f){ activeFilter=f; ['hot','new','graduated'].forEach(x=>document.getElementById('filter-'+x).classList.toggle('active',x===f)); renderTokenList(); }
 
-async function openTradePage(token){
+async function openTradePage(token,_retry){
   const lp=getReadLaunchpad();
   try{
     const {data:meta}=await sb.from('launchpad_tokens').select('*').eq('address',token.toLowerCase()).maybeSingle();
@@ -719,7 +766,10 @@ async function openTradePage(token){
     applyGraduatedLock(token);
     initChart(); await loadChartFromTrades(token); await loadTradesFeed(token);
     subscribeTrades(token); updateTradeButton(); updateReceive();
-  }catch(e){ toast('Failed to load token','err'); }
+  }catch(e){
+    if(!_retry){ await pickHealthyProvider(); return openTradePage(token,true); }
+    toast('Failed to load token','err');
+  }
 }
 
 function applyGraduatedLock(token){
@@ -738,6 +788,51 @@ function applyGraduatedLock(token){
     document.getElementById('tabBuy').style.pointerEvents='';
     document.getElementById('tabSell').style.pointerEvents='';
   }
+}
+
+// ─── Плавное обновление графика ───
+// Раньше на каждую сделку заново грузилась вся история и вызывался setData +
+// fitContent — график сбрасывал масштаб и «моргал». Теперь дописывается либо
+// изменяется только последняя свеча, как на биржах.
+let lpChartState  = { lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0 };
+let poolChartState = { lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0 };
+
+function resetChartState(state, candles, volumes, lastDate){
+  if(!candles.length){ state.lastIndex=-1; state.lastBucket=null; state.lastClose=null; state.lastCandle=null; state.lastVol=0; return; }
+  const last = candles[candles.length-1];
+  state.lastIndex  = last.time;
+  state.lastCandle = { ...last };
+  state.lastClose  = last.close;
+  state.lastVol    = volumes.length ? volumes[volumes.length-1].value : 0;
+  state.lastBucket = lastDate ? Math.floor(lastDate.getTime()/60000)*60000 : null;
+}
+
+function volColor(c){ return c.close >= c.open ? '#22c55e88' : '#ef444488'; }
+
+// true — свеча обновлена на месте; false — базы нет, нужна полная перезагрузка
+function pushTradeToChart(state, series, volSeries, timeMap, price, vol, date){
+  if(state.lastIndex < 0 || state.lastClose === null || !series) return false;
+  if(!isFinite(price) || price <= 0) return false;
+  const bucket = Math.floor(date.getTime()/60000)*60000;
+  if(bucket === state.lastBucket){
+    const c = state.lastCandle;
+    c.close = price;
+    c.high  = Math.max(c.high, price);
+    c.low   = Math.min(c.low,  price);
+    state.lastVol += vol;
+    series.update(c);
+    volSeries.update({ time:c.time, value:state.lastVol, color:volColor(c) });
+  } else {
+    const open = state.lastClose;
+    const idx  = state.lastIndex + 1;
+    const c = { time:idx, open, high:Math.max(open,price), low:Math.min(open,price), close:price };
+    timeMap[idx] = date;
+    state.lastIndex = idx; state.lastBucket = bucket; state.lastCandle = c; state.lastVol = vol;
+    series.update(c);
+    volSeries.update({ time:idx, value:vol, color:volColor(c) });
+  }
+  state.lastClose = price;
+  return true;
 }
 
 function initChart(){
@@ -788,6 +883,7 @@ async function loadChartFromTrades(token){
     const candles=[],volumes=[]; chartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; chartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     candleSeries.setData(candles); volumeSeries.setData(volumes); chart.timeScale().fitContent();
+    resetChartState(lpChartState, candles, volumes, buckets[order[order.length-1]].date);
   }catch(e){}
 }
 
@@ -807,7 +903,12 @@ function renderTradesFeed(trades){
 }
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
-  tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},()=>{ loadTradesFeed(token); loadChartFromTrades(token); refreshTradeInfo(token); }).subscribe();
+  tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},(payload)=>{
+    loadTradesFeed(token); refreshTradeInfo(token);
+    const t = payload && payload.new;
+    const okk = t ? pushTradeToChart(lpChartState, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, new Date(t.created_at)) : false;
+    if(!okk) loadChartFromTrades(token);   // базы нет — разово перезагружаем целиком
+  }).subscribe();
 }
 async function refreshTradeInfo(token){
   try{
@@ -1009,7 +1110,7 @@ function showPoolsHome(){
   document.getElementById('poolsTradeView').classList.add('hidden');
   loadPools();
 }
-async function loadPools(){
+async function loadPools(_retry){
   const grid=document.getElementById('poolGrid');
   try{
     const pl=getReadPools();
@@ -1026,7 +1127,10 @@ async function loadPools(){
     }));
     poolsCache = items.filter(Boolean);
     renderPoolList();
-  }catch(e){ grid.innerHTML='<div class="empty">Failed to load</div>'; }
+  }catch(e){
+    if(!_retry){ await pickHealthyProvider(); return loadPools(true); }
+    grid.innerHTML='<div class="empty">Failed to load</div>';
+  }
 }
 function renderPoolList(){
   const grid=document.getElementById('poolGrid');
@@ -1048,7 +1152,7 @@ async function showPoolTrade(pid){
   currentPoolId = pid;
   await openPoolTradePage(pid);
 }
-async function openPoolTradePage(pid){
+async function openPoolTradePage(pid,_retry){
   try{
     const pl=getReadPools();
     const p=await pl.getPool(pid);
@@ -1072,7 +1176,10 @@ async function openPoolTradePage(pid){
     initPoolChart(); await loadPoolChartFromTrades(pid); await loadPoolTradesFeed(pid);
     subscribePoolTrades(pid);
     updatePoolTradeButton(); updatePoolReceive();
-  }catch(e){ toast('Failed to load token','err'); }
+  }catch(e){
+    if(!_retry){ await pickHealthyProvider(); return openPoolTradePage(pid,true); }
+    toast('Failed to load token','err');
+  }
 }
 
 function initPoolChart(){
@@ -1122,6 +1229,7 @@ async function loadPoolChartFromTrades(pid){
     const candles=[],volumes=[]; poolChartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; poolChartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes); poolChart.timeScale().fitContent();
+    resetChartState(poolChartState, candles, volumes, buckets[order[order.length-1]].date);
   }catch(e){}
 }
 
@@ -1141,7 +1249,12 @@ function renderPoolTradesFeed(trades){
 }
 function subscribePoolTrades(pid){
   if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
-  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{ loadPoolTradesFeed(pid); loadPoolChartFromTrades(pid); refreshPoolInfo(pid); }).subscribe();
+  poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},(payload)=>{
+    loadPoolTradesFeed(pid); refreshPoolInfo(pid);
+    const t = payload && payload.new;
+    const okk = t ? pushTradeToChart(poolChartState, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, new Date(t.created_at)) : false;
+    if(!okk) loadPoolChartFromTrades(pid);
+  }).subscribe();
 }
 // Лёгкое обновление цифр без пересоздания графика и переподписки.
 // Раньше здесь вызывался openPoolTradePage — он сбрасывал масштаб графика
@@ -1237,7 +1350,9 @@ async function executePoolTrade(){
     }catch(e){ console.error('pool trade record failed:', e); }
     document.getElementById('poolTradeAmount').value='';
     document.getElementById('poolReceiveAmount').textContent='—';
-    await openPoolTradePage(currentPoolId);
+    // График обновится сам, одной свечой, когда придёт событие из Supabase
+    await refreshPoolInfo(currentPoolId);
+    await loadPoolTradesFeed(currentPoolId);
   }catch(e){
     const msg = e.reason || (e.info && e.info.error && e.info.error.message) || e.shortMessage || e.message || 'Trade failed';
     toast(msg,'err');
@@ -1545,7 +1660,7 @@ async function submitAdPricing(){
   }catch(e){ toast(e.message||'Failed','err'); }
 }
 
-(async function init(){ await loadBnbPrice(); setInterval(loadBnbPrice, 60000); await loadAdPricing(); await loadAdBoards(); showHome(); })();
+(async function init(){ await pickHealthyProvider(); await loadBnbPrice(); setInterval(loadBnbPrice, 60000); await loadAdPricing(); await loadAdBoards(); showHome(); })();
 </script>
 </body>
 </html>
