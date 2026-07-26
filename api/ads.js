@@ -26,6 +26,10 @@ const PASS_ABI = ['function balanceOf(address) view returns (uint256)'];
 
 const DEFAULT_PRICING = { gold_price_usd: 10, silver_price_usd: 15, public_price_usd: 25 };
 
+// Максимум забронированного времени вперёд — считается от ТЕКУЩЕГО момента,
+// а не за одну покупку. Продлевать можно только то, что уже прошло.
+const MAX_AD_DAYS = 30;
+
 const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
@@ -33,6 +37,7 @@ export default async function handler(req, res) {
   const body = req.body || {};
   try {
     if (body.action === 'submit')          return await doSubmit(body, res);
+    if (body.action === 'extend')          return await doExtend(body, res);
     if (body.action === 'removeOwn')       return await doRemoveOwn(body, res);
     if (body.action === 'adminRemove')     return await doAdminRemove(body, res);
     if (body.action === 'adminSetPricing') return await doSetPricing(body, res);
@@ -94,7 +99,7 @@ async function doSubmit(body, res) {
   if (!/^https?:\/\//i.test(linkUrl)) { res.status(400).json({ error: 'Bad link URL' }); return; }
   if (!/^https?:\/\//i.test(imageUrl)) { res.status(400).json({ error: 'Bad image URL' }); return; }
   const daysNum = Math.floor(Number(days));
-  if (!(daysNum > 0 && daysNum <= 365)) { res.status(400).json({ error: 'Bad days' }); return; }
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
   if (!['USDT', 'USDC'].includes(token)) { res.status(400).json({ error: 'Bad token' }); return; }
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { res.status(400).json({ error: 'Bad tx hash' }); return; }
 
@@ -102,6 +107,9 @@ async function doSubmit(body, res) {
 
   const { data: existingTx } = await sb.from('ad_boards').select('id').eq('tx_hash', txHash).maybeSingle();
   if (existingTx) { res.status(409).json({ error: 'Transaction already used' }); return; }
+
+  const { data: usedTx0 } = await sb.from('ad_tx_used').select('tx_hash').eq('tx_hash', txHash).maybeSingle();
+  if (usedTx0) { res.status(409).json({ error: 'Transaction already used' }); return; }
 
   const nowIso = new Date().toISOString();
   const { data: busy } = await sb.from('ad_boards').select('id')
@@ -155,6 +163,87 @@ async function doSubmit(body, res) {
     res.status(500).json({ error: error.message }); return;
   }
   res.status(200).json({ ok: true, id: newId });
+}
+
+/* ─── extend (продление своего объявления) ─── */
+
+async function doExtend(body, res) {
+  const { adId, wallet, days, token, txHash } = body;
+  const id = Math.floor(Number(adId));
+  if (!(id > 0)) { res.status(400).json({ error: 'Bad ad id' }); return; }
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+  const daysNum = Math.floor(Number(days));
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
+  if (!['USDT', 'USDC'].includes(token)) { res.status(400).json({ error: 'Bad token' }); return; }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { res.status(400).json({ error: 'Bad tx hash' }); return; }
+
+  const sb = sbClient();
+
+  // объявление должно существовать, быть живым и принадлежать плательщику
+  const { data: ad } = await sb.from('ad_boards').select('id,wallet,removed,end_at').eq('id', id).maybeSingle();
+  if (!ad) { res.status(404).json({ error: 'Ad not found' }); return; }
+  if (ad.removed) { res.status(400).json({ error: 'Ad already removed' }); return; }
+  if (String(ad.wallet).toLowerCase() !== wallet.toLowerCase()) { res.status(403).json({ error: 'Not your ad' }); return; }
+
+  const endMs = new Date(ad.end_at).getTime();
+  if (endMs <= Date.now()) { res.status(400).json({ error: 'Ad already expired — place a new one' }); return; }
+
+  // предварительная проверка окна: платить бессмысленно, если продление не влезет
+  if (endMs + daysNum * 86400000 > Date.now() + MAX_AD_DAYS * 86400000) {
+    res.status(400).json({ error: 'Cannot book more than ' + MAX_AD_DAYS + ' days ahead' }); return;
+  }
+
+  // тот же txHash нельзя зачесть дважды
+  const { data: usedTx } = await sb.from('ad_tx_used').select('tx_hash').eq('tx_hash', txHash).maybeSingle();
+  if (usedTx) { res.status(409).json({ error: 'Transaction already used' }); return; }
+
+  const tokenAddr = token === 'USDT' ? USDT_ADDR : USDC_ADDR;
+
+  let receipt = null;
+  for (const url of RPCS) {
+    try { receipt = await mkProvider(url).getTransactionReceipt(txHash); if (receipt) break; } catch (e) {}
+  }
+  if (!receipt) { res.status(404).json({ error: 'Tx not found' }); return; }
+  if (Number(receipt.status) !== 1) { res.status(400).json({ error: 'Tx failed' }); return; }
+
+  const iface = mkIface(TRANSFER_EVENT);
+  let value = null;
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== tokenAddr.toLowerCase()) continue;
+    let p; try { p = iface.parseLog(log); } catch (e) { continue; }
+    if (!p || p.name !== 'Transfer') continue;
+    if (String(p.args.from).toLowerCase() !== wallet.toLowerCase()) continue;
+    if (String(p.args.to).toLowerCase() !== OWNER_WALLET.toLowerCase()) continue;
+    value = p.args.value;
+    break;
+  }
+  if (value === null) { res.status(400).json({ error: 'No matching payment found' }); return; }
+
+  // цена берётся ТЕКУЩАЯ, на момент продления
+  const perDay = await getPricePerDay(wallet);
+  const requiredMin = perDay * daysNum * 0.999;
+  const paidUsd = Number(fmtEther(value));
+  if (paidUsd < requiredMin) { res.status(400).json({ error: 'Payment amount too low for ' + daysNum + ' day(s)' }); return; }
+
+  const { data: newEnd, error } = await sb.rpc('extend_ad_atomic', {
+    p_ad_id: id,
+    p_wallet: wallet.toLowerCase(),
+    p_tx_hash: txHash,
+    p_paid_amount: paidUsd,
+    p_paid_token: token,
+    p_days: daysNum,
+    p_max_days: MAX_AD_DAYS
+  });
+  if (error) {
+    const m = String(error.message || '');
+    if (m.includes('tx_used'))            { res.status(409).json({ error: 'Transaction already used' }); return; }
+    if (m.includes('not_owner'))          { res.status(403).json({ error: 'Not your ad' }); return; }
+    if (m.includes('ad_removed'))         { res.status(400).json({ error: 'Ad already removed' }); return; }
+    if (m.includes('ad_expired'))         { res.status(400).json({ error: 'Ad already expired' }); return; }
+    if (m.includes('exceeds_max_window')) { res.status(400).json({ error: 'Cannot book more than ' + MAX_AD_DAYS + ' days ahead' }); return; }
+    res.status(500).json({ error: error.message }); return;
+  }
+  res.status(200).json({ ok: true, endAt: newEnd });
 }
 
 /* ─── advertiser removes their own ad ─── */
