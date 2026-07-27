@@ -33,7 +33,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .ad-boards-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
 .ad-slot{flex:1;min-width:260px;height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
 .ad-slot img{width:100%;height:100%;object-fit:cover;}
-.ad-remove-btn{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;z-index:2;min-height:32px;}
+.ad-actions{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:4;flex-wrap:wrap;justify-content:flex-end;max-width:72%;}
+.ad-remove-btn,.ad-extend-btn{position:static;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;min-height:36px;white-space:normal;}
+.ad-remove-btn{color:#fff;}
+.ad-extend-btn{color:var(--gold);}
 .mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:340px;margin:0 auto 16px;}
 .mode-tab{flex:1;text-align:center;padding:11px 8px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:normal;min-height:44px;}
 .mode-tab.active{background:var(--gold);color:#000;}
@@ -66,7 +69,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tc-copy:hover{border-color:var(--gold);color:var(--text);}
 .bsc-link{color:var(--gold);text-decoration:none;border-bottom:1px dotted rgba(245,200,66,.5);}
 .bsc-link:hover{border-bottom-style:solid;}
-.ad-extend-btn{position:absolute;top:6px;right:96px;background:rgba(0,0,0,.7);color:var(--gold);border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;z-index:2;min-height:32px;}
+#tradesFeed,#poolTradesFeed{max-height:360px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px;}
+#tradesFeed::-webkit-scrollbar,#poolTradesFeed::-webkit-scrollbar{width:6px;}
+#tradesFeed::-webkit-scrollbar-track,#poolTradesFeed::-webkit-scrollbar-track{background:var(--bg3);border-radius:100px;}
+#tradesFeed::-webkit-scrollbar-thumb,#poolTradesFeed::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
+#tradesFeed::-webkit-scrollbar-thumb:hover,#poolTradesFeed::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+.price-hint{font-size:11px;color:var(--muted);line-height:1.4;padding:8px 0 0;border-top:1px solid var(--border);margin-top:4px;}
 .ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;}
 .ad-social{width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;text-decoration:none;backdrop-filter:blur(3px);}
 .ad-social:hover{border-color:var(--gold);background:rgba(0,0,0,.85);}
@@ -158,15 +166,21 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .lab-nav-actions{gap:8px;width:100%;justify-content:space-between;}
   .btn-gold,.btn-ghost{padding:10px 12px;font-size:13px;}
   .info-row .v{max-width:55%;}
-  .ad-slot{min-width:100%;height:100px;}
+  .ad-slot{min-width:100%;height:120px;}
   .modal-box{padding:18px;max-width:96vw;}
   .modal-title{font-size:16px;}
   .mode-tabs{max-width:100%;}
   .bs-presets{flex-wrap:wrap;}
   .quote-opt{min-width:70px;}
-  .tc-social{width:40px;height:40px;font-size:17px;}
-  .tc-copy{min-height:40px;padding:9px 12px;font-size:12px;}
-  .ad-social{width:38px;height:38px;font-size:16px;}
+  .tc-social{width:44px;height:44px;font-size:18px;}
+  .tc-copy{min-height:44px;padding:11px 12px;font-size:12px;}
+  .ad-social{width:44px;height:44px;font-size:17px;}
+  .social-link{width:44px;height:44px;font-size:18px;}
+  .btn-how{width:44px;height:44px;}
+  .ad-remove-btn,.ad-extend-btn{min-height:44px;padding:11px 12px;}
+  .bs-preset{min-height:44px;}
+  .ad-remove-btn,.ad-extend-btn,.tc-copy{font-size:12px;}
+  #tradesFeed,#poolTradesFeed{max-height:300px;}
   .ad-socials{left:6px;bottom:6px;gap:5px;}
 }
 </style>
@@ -237,6 +251,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="info-row"><span class="k">Creator fee</span><span class="v" id="infoCreatorFee">—</span></div>
           <div class="info-row"><span class="k">Creator</span><span class="v" id="infoCreator">—</span></div>
           <div class="info-row"><span class="k">Contract</span><span class="v" id="infoContract">—</span></div>
+          <div class="price-hint">Prices are tiny, so <b>0.0<sub>8</sub>125</b> is short for 0.00000000125 — the small number counts the zeros after the dot.</div>
           <div class="info-row" id="infoGradRow" style="display:none;"><span class="k">Status</span><span class="v"><a id="infoPancake" href="#" target="_blank" style="color:var(--green);">🎓 Graduated — trade on PancakeSwap ↗</a></span></div>
         </div>
         <div id="tradeDesc" style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px;"></div>
@@ -304,6 +319,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="info-row"><span class="k">Liquidity</span><span class="v" id="poolLockStatus">—</span></div>
           <div class="info-row"><span class="k">Contract</span><span class="v" id="poolContract">—</span></div>
           <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
+          <div class="price-hint">Prices are tiny, so <b>0.0<sub>8</sub>125</b> is short for 0.00000000125 — the small number counts the zeros after the dot.</div>
         </div>
         <div id="poolDescText" style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px;"></div>
         <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
@@ -662,8 +678,7 @@ function fmtUsd(bnbAmount){
 function fmtPriceUsd(priceWei){
   if(!bnbUsdPrice) return '—';
   const usd = (Number(priceWei)/1e18) * bnbUsdPrice;
-  if(usd < 0.00001) return '$'+usd.toExponential(2);
-  return '$'+usd.toFixed(6);
+  return '$' + fmtTinyPrice(usd, 4);
 }
 function fmtTokens(wei){ const n=Number(wei)/1e18; return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toFixed(0); }
 function shortAddr(a){ return a? a.slice(0,6)+'...'+a.slice(-4) : ''; }
@@ -806,7 +821,7 @@ async function openTradePage(token,_retry){
       if(meta.telegram) soc.innerHTML+='<a class="social-link" href="'+esc(meta.telegram)+'" target="_blank">✈️</a>';
       if(meta.website) soc.innerHTML+='<a class="social-link" href="'+esc(meta.website)+'" target="_blank">🌐</a>';
     }
-    document.getElementById('infoPrice').textContent=fmtPriceUsd(price)+' ('+Number(price)/1e18+' BNB)';
+    document.getElementById('infoPrice').textContent=fmtPriceUsd(price)+' ('+fmtTinyPrice(Number(price)/1e18,6)+' BNB)';
     document.getElementById('infoMC').textContent=fmtUsd(c[1]);
     document.getElementById('infoProgress').textContent=(progress/100).toFixed(1)+'%';
     document.getElementById('infoCreatorFee').textContent=(creatorFeeBps/100).toFixed(2)+'% of each trade';
@@ -868,14 +883,25 @@ function resetChartState(state, candles, volumes, lastDate, lastTradeAt){
 // Шаг шкалы цены считаем от самих данных. Фиксированный minMove 1e-10
 // давал для токенов с ценой ~1e-9 всего десяток различимых уровней —
 // свечи превращались в ступеньки. Теперь всегда ~4 значащие цифры.
+// Крипто-запись для крошечных цен: 0.0₈125 вместо 1.25e-9.
+// Маленькая цифра — сколько нулей идёт после запятой.
+// Так пишут DexScreener и pump.fun, людям это привычнее степеней.
+const SUB_DIGITS = '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
+function subscriptNum(n){ return String(n).split('').map(c=>SUB_DIGITS[Number(c)]||c).join(''); }
 function fmtTinyPrice(v, digits){
   if(!isFinite(v)) return '—';
   if(v === 0) return '0';
-  const d = Math.max(2, Math.min(15, digits || 4));
+  const sig = Math.max(2, Math.min(12, digits || 4));
   const a = Math.abs(v);
-  if(a >= 1)      return v.toFixed(Math.min(8, d));
-  if(a >= 0.0001) return v.toFixed(Math.min(12, d + 2));
-  return v.toExponential(Math.min(14, d - 1));
+  const sign = v < 0 ? '-' : '';
+  if(a >= 1)      return sign + a.toFixed(Math.min(8, sig));
+  if(a >= 0.001)  return sign + a.toFixed(Math.min(10, sig + 2));
+  const exp = Math.floor(Math.log10(a));       // например -9
+  const zeros = -exp - 1;                      // столько нулей после запятой
+  if(zeros < 0 || zeros > 30) return sign + a.toExponential(Math.min(14, sig - 1));
+  let mant = (a / Math.pow(10, exp)).toFixed(Math.max(0, sig - 1)).replace('.', '');
+  mant = mant.replace(/0+$/, '') || '0';
+  return sign + '0.0' + subscriptNum(zeros) + mant;
 }
 // Шаг шкалы считаем от РАЗМАХА движения, а не от величины цены.
 // Раньше для токена с ценой 1.25e-9 шаг выходил 1e-12, при том что весь
@@ -980,6 +1006,11 @@ function initChart(){
     grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
     timeScale:{ borderColor:'#252932', tickMarkFormatter:(time)=>{ const real=chartTimeMap[time]; if(!real) return ''; return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0'); } },
     rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
+    // На телефоне вертикальный свайп должен листать страницу, а не график,
+    // иначе мимо графика невозможно прокрутить. Горизонтальный по-прежнему
+    // двигает график, щипок масштабирует.
+    handleScroll:{ vertTouchDrag:false, horzTouchDrag:true, mouseWheel:true, pressedMouseMove:true },
+    handleScale:{ pinch:true, mouseWheel:true, axisPressedMouseMove:true },
     localization:{ timeFormatter:(time)=>{ const real=chartTimeMap[time]; return real ? real.toLocaleString() : ''; } }
   });
   candleSeries=chart.addCandlestickSeries({
@@ -1029,7 +1060,7 @@ async function loadTradesFeed(token){
   try{
     const {data,error}=await sb.from('launchpad_trades')
       .select('wallet,side,bnb_amount,price,created_at')
-      .eq('token_address',token.toLowerCase()).order('created_at',{ascending:false}).limit(30);
+      .eq('token_address',token.toLowerCase()).order('created_at',{ascending:false}).limit(50);
     if(error){ console.error('launchpad_trades feed error:', error); }
     renderTradesFeed(data||[]);
   }catch(e){ console.error('launchpad_trades feed exception:', e); }
@@ -1053,7 +1084,7 @@ async function refreshTradeInfo(token){
     const progress=Number(await lp.getProgress(token));
     const price=await lp.getPrice(token);
     document.getElementById('tradePrice').textContent=fmtPriceUsd(price);
-    document.getElementById('infoPrice').textContent=fmtPriceUsd(price)+' ('+Number(price)/1e18+' BNB)';
+    document.getElementById('infoPrice').textContent=fmtPriceUsd(price)+' ('+fmtTinyPrice(Number(price)/1e18,6)+' BNB)';
     document.getElementById('infoMC').textContent=fmtUsd(c[1]);
     document.getElementById('infoProgress').textContent=(progress/100).toFixed(1)+'%';
     if(c[3]&&!currentGraduated){ currentGraduated=true; applyGraduatedLock(token); }
@@ -1478,10 +1509,10 @@ async function openPoolTradePage(pid,_retry){
     const canEdit = userAddr && (userAddr.toLowerCase()===String(p.creator).toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
     document.getElementById('poolEditBtn').classList.toggle('hidden', !canEdit);
     document.getElementById('poolName').textContent = name+' ($'+symbol+') / '+quoteLabel(currentPoolData.quote);
-    document.getElementById('poolPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
-    document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolInfoPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
-    document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(currentPoolData.quote);
+    document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Withdrawn by lister' : '⚠️ Removable');
     document.getElementById('poolContract').innerHTML = bscLink(p.token,'token');
     document.getElementById('poolCreator').innerHTML = bscLink(p.creator,'address');
@@ -1506,6 +1537,11 @@ function initPoolChart(){
     grid:{vertLines:{color:'#1a1d24'},horzLines:{color:'#1a1d24'}},
     timeScale:{ borderColor:'#252932', tickMarkFormatter:(time)=>{ const real=poolChartTimeMap[time]; if(!real) return ''; return real.getHours().toString().padStart(2,'0')+':'+real.getMinutes().toString().padStart(2,'0'); } },
     rightPriceScale:{borderColor:'#252932',autoScale:true,scaleMargins:{top:0.1,bottom:0.25}},
+    // На телефоне вертикальный свайп должен листать страницу, а не график,
+    // иначе мимо графика невозможно прокрутить. Горизонтальный по-прежнему
+    // двигает график, щипок масштабирует.
+    handleScroll:{ vertTouchDrag:false, horzTouchDrag:true, mouseWheel:true, pressedMouseMove:true },
+    handleScale:{ pinch:true, mouseWheel:true, axisPressedMouseMove:true },
     localization:{ timeFormatter:(time)=>{ const real=poolChartTimeMap[time]; return real ? real.toLocaleString() : ''; } }
   });
   poolCandleSeries=poolChart.addCandlestickSeries({
@@ -1554,7 +1590,7 @@ async function loadPoolTradesFeed(pid){
   try{
     const {data,error}=await sb.from('pool_trades')
       .select('wallet,side,quote_amount,price,created_at')
-      .eq('pool_id',pid).order('created_at',{ascending:false}).limit(30);
+      .eq('pool_id',pid).order('created_at',{ascending:false}).limit(50);
     if(error){ console.error('pool_trades feed error:', error); }
     renderPoolTradesFeed(data||[]);
   }catch(e){ console.error('pool_trades feed exception:', e); }
@@ -1580,10 +1616,10 @@ async function refreshPoolInfo(pid){
     const p=await pl.getPool(pid);
     const price=await pl.getPrice(pid);
     const q=Number(p.quote);
-    document.getElementById('poolPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(q);
-    document.getElementById('poolInfoPrice').textContent = ethers.formatEther(price)+' '+quoteLabel(q);
+    document.getElementById('poolPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(q);
+    document.getElementById('poolInfoPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(q);
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+(currentPoolData?currentPoolData.symbol:'');
-    document.getElementById('poolReserveQuote').textContent = ethers.formatEther(p.reserveQuote)+' '+quoteLabel(q);
+    document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(q);
     if(currentPoolData){ currentPoolData.reserveToken=p.reserveToken; currentPoolData.reserveQuote=p.reserveQuote; }
     updatePoolTradeButton();
   }catch(e){ console.error('refreshPoolInfo failed:', e); }
@@ -1809,7 +1845,8 @@ function renderAdSlot(slot){
   if(aTg) icons+='<a class="ad-social" href="'+esc(aTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
   if(aWs) icons+='<a class="ad-social" href="'+esc(aWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
   const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
-  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+extendBtn+removeBtn;
+  const actions = (extendBtn||removeBtn) ? '<div class="ad-actions">'+extendBtn+removeBtn+'</div>' : '';
+  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+actions;
 }
 function handleAdSlotClick(slot){
   if(adBoardsData[slot]){
