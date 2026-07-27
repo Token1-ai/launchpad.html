@@ -79,6 +79,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 #tradesFeed::-webkit-scrollbar-thumb,#poolTradesFeed::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
 #tradesFeed::-webkit-scrollbar-thumb:hover,#poolTradesFeed::-webkit-scrollbar-thumb:hover{background:var(--muted);}
 .price-hint{font-size:11px;color:var(--muted);line-height:1.4;padding:8px 0 0;border-top:1px solid var(--border);margin-top:4px;}
+.wallet-opt{display:flex;align-items:center;gap:12px;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;color:var(--text);font-size:15px;font-weight:600;min-height:56px;text-align:left;white-space:normal;}
+.wallet-opt:hover{border-color:var(--gold);}
+.wallet-opt img{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:contain;}
+.wallet-opt .dotfallback{width:30px;height:30px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
 .ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;}
 .ad-social{width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;text-decoration:none;backdrop-filter:blur(3px);}
 .ad-social:hover{border-color:var(--gold);background:rgba(0,0,0,.85);}
@@ -445,6 +449,14 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   </div>
 </div>
 
+<div class="modal-overlay" id="walletModal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-title">Choose your wallet</div>
+    <div id="walletList"></div>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:10px;" onclick="closeWalletModal()">Cancel</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="poolMetaModal">
   <div class="modal-box">
     <div class="modal-title">🖼 Edit token info</div>
@@ -688,14 +700,70 @@ function fmtTokens(wei){ const n=Number(wei)/1e18; return n>=1e6?(n/1e6).toFixed
 function shortAddr(a){ return a? a.slice(0,6)+'...'+a.slice(-4) : ''; }
 function timeAgo(ts){ const s=Math.floor((Date.now()-new Date(ts).getTime())/1000); if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; if(s<86400) return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
 
-async function connectWallet(){
-  if(!window.ethereum){ toast('Install MetaMask','err'); return; }
+// ─── Выбор кошелька (стандарт EIP-6963) ───
+// Раньше сайт брал window.ethereum напрямую. Когда в браузере стоит
+// несколько кошельков, они переписывают эту переменную друг за другом,
+// и подключался случайный. Теперь кошельки объявляют о себе сами,
+// а человек выбирает нужный.
+let injected = null;                 // выбранный EIP-1193 провайдер
+const discoveredWallets = [];        // [{info:{uuid,name,icon,rdns}, provider}]
+
+window.addEventListener('eip6963:announceProvider', (e)=>{
+  const d = e && e.detail;
+  if(!d || !d.info || !d.provider) return;
+  if(discoveredWallets.some(w => w.info.uuid === d.info.uuid)) return;
+  discoveredWallets.push(d);
+});
+try{ window.dispatchEvent(new Event('eip6963:requestProvider')); }catch(e){}
+
+function rememberWallet(rdns){ try{ localStorage.setItem('og_wallet', rdns||''); }catch(e){} }
+function lastWallet(){ try{ return localStorage.getItem('og_wallet')||''; }catch(e){ return ''; } }
+
+function openWalletModal(){
+  const list = document.getElementById('walletList');
+  list.innerHTML = discoveredWallets.map((w,i)=>{
+    const icon = (w.info.icon && /^data:image\//i.test(w.info.icon))
+      ? '<img src="'+esc(w.info.icon)+'" alt=""/>'
+      : '<div class="dotfallback">'+esc(String(w.info.name||'?').charAt(0))+'</div>';
+    return '<button class="wallet-opt" onclick="pickWallet('+i+')">'+icon+'<span>'+esc(w.info.name||'Wallet')+'</span></button>';
+  }).join('');
+  document.getElementById('walletModal').classList.add('show');
+}
+function closeWalletModal(){ document.getElementById('walletModal').classList.remove('show'); }
+function pickWallet(i){
+  const w = discoveredWallets[i];
+  if(!w) return;
+  closeWalletModal();
+  rememberWallet(w.info.rdns);
+  connectWallet(w.provider);
+}
+
+// Какой провайдер использовать, если человек ещё не выбирал
+function resolveProvider(){
+  if(discoveredWallets.length === 1) return discoveredWallets[0].provider;
+  if(discoveredWallets.length > 1){
+    const saved = lastWallet();
+    const hit = saved && discoveredWallets.find(w => w.info.rdns === saved);
+    if(hit) return hit.provider;
+    return null;                     // нужен выбор
+  }
+  return window.ethereum || null;    // старые кошельки без EIP-6963
+}
+
+async function connectWallet(chosen){
+  const eth = chosen || resolveProvider();
+  if(!eth){
+    if(discoveredWallets.length > 1){ openWalletModal(); return; }
+    toast('No wallet found. Install MetaMask, Trust Wallet or another Web3 wallet.','err');
+    return;
+  }
+  injected = eth;
   try{
-    provider = new ethers.BrowserProvider(window.ethereum);
+    provider = new ethers.BrowserProvider(eth);
     await provider.send('eth_requestAccounts', []);
-    try{ await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BNB_PARAMS.chainId}]}); }
-    catch(e){ if(e.code===4902) await window.ethereum.request({method:'wallet_addEthereumChain',params:[BNB_PARAMS]}); }
-    provider = new ethers.BrowserProvider(window.ethereum);
+    try{ await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:BNB_PARAMS.chainId}]}); }
+    catch(e){ if(e.code===4902) await eth.request({method:'wallet_addEthereumChain',params:[BNB_PARAMS]}); }
+    provider = new ethers.BrowserProvider(eth);
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
     launchpad = new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, signer);
@@ -709,8 +777,10 @@ async function connectWallet(){
     loadAdBoards();
     if(!_walletListenersSet){
       _walletListenersSet = true;
-      window.ethereum.on('accountsChanged',()=>location.reload());
-      window.ethereum.on('chainChanged',()=>{ toast('Network changed','ok'); });
+      if(injected && injected.on){
+        injected.on('accountsChanged',()=>location.reload());
+        injected.on('chainChanged',()=>{ toast('Network changed','ok'); });
+      }
     }
   }catch(e){ toast(e.message||'Connect failed','err'); }
 }
