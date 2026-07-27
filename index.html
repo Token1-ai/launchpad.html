@@ -222,8 +222,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
                 <div class="chart-price" id="tradePrice">—</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
               <div class="socials" id="tradeSocials"></div>
+              <button class="btn-ghost hidden" id="launchEditBtn" onclick="openLaunchMetaModal()" style="padding:8px 12px;font-size:13px;min-height:38px;">🖼 Edit</button>
               <div id="tradeChange" style="font-weight:700;"></div>
             </div>
           </div>
@@ -491,6 +492,18 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">No pass price/day (USD)</label>
     <input class="field-input" id="adminPublicPrice" type="number"/>
     <button class="btn-gold" style="width:100%;padding:13px;" onclick="submitAdPricing()">Save & Sign</button>
+
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="feed-title">🚫 Blocked advertisers</div>
+      <div class="img-hint">Blocked wallets cannot place new ads or extend existing ones. Money is never refunded.</div>
+      <label class="field-label">Block a wallet manually</label>
+      <input class="field-input" id="blockWalletInput" placeholder="0x..."/>
+      <input class="field-input" id="blockReasonInput" placeholder="Reason (optional, e.g. adult content)"/>
+      <button class="btn-ghost" style="width:100%;padding:11px;" onclick="blockWalletManual()">Block wallet</button>
+      <div id="blockedList" style="font-size:12px;color:var(--muted);margin-top:12px;">Press the button below to load.</div>
+      <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="loadBlockedList()">Show blocked list</button>
+    </div>
+
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdAdminModal()">Cancel</button>
   </div>
 </div>
@@ -798,6 +811,8 @@ async function openTradePage(token,_retry){
     document.getElementById('infoProgress').textContent=(progress/100).toFixed(1)+'%';
     document.getElementById('infoCreatorFee').textContent=(creatorFeeBps/100).toFixed(2)+'% of each trade';
     document.getElementById('infoCreator').innerHTML=bscLink(c[0],'address');
+    const canEditToken = userAddr && (userAddr.toLowerCase()===String(c[0]).toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
+    document.getElementById('launchEditBtn').classList.toggle('hidden', !canEditToken);
     document.getElementById('infoContract').innerHTML=bscLink(token,'token');
     if(c[3]){
       document.getElementById('infoGradRow').style.display='flex';
@@ -1201,9 +1216,21 @@ async function submitLaunch(){
     for(const log of rc.logs){ try{ const parsed=launchpad.interface.parseLog(log); if(parsed&&parsed.name==='TokenCreated'){ tokenAddr=parsed.args.token; break; } }catch(e){} }
     if(tokenAddr){
       try{
-        const r=await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'token',tokenAddress:tokenAddr,wallet:userAddr,meta:{ name,symbol, description:document.getElementById('launchDesc').value.trim(), image_url:imageUrl, twitter:document.getElementById('launchTwitter').value.trim(), telegram:document.getElementById('launchTelegram').value.trim(), website:document.getElementById('launchWebsite').value.trim() }})});
-        if(!r.ok){ const j=await r.json().catch(()=>({})); console.warn('metadata save failed', j.error); }
-      }catch(e){}
+        // Метаданные подписываются кошельком: сервер больше не верит
+        // адресу из запроса, иначе описание мог бы переписать посторонний.
+        await saveLaunchMeta(tokenAddr, {
+          name, symbol,
+          description: document.getElementById('launchDesc').value.trim(),
+          image_url:   imageUrl,
+          twitter:     document.getElementById('launchTwitter').value.trim(),
+          telegram:    document.getElementById('launchTelegram').value.trim(),
+          website:     document.getElementById('launchWebsite').value.trim()
+        });
+      }catch(e){
+        // Токен уже создан и торгуется — описание можно добавить позже кнопкой Edit
+        console.warn('metadata save failed', e);
+        toast('Token created, but info not saved: '+(e.message||'')+' — use 🖼 Edit','err');
+      }
     }
     toast('Token launched! 🚀','ok');
     closeLaunchModal();
@@ -1227,7 +1254,7 @@ function closeHowModal(){ document.getElementById('howModal').classList.remove('
 </script>
 <script>
 // ─── LIST & TRADE (pools) ───
-let poolMetaCache = {}, poolPendingImage = null, metaPendingImage = null;
+let poolMetaCache = {}, poolPendingImage = null, metaPendingImage = null, metaMode = 'pool';
 
 async function loadPoolMeta(){
   try{
@@ -1279,10 +1306,28 @@ async function savePoolMeta(tokenAddress, meta){
   return j;
 }
 
-function openPoolMetaModal(){
-  if(!userAddr){ connectWallet(); return; }
-  if(!currentPoolData){ return; }
-  const m = poolMetaOf(currentPoolData.token);
+// Префикс отличается от пулов: подпись одного раздела нельзя применить в другом.
+function launchMetaMessage(tokenAddress, m, ts){
+  return 'OpenGate Launch token metadata\n' +
+    'token: ' + String(tokenAddress).toLowerCase() + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'desc: '  + (m.description || '') + '\n' +
+    'x: '     + (m.twitter || '') + '\n' +
+    'tg: '    + (m.telegram || '') + '\n' +
+    'web: '   + (m.website || '') + '\n' +
+    'ts: '    + ts;
+}
+async function saveLaunchMeta(tokenAddress, meta){
+  const ts = Date.now();
+  const signature = await signer.signMessage(launchMetaMessage(tokenAddress, meta, ts));
+  const r = await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ action:'token', tokenAddress, ts, signature, meta })});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || 'Failed to save token info');
+  return j;
+}
+
+function fillMetaModal(m){
   metaPendingImage = null;
   document.getElementById('metaImageInput').value='';
   document.getElementById('metaImgPreview').classList.add('hidden');
@@ -1297,18 +1342,33 @@ function openPoolMetaModal(){
   document.getElementById('metaTelegram').value = m.telegram || '';
   document.getElementById('metaWebsite').value  = m.website || '';
   document.getElementById('poolMetaNote').textContent =
-    'You will be asked to sign a message. It proves you are the pool creator — no gas, no transaction.';
+    'You will be asked to sign a message. It proves you own this token — no gas, no transaction.';
   document.getElementById('poolMetaModal').classList.add('show');
+}
+function openLaunchMetaModal(){
+  if(!userAddr){ connectWallet(); return; }
+  if(!currentToken) return;
+  metaMode = 'launch';
+  fillMetaModal(currentTokenMeta || {});
+}
+
+function openPoolMetaModal(){
+  if(!userAddr){ connectWallet(); return; }
+  if(!currentPoolData){ return; }
+  metaMode = 'pool';
+  fillMetaModal(poolMetaOf(currentPoolData.token));
 }
 function closePoolMetaModal(){ document.getElementById('poolMetaModal').classList.remove('show'); }
 
 async function submitPoolMeta(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
-  if(!currentPoolData){ return; }
+  const isLaunch = metaMode === 'launch';
+  if(isLaunch ? !currentToken : !currentPoolData){ return; }
   const btn=document.getElementById('metaSaveBtn');
   btn.disabled=true;
   try{
-    let imageUrl = poolMetaOf(currentPoolData.token).image_url || '';
+    const existing = isLaunch ? (currentTokenMeta || {}) : poolMetaOf(currentPoolData.token);
+    let imageUrl = existing.image_url || '';
     if(metaPendingImage){ btn.textContent='Uploading image...'; imageUrl = await uploadTokenImage(metaPendingImage); }
     btn.textContent='Confirm signature in wallet...';
     const meta = {
@@ -1318,11 +1378,19 @@ async function submitPoolMeta(){
       telegram:    document.getElementById('metaTelegram').value.trim(),
       website:     document.getElementById('metaWebsite').value.trim()
     };
-    await savePoolMeta(currentPoolData.token, meta);
-    toast('Token info saved 🖼','ok');
-    closePoolMetaModal();
-    await loadPoolMeta();
-    await openPoolTradePage(currentPoolId);
+    if(isLaunch){
+      await saveLaunchMeta(currentToken, meta);
+      toast('Token info saved 🖼','ok');
+      closePoolMetaModal();
+      await loadTokens();
+      await openTradePage(currentToken);
+    }else{
+      await savePoolMeta(currentPoolData.token, meta);
+      toast('Token info saved 🖼','ok');
+      closePoolMetaModal();
+      await loadPoolMeta();
+      await openPoolTradePage(currentPoolId);
+    }
   }catch(e){
     toast(e.message || 'Failed','err');
   }
@@ -1907,9 +1975,77 @@ async function requestRemoveAd(adId, adWallet){
     const j = await r.json();
     if(!r.ok){ toast(j.error||'Failed to remove','err'); return; }
     toast('Ad removed','ok');
+
+    // Слот освобождается сразу. Но без блокировки тот же кошелёк
+    // выкупит его снова через минуту — поэтому спрашиваем.
+    if(isOwner && !isSelf){
+      if(confirm('Ad removed. Also block '+adWallet+' from buying ad slots?\n\nMoney is not refunded either way.')){
+        try{
+          await blockWallet(adWallet, 'Removed by admin');
+          toast('Advertiser blocked','ok');
+        }catch(e){ toast('Removed, but blocking failed: '+(e.message||''),'err'); }
+      }
+    }
     await loadAdBoards();
   }catch(e){ toast(e.message||'Failed','err'); }
 }
+// Действия владельца подписываются с меткой времени: перехваченную подпись
+// нельзя применить позже, чтобы, например, снять чужую блокировку.
+async function adminSign(action, target){
+  const ts = Date.now();
+  const signature = await signer.signMessage('OpenGate admin ' + action + ' ' + String(target).toLowerCase() + ' ' + ts);
+  return { ts, signature };
+}
+async function adminCall(payload){
+  const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || 'Failed');
+  return j;
+}
+function isOwnerWallet(){ return !!userAddr && userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase(); }
+
+async function blockWallet(wallet, reason){
+  const { ts, signature } = await adminSign('block', wallet);
+  await adminCall({ action:'adminBlock', wallet, reason: reason||'', ts, signature });
+}
+async function blockWalletManual(){
+  if(!isOwnerWallet()){ toast('Owner only','err'); return; }
+  const w = document.getElementById('blockWalletInput').value.trim();
+  if(!ethers.isAddress(w)){ toast('Enter a valid wallet address','err'); return; }
+  try{
+    await blockWallet(w, document.getElementById('blockReasonInput').value.trim());
+    toast('Wallet blocked','ok');
+    document.getElementById('blockWalletInput').value='';
+    document.getElementById('blockReasonInput').value='';
+    await loadBlockedList();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+async function unblockWallet(wallet){
+  if(!isOwnerWallet()){ toast('Owner only','err'); return; }
+  if(!confirm('Unblock '+wallet+'? They will be able to buy ad slots again.')) return;
+  try{
+    const { ts, signature } = await adminSign('unblock', wallet);
+    await adminCall({ action:'adminUnblock', wallet, ts, signature });
+    toast('Wallet unblocked','ok');
+    await loadBlockedList();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+async function loadBlockedList(){
+  const el = document.getElementById('blockedList');
+  if(!isOwnerWallet()){ el.textContent='Owner only.'; return; }
+  el.textContent='Loading...';
+  try{
+    const { ts, signature } = await adminSign('list blocked', 'all');
+    const j = await adminCall({ action:'adminBlocked', ts, signature });
+    const list = j.blocked || [];
+    if(!list.length){ el.textContent='Nobody is blocked.'; return; }
+    el.innerHTML = list.map(b =>
+      '<div class="trade-row"><span>'+bscLink(b.wallet,'address')+(b.reason?' — '+esc(b.reason):'')+'</span>'+
+      '<button class="tc-copy" onclick="unblockWallet(\''+esc(b.wallet)+'\')">Unblock</button></div>'
+    ).join('');
+  }catch(e){ el.textContent = e.message || 'Failed to load'; }
+}
+
 function openAdAdminModal(){
   document.getElementById('adminGoldPrice').value = adPricing.gold_price_usd;
   document.getElementById('adminSilverPrice').value = adPricing.silver_price_usd;
