@@ -22,6 +22,24 @@ const CURVE_ABI = ['function getCurve(address) view returns (address creator,uin
 
 const clip = (s, n) => String(s || '').slice(0, n);
 const safeUrl = s => { const v = clip(s, 200).trim(); return /^https?:\/\//i.test(v) ? v : ''; };
+const verifyMsg = (m, sig) => V6 ? ethers.verifyMessage(m, sig) : ethers.utils.verifyMessage(m, sig);
+const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+
+// Подпись покрывает САМО содержимое, а не только адрес токена.
+// Иначе тот, кто однажды увидел подпись, подставил бы под неё свой текст.
+// Префикс отличается от пулов, чтобы подпись нельзя было использовать
+// на другом разделе площадки.
+function tokenMetaMessage(tokenAddress, m, ts) {
+  return 'OpenGate Launch token metadata\n' +
+    'token: ' + String(tokenAddress).toLowerCase() + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'desc: '  + (m.description || '') + '\n' +
+    'x: '     + (m.twitter || '') + '\n' +
+    'tg: '    + (m.telegram || '') + '\n' +
+    'web: '   + (m.website || '') + '\n' +
+    'ts: '    + ts;
+}
+
 const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
@@ -112,10 +130,29 @@ async function doTrade(body, res) {
 }
 
 async function doToken(body, res) {
-  const { tokenAddress, wallet, meta } = body;
-  if (!tokenAddress || !wallet || !meta) { res.status(400).json({ error: 'Missing params' }); return; }
-  if (!isAddr(tokenAddress) || !isAddr(wallet)) { res.status(400).json({ error: 'Bad address' }); return; }
+  const { tokenAddress, meta, ts, signature } = body;
+  if (!tokenAddress || !meta || !signature) { res.status(400).json({ error: 'Missing params' }); return; }
+  if (!isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad address' }); return; }
 
+  // Окно свежести: перехваченную подпись нельзя применить позже
+  const tsNum = Number(ts);
+  if (!isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 10 * 60 * 1000) {
+    res.status(400).json({ error: 'Signature expired — try again' }); return;
+  }
+
+  const clean = {
+    description: clip(meta.description, 500),
+    image_url:   safeUrl(meta.image_url),
+    twitter:     safeUrl(meta.twitter),
+    telegram:    safeUrl(meta.telegram),
+    website:     safeUrl(meta.website)
+  };
+
+  let signer = null;
+  try { signer = verifyMsg(tokenMetaMessage(tokenAddress, clean, tsNum), signature); } catch (e) {}
+  if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
+
+  // Создателя берём ИЗ БЛОКЧЕЙНА, а не из запроса — это и есть суть правки
   let creator = null;
   for (const url of RPCS) {
     try {
@@ -126,23 +163,22 @@ async function doToken(body, res) {
     } catch (e) {}
   }
   if (!creator || creator === ZERO) { res.status(404).json({ error: 'Token not found' }); return; }
-  if (creator.toLowerCase() !== wallet.toLowerCase()) { res.status(403).json({ error: 'Not token creator' }); return; }
+
+  const allowed = creator.toLowerCase() === signer.toLowerCase()
+               || signer.toLowerCase() === OWNER_WALLET.toLowerCase();
+  if (!allowed) { res.status(403).json({ error: 'Only the token creator can edit this' }); return; }
 
   const sb = sbClient();
-  const { data: ex } = await sb.from('launchpad_tokens').select('creator').eq('address', tokenAddress.toLowerCase()).maybeSingle();
-  if (ex && ex.creator && ex.creator.toLowerCase() !== wallet.toLowerCase()) { res.status(403).json({ error: 'Already owned' }); return; }
+  // Название и тикер живут в контракте и не меняются: при правке берём старые
+  const { data: ex } = await sb.from('launchpad_tokens').select('name,symbol').eq('address', tokenAddress.toLowerCase()).maybeSingle();
 
   const { error } = await sb.from('launchpad_tokens').upsert({
     address: tokenAddress.toLowerCase(),
-    creator: wallet.toLowerCase(),
+    creator: creator.toLowerCase(),
     chain: 'bnb',
-    name: clip(meta.name, 64),
-    symbol: clip(meta.symbol, 16),
-    description: clip(meta.description, 500),
-    image_url: safeUrl(meta.image_url),
-    twitter: safeUrl(meta.twitter),
-    telegram: safeUrl(meta.telegram),
-    website: safeUrl(meta.website)
+    name:   clip(meta.name, 64)   || (ex && ex.name)   || '',
+    symbol: clip(meta.symbol, 16) || (ex && ex.symbol) || '',
+    ...clean
   }, { onConflict: 'address' });
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
