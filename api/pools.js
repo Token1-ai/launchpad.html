@@ -5,32 +5,32 @@ const V6 = typeof ethers.JsonRpcProvider === 'function';
 const mkProvider = u => V6 ? new ethers.JsonRpcProvider(u) : new ethers.providers.JsonRpcProvider(u);
 const mkIface = a => V6 ? new ethers.Interface(a) : new ethers.utils.Interface(a);
 const fmtEther = v => V6 ? ethers.formatEther(v) : ethers.utils.formatEther(v);
-const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
-const ZERO = '0x0000000000000000000000000000000000000000';
 
-const LAUNCHPAD = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+const POOLS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
 const RPCS = [
-  'https://bsc-dataseed.binance.org/',
-  'https://bsc-dataseed1.defibit.io/',
-  'https://bsc-dataseed1.ninicoin.io/'
+  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  'https://bsc-dataseed.binance.org/'
 ];
 const EVENT_ABI = [
-  'event Buy(address indexed token,address indexed buyer,uint256 bnbIn,uint256 tokensOut,uint256 newPrice)',
-  'event Sell(address indexed token,address indexed seller,uint256 tokensIn,uint256 bnbOut,uint256 newPrice)'
+  'event Buy(uint256 indexed poolId,address indexed buyer,uint256 quoteIn,uint256 tokensOut,uint256 newPrice)',
+  'event Sell(uint256 indexed poolId,address indexed seller,uint256 tokensIn,uint256 quoteOut,uint256 newPrice)'
 ];
-const CURVE_ABI = ['function getCurve(address) view returns (address creator,uint256 realBNB,uint256 tokensSold,bool graduated,uint256 createdAt)'];
 
-const clip = (s, n) => String(s || '').slice(0, n);
-const safeUrl = s => { const v = clip(s, 200).trim(); return /^https?:\/\//i.test(v) ? v : ''; };
 const verifyMsg = (m, sig) => V6 ? ethers.verifyMessage(m, sig) : ethers.utils.verifyMessage(m, sig);
-const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
+const safeUrl = v => { const x = String(v || '').trim().slice(0, 300); return /^https?:\/\//i.test(x) ? x : ''; };
 
-// Подпись покрывает САМО содержимое, а не только адрес токена.
-// Иначе тот, кто однажды увидел подпись, подставил бы под неё свой текст.
-// Префикс отличается от пулов, чтобы подпись нельзя было использовать
-// на другом разделе площадки.
-function tokenMetaMessage(tokenAddress, m, ts) {
-  return 'OpenGate Launch token metadata\n' +
+const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+const POOLS_META_ABI = [
+  'function poolByTokenQuote(address,uint8) view returns (uint256)',
+  'function getPool(uint256) view returns (address token,uint8 quote,uint256 reserveToken,uint256 reserveQuote,address creator,bool locked,bool liquidityPulled,uint256 createdAt)'
+];
+
+// Подпись покрывает САМО содержимое. Если бы она покрывала только адрес токена,
+// любой, кто однажды увидел подпись, мог бы подставить под неё чужой текст.
+function metaMessage(tokenAddress, m, ts) {
+  return 'OpenGate LaunchLab token metadata\n' +
     'token: ' + String(tokenAddress).toLowerCase() + '\n' +
     'image: ' + (m.image_url || '') + '\n' +
     'desc: '  + (m.description || '') + '\n' +
@@ -46,46 +46,17 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   const body = req.body || {};
   try {
-    if (body.action === 'upload') return await doUpload(body, res);
     if (body.action === 'trade') return await doTrade(body, res);
-    if (body.action === 'token') return await doToken(body, res);
+    if (body.action === 'meta')  return await doMeta(body, res);
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Failed' });
   }
 }
 
-async function doUpload(body, res) {
-  const { name, type, dataBase64 } = body;
-  if (!dataBase64) { res.status(400).json({ error: 'No file' }); return; }
-  const buffer = Buffer.from(dataBase64, 'base64');
-  if (buffer.length > 3 * 1024 * 1024) { res.status(413).json({ error: 'File too large (max 3MB)' }); return; }
-
-  const fname = String(name || 'upload').replace(/["\r\n]/g, '');
-  const boundary = '----OG' + Date.now().toString(16);
-  const head = Buffer.from(
-    '--' + boundary + '\r\n' +
-    'Content-Disposition: form-data; name="file"; filename="' + fname + '"\r\n' +
-    'Content-Type: ' + (type || 'application/octet-stream') + '\r\n\r\n'
-  );
-  const tail = Buffer.from('\r\n--' + boundary + '--\r\n');
-
-  const r = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + process.env.PINATA_JWT,
-      'Content-Type': 'multipart/form-data; boundary=' + boundary
-    },
-    body: Buffer.concat([head, buffer, tail])
-  });
-  if (!r.ok) { const t = await r.text(); res.status(502).json({ error: 'Pinata error', detail: t.slice(0, 200) }); return; }
-  const j = await r.json();
-  res.status(200).json({ url: 'https://gateway.pinata.cloud/ipfs/' + j.IpfsHash, hash: j.IpfsHash });
-}
-
 async function doTrade(body, res) {
-  const { txHash, tokenAddress, wallet } = body;
-  if (!txHash || !tokenAddress || !wallet) { res.status(400).json({ error: 'Missing params' }); return; }
+  const { txHash, poolId, wallet } = body;
+  if (!txHash || poolId === undefined || !wallet) { res.status(400).json({ error: 'Missing params' }); return; }
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { res.status(400).json({ error: 'Bad tx hash' }); return; }
 
   let receipt = null;
@@ -94,34 +65,34 @@ async function doTrade(body, res) {
   }
   if (!receipt) { res.status(404).json({ error: 'Tx not found' }); return; }
   if (Number(receipt.status) !== 1) { res.status(400).json({ error: 'Tx failed' }); return; }
-  if (!receipt.to || receipt.to.toLowerCase() !== LAUNCHPAD.toLowerCase()) { res.status(400).json({ error: 'Wrong contract' }); return; }
+  if (!receipt.to || receipt.to.toLowerCase() !== POOLS.toLowerCase()) { res.status(400).json({ error: 'Wrong contract' }); return; }
 
   const iface = mkIface(EVENT_ABI);
   let found = null;
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== LAUNCHPAD.toLowerCase()) continue;
+    if (log.address.toLowerCase() !== POOLS.toLowerCase()) continue;
     let p; try { p = iface.parseLog(log); } catch (e) { continue; }
     if (!p) continue;
-    if (String(p.args.token).toLowerCase() !== tokenAddress.toLowerCase()) continue;
+    if (String(p.args.poolId) !== String(poolId)) continue;
     if (p.name === 'Buy' && String(p.args.buyer).toLowerCase() === wallet.toLowerCase()) {
-      found = { side: 'buy', bnb: p.args.bnbIn, tokens: p.args.tokensOut, price: p.args.newPrice }; break;
+      found = { side: 'buy', quote: p.args.quoteIn, token: p.args.tokensOut, price: p.args.newPrice }; break;
     }
     if (p.name === 'Sell' && String(p.args.seller).toLowerCase() === wallet.toLowerCase()) {
-      found = { side: 'sell', bnb: p.args.bnbOut, tokens: p.args.tokensIn, price: p.args.newPrice }; break;
+      found = { side: 'sell', quote: p.args.quoteOut, token: p.args.tokensIn, price: p.args.newPrice }; break;
     }
   }
   if (!found) { res.status(400).json({ error: 'No matching trade event' }); return; }
 
   const sb = sbClient();
-  const { data: existing } = await sb.from('launchpad_trades').select('id').eq('tx_hash', txHash).maybeSingle();
+  const { data: existing } = await sb.from('pool_trades').select('id').eq('tx_hash', txHash).maybeSingle();
   if (existing) { res.status(200).json({ ok: true, duplicate: true }); return; }
 
-  const { error } = await sb.from('launchpad_trades').insert({
-    token_address: tokenAddress.toLowerCase(),
+  const { error } = await sb.from('pool_trades').insert({
+    pool_id: Number(poolId),
     wallet: wallet.toLowerCase(),
     side: found.side,
-    bnb_amount: Number(fmtEther(found.bnb)),
-    token_amount: Number(fmtEther(found.tokens)),
+    quote_amount: Number(fmtEther(found.quote)),
+    token_amount: Number(fmtEther(found.token)),
     price: Number(fmtEther(found.price)),
     tx_hash: txHash
   });
@@ -129,19 +100,19 @@ async function doTrade(body, res) {
   res.status(200).json({ ok: true });
 }
 
-async function doToken(body, res) {
-  const { tokenAddress, meta, ts, signature } = body;
-  if (!tokenAddress || !meta || !signature) { res.status(400).json({ error: 'Missing params' }); return; }
-  if (!isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad address' }); return; }
+async function doMeta(body, res) {
+  const { tokenAddress, signature, ts, meta } = body;
+  if (!tokenAddress || !isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad token address' }); return; }
+  if (!signature || !meta) { res.status(400).json({ error: 'Missing params' }); return; }
 
-  // Окно свежести: перехваченную подпись нельзя применить позже
+  // Свежесть подписи: старую перехваченную нельзя применить через сутки
   const tsNum = Number(ts);
   if (!isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 10 * 60 * 1000) {
     res.status(400).json({ error: 'Signature expired — try again' }); return;
   }
 
   const clean = {
-    description: clip(meta.description, 500),
+    description: String(meta.description || '').trim().slice(0, 500),
     image_url:   safeUrl(meta.image_url),
     twitter:     safeUrl(meta.twitter),
     telegram:    safeUrl(meta.telegram),
@@ -149,37 +120,35 @@ async function doToken(body, res) {
   };
 
   let signer = null;
-  try { signer = verifyMsg(tokenMetaMessage(tokenAddress, clean, tsNum), signature); } catch (e) {}
+  try { signer = verifyMsg(metaMessage(tokenAddress, clean, tsNum), signature); } catch (e) {}
   if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
 
-  // Создателя берём ИЗ БЛОКЧЕЙНА, а не из запроса — это и есть суть правки
-  let creator = null;
-  for (const url of RPCS) {
-    try {
-      const lp = new ethers.Contract(LAUNCHPAD, CURVE_ABI, mkProvider(url));
-      const c = await lp.getCurve(tokenAddress);
-      creator = c[0];
-      break;
-    } catch (e) {}
+  // Право на правку есть у создателя пула по этому токену и у владельца площадки
+  let allowed = signer.toLowerCase() === OWNER_WALLET.toLowerCase();
+  if (!allowed) {
+    let creator = null;
+    for (const url of RPCS) {
+      try {
+        const c = new ethers.Contract(POOLS, POOLS_META_ABI, mkProvider(url));
+        for (const q of [0, 1, 2]) {
+          const pid = await c.poolByTokenQuote(tokenAddress, q);
+          if (Number(pid) > 0) { creator = String((await c.getPool(pid)).creator); break; }
+        }
+        break;
+      } catch (e) {}
+    }
+    if (!creator) { res.status(404).json({ error: 'No pool found for this token' }); return; }
+    allowed = creator.toLowerCase() === signer.toLowerCase();
   }
-  if (!creator || creator === ZERO) { res.status(404).json({ error: 'Token not found' }); return; }
-
-  const allowed = creator.toLowerCase() === signer.toLowerCase()
-               || signer.toLowerCase() === OWNER_WALLET.toLowerCase();
-  if (!allowed) { res.status(403).json({ error: 'Only the token creator can edit this' }); return; }
+  if (!allowed) { res.status(403).json({ error: 'Only the pool creator can edit this token' }); return; }
 
   const sb = sbClient();
-  // Название и тикер живут в контракте и не меняются: при правке берём старые
-  const { data: ex } = await sb.from('launchpad_tokens').select('name,symbol').eq('address', tokenAddress.toLowerCase()).maybeSingle();
-
-  const { error } = await sb.from('launchpad_tokens').upsert({
-    address: tokenAddress.toLowerCase(),
-    creator: creator.toLowerCase(),
-    chain: 'bnb',
-    name:   clip(meta.name, 64)   || (ex && ex.name)   || '',
-    symbol: clip(meta.symbol, 16) || (ex && ex.symbol) || '',
-    ...clean
-  }, { onConflict: 'address' });
+  const { error } = await sb.from('pool_tokens').upsert({
+    token_address: tokenAddress.toLowerCase(),
+    ...clean,
+    updated_by: signer.toLowerCase(),
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'token_address' });
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
 }
