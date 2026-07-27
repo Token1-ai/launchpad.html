@@ -45,6 +45,9 @@ export default async function handler(req, res) {
     if (body.action === 'removeOwn')       return await doRemoveOwn(body, res);
     if (body.action === 'adminRemove')     return await doAdminRemove(body, res);
     if (body.action === 'adminSetPricing') return await doSetPricing(body, res);
+    if (body.action === 'adminBlock')      return await doBlock(body, res);
+    if (body.action === 'adminUnblock')    return await doUnblock(body, res);
+    if (body.action === 'adminBlocked')    return await doListBlocked(body, res);
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Failed' });
@@ -88,6 +91,13 @@ async function getPricePerDay(wallet) {
   return pricing.public_price_usd;
 }
 
+async function isBlocked(sb, wallet) {
+  try {
+    const { data } = await sb.from('ad_blocked').select('wallet').eq('wallet', String(wallet).toLowerCase()).maybeSingle();
+    return !!data;
+  } catch (e) { return false; }
+}
+
 function recoverSigner(message, signature) {
   if (!signature || typeof signature !== 'string') return null;
   try { return verifyMsg(message, signature); } catch (e) { return null; }
@@ -108,6 +118,8 @@ async function doSubmit(body, res) {
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { res.status(400).json({ error: 'Bad tx hash' }); return; }
 
   const sb = sbClient();
+
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
 
   const { data: existingTx } = await sb.from('ad_boards').select('id').eq('tx_hash', txHash).maybeSingle();
   if (existingTx) { res.status(409).json({ error: 'Transaction already used' }); return; }
@@ -190,6 +202,8 @@ async function doExtend(body, res) {
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { res.status(400).json({ error: 'Bad tx hash' }); return; }
 
   const sb = sbClient();
+
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
 
   // объявление должно существовать, быть живым и принадлежать плательщику
   const { data: ad } = await sb.from('ad_boards').select('id,wallet,removed,end_at').eq('id', id).maybeSingle();
@@ -319,4 +333,59 @@ async function doSetPricing(body, res) {
   }, { onConflict: 'id' });
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
+}
+
+/* ─── чёрный список рекламодателей (только владелец) ─── */
+
+// Метка времени в подписи: перехваченную подпись нельзя применить позже,
+// иначе можно было бы повторно разблокировать кого-то через сутки.
+function adminAuth(action, target, ts, signature) {
+  const tsNum = Number(ts);
+  if (!isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 10 * 60 * 1000) return { err: 'Signature expired — try again' };
+  const signer = recoverSigner('OpenGate admin ' + action + ' ' + String(target).toLowerCase() + ' ' + tsNum, signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) return { err: 'Owner only' };
+  return { signer };
+}
+
+async function doBlock(body, res) {
+  const { wallet, reason, ts, signature } = body;
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (wallet.toLowerCase() === OWNER_WALLET.toLowerCase()) { res.status(400).json({ error: 'Cannot block the owner wallet' }); return; }
+
+  const auth = adminAuth('block', wallet, ts, signature);
+  if (auth.err) { res.status(403).json({ error: auth.err }); return; }
+
+  const sb = sbClient();
+  const { error } = await sb.from('ad_blocked').upsert({
+    wallet: wallet.toLowerCase(),
+    reason: String(reason || '').slice(0, 200),
+    blocked_by: auth.signer.toLowerCase(),
+    blocked_at: new Date().toISOString()
+  }, { onConflict: 'wallet' });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+async function doUnblock(body, res) {
+  const { wallet, ts, signature } = body;
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+
+  const auth = adminAuth('unblock', wallet, ts, signature);
+  if (auth.err) { res.status(403).json({ error: auth.err }); return; }
+
+  const sb = sbClient();
+  const { error } = await sb.from('ad_blocked').delete().eq('wallet', wallet.toLowerCase());
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+async function doListBlocked(body, res) {
+  const { ts, signature } = body;
+  const auth = adminAuth('list blocked', 'all', ts, signature);
+  if (auth.err) { res.status(403).json({ error: auth.err }); return; }
+
+  const sb = sbClient();
+  const { data, error } = await sb.from('ad_blocked').select('wallet,reason,blocked_at').order('blocked_at', { ascending: false }).limit(200);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true, blocked: data || [] });
 }
