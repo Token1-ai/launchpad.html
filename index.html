@@ -36,7 +36,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 @keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
 .ad-boards-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
-.ad-slot{flex:1;min-width:260px;height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
+.ad-slot{flex:1 1 0;min-width:260px;aspect-ratio:3/1;max-height:230px;min-height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
+.ad-paused-note{color:var(--muted);font-size:13px;text-align:center;padding:0 16px;line-height:1.4;}
 .ad-slot img{width:100%;height:100%;object-fit:cover;}
 .ad-actions{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:4;flex-wrap:wrap;justify-content:flex-end;max-width:72%;}
 .ad-remove-btn,.ad-extend-btn{position:static;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;min-height:36px;white-space:normal;}
@@ -175,7 +176,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .lab-nav-actions{gap:8px;width:100%;justify-content:space-between;}
   .btn-gold,.btn-ghost{padding:10px 12px;font-size:13px;}
   .info-row .v{max-width:55%;}
-  .ad-slot{min-width:100%;height:120px;}
+  .ad-slot{min-width:100%;max-height:none;}
   .modal-box{padding:18px;max-width:96vw;}
   .modal-title{font-size:16px;}
   .mode-tabs{flex:1 1 100%;order:-1;}
@@ -489,7 +490,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span id="adImgDropText">📷 Click to upload banner image</span>
       <img id="adImgPreview" class="img-preview hidden"/>
     </div>
-    <div class="img-hint" id="adImgHint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
+    <div class="img-hint" id="adImgHint">Recommended size: 1200×400px. Any size works — the image is scaled to fit automatically. Formats: PNG, JPG, GIF. Max 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
     <label class="field-label" id="adLinkLabel">Where the banner leads when clicked</label>
     <input class="field-input" id="adLinkUrl" placeholder="https://t.me/your_channel" onblur="fixUrlField('adLinkUrl')"/>
@@ -509,14 +510,16 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <input class="field-input" id="adTiktok" placeholder="@yourname or tiktok.com/@yourname" onblur="fixUrlField('adTiktok','tiktok')"/>
       <div class="field-hint">These appear as small clickable icons in the corner of your banner. <b>Fill in at least one link</b> — here or in the field above.</div>
     </div>
-    <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
-    <input class="field-input" id="adDays" type="number" min="1" max="30" value="1" oninput="updateAdPriceDisplay()"/>
-    <label class="field-label">Pay with</label>
-    <div class="quote-select">
-      <button class="quote-opt active" data-t="USDT" onclick="setAdToken('USDT')">USDT</button>
-      <button class="quote-opt" data-t="USDC" onclick="setAdToken('USDC')">USDC</button>
+    <div id="adPayBlock">
+      <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
+      <input class="field-input" id="adDays" type="number" min="1" max="30" value="1" oninput="updateAdPriceDisplay()"/>
+      <label class="field-label">Pay with</label>
+      <div class="quote-select">
+        <button class="quote-opt active" data-t="USDT" onclick="setAdToken('USDT')">USDT</button>
+        <button class="quote-opt" data-t="USDC" onclick="setAdToken('USDC')">USDC</button>
+      </div>
+      <div class="fee-note" id="adTotalNote">You pay: —</div>
     </div>
-    <div class="fee-note" id="adTotalNote">You pay: —</div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="adSubmitBtn" onclick="submitAd()">Pay & Place Ad</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdModal()">Cancel</button>
   </div>
@@ -531,6 +534,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">No pass price/day (USD)</label>
     <input class="field-input" id="adminPublicPrice" type="number"/>
     <button class="btn-gold" style="width:100%;padding:13px;" onclick="submitAdPricing()">Save & Sign</button>
+
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="feed-title">⏸ Ad sales</div>
+      <div class="img-hint" id="pauseState">Loading…</div>
+      <button class="btn-ghost" style="width:100%;padding:11px;" id="pauseBtn" onclick="toggleAdsPause()">Pause new ad sales</button>
+    </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
       <div class="feed-title">🚫 Blocked advertisers</div>
@@ -592,7 +601,7 @@ let poolsCache = [], currentPoolId = null, currentPoolData = null, poolTradeSide
 let poolChart, poolCandleSeries, poolVolumeSeries, poolTradesChannel, poolChartTimeMap = {};
 let adPricing = { gold_price_usd:10, silver_price_usd:15, public_price_usd:25 };
 let adSlotTarget = null, adPendingImageFile = null, adToken = 'USDT';
-let adExtendAd = null;
+let adExtendAd = null, adEditAd = null;
 const MAX_AD_DAYS = 30;
 let adBoardsData = {1:null, 2:null};
 
@@ -2242,11 +2251,17 @@ async function loadAdBoards(){
 function renderAdSlot(slot){
   const el = document.getElementById('adSlot'+slot);
   const ad = adBoardsData[slot];
-  if(!ad){ el.innerHTML = '<span style="color:var(--muted);font-size:28px;">+</span>'; return; }
+  if(!ad){
+    el.innerHTML = adPricing.ads_paused
+      ? '<span class="ad-paused-note">⏸ Ad slots are temporarily closed</span>'
+      : '<span style="color:var(--muted);font-size:28px;">+</span>';
+    return;
+  }
   const canManage = userAddr && (userAddr.toLowerCase()===ad.wallet.toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
   const isSelf = userAddr && userAddr.toLowerCase()===ad.wallet.toLowerCase();
   const removeBtn = canManage ? '<button class="ad-remove-btn" onclick="event.stopPropagation();requestRemoveAd('+ad.id+',\''+ad.wallet+'\')">🗑 Remove</button>' : '';
   const extendBtn = (isSelf && maxExtendDays(ad.end_at) > 0) ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openExtendModal('+ad.id+')">⏱ Extend</button>' : '';
+  const editBtn = canManage ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openAdEditModal('+ad.id+')">✏️ Edit</button>' : '';
   const AD_LINK_KINDS = [
     ['twitter',  '𝕏',  'Twitter / X'],
     ['telegram', '✈️', 'Telegram'],
@@ -2261,10 +2276,14 @@ function renderAdSlot(slot){
     if(u) icons+='<a class="ad-social" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="'+esc(k[2])+'">'+k[1]+'</a>';
   });
   const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
-  const actions = (extendBtn||removeBtn) ? '<div class="ad-actions">'+extendBtn+removeBtn+'</div>' : '';
+  const actions = (editBtn||extendBtn||removeBtn) ? '<div class="ad-actions">'+editBtn+extendBtn+removeBtn+'</div>' : '';
   el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+actions;
 }
 function handleAdSlotClick(slot){
+  if(!adBoardsData[slot] && adPricing.ads_paused){
+    toast('Ad slots are temporarily closed. Please check back later.','err');
+    return;
+  }
   if(adBoardsData[slot]){
     const ad = adBoardsData[slot];
     const url = safeHref(ad.link_url);
@@ -2274,7 +2293,8 @@ function handleAdSlotClick(slot){
   openAdModal(slot);
 }
 async function openAdModal(slot){
-  adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null;
+  adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null; adEditAd=null;
+  document.getElementById('adPayBlock').classList.remove('hidden');
   document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
   document.getElementById('adImgPreview').classList.add('hidden');
   document.getElementById('adImgDropText').classList.remove('hidden');
@@ -2293,6 +2313,100 @@ async function openAdModal(slot){
   document.getElementById('adModal').classList.add('show');
   await updateAdPriceDisplay();
 }
+// Правка объявления, пока оплаченный срок не вышел.
+// Платить второй раз не нужно — меняется только содержимое.
+function adOf(adId){
+  if(adBoardsData[1] && adBoardsData[1].id===adId) return adBoardsData[1];
+  if(adBoardsData[2] && adBoardsData[2].id===adId) return adBoardsData[2];
+  return null;
+}
+function adEditMessage(adId, m, ts){
+  return 'OpenGate ad edit\n' +
+    'id: '    + adId + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'link: '  + (m.link_url  || '') + '\n' +
+    'x: '     + (m.twitter   || '') + '\n' +
+    'tg: '    + (m.telegram  || '') + '\n' +
+    'web: '   + (m.website   || '') + '\n' +
+    'dc: '    + (m.discord   || '') + '\n' +
+    'yt: '    + (m.youtube   || '') + '\n' +
+    'tk: '    + (m.tiktok    || '') + '\n' +
+    'ts: '    + ts;
+}
+async function openAdEditModal(adId){
+  if(!userAddr){ connectWallet(); return; }
+  const ad = adOf(adId);
+  if(!ad){ toast('Ad not found','err'); return; }
+  adEditAd = ad; adExtendAd = null; adSlotTarget = ad.slot; adPendingImageFile = null;
+
+  document.getElementById('adModalTitle').textContent = '✏️ Edit your ad — Board '+ad.slot;
+  document.getElementById('adPriceNote').textContent =
+    'Change the banner or links. No extra payment — your paid time stays as is (until '+fmtLeft(ad.end_at)+' from now).';
+  document.getElementById('adImgDrop').classList.remove('hidden');
+  document.getElementById('adImgHint').classList.remove('hidden');
+  document.getElementById('adLinkLabel').classList.remove('hidden');
+  document.getElementById('adLinkUrl').classList.remove('hidden');
+  document.getElementById('adLinkHint').classList.remove('hidden');
+  document.getElementById('adSocialFields').classList.remove('hidden');
+  document.getElementById('adPayBlock').classList.add('hidden');
+
+  document.getElementById('adImageInput').value='';
+  document.getElementById('adImgPreview').src = ad.image_url || '';
+  document.getElementById('adImgPreview').classList.toggle('hidden', !ad.image_url);
+  document.getElementById('adImgDropText').classList.toggle('hidden', !!ad.image_url);
+  document.getElementById('adLinkUrl').value  = ad.link_url || '';
+  document.getElementById('adTwitter').value  = ad.twitter  || '';
+  document.getElementById('adTelegram').value = ad.telegram || '';
+  document.getElementById('adWebsite').value  = ad.website  || '';
+  document.getElementById('adDiscord').value  = ad.discord  || '';
+  document.getElementById('adYoutube').value  = ad.youtube  || '';
+  document.getElementById('adTiktok').value   = ad.tiktok   || '';
+  document.getElementById('adSubmitBtn').textContent='Save changes';
+  document.getElementById('adModal').classList.add('show');
+}
+async function submitAdEdit(){
+  const btn=document.getElementById('adSubmitBtn');
+  const ad=adEditAd;
+  btn.disabled=true;
+  try{
+    const kindOf = id => id==='adTwitter'?'twitter':(id==='adTelegram'?'telegram':(id==='adTiktok'?'tiktok':''));
+    const vals={
+      link_url: fixUrlField('adLinkUrl'),
+      twitter:  fixUrlField('adTwitter','twitter'),
+      telegram: fixUrlField('adTelegram','telegram'),
+      website:  fixUrlField('adWebsite'),
+      discord:  fixUrlField('adDiscord'),
+      youtube:  fixUrlField('adYoutube'),
+      tiktok:   fixUrlField('adTiktok')
+    };
+    const typed=['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok']
+      .filter(id=>document.getElementById(id).value.trim());
+    const broken=typed.find(id=>!normalizeUrl(document.getElementById(id).value, kindOf(id)));
+    if(broken){ toast('This does not look like a valid address','err'); focusField(broken); btn.disabled=false; btn.textContent='Save changes'; return; }
+    const target = vals.link_url || vals.twitter || vals.telegram || vals.website || vals.discord || vals.youtube || vals.tiktok;
+    if(!target){ toast('Add at least one link','err'); focusField('adLinkUrl'); btn.disabled=false; btn.textContent='Save changes'; return; }
+
+    let imageUrl = ad.image_url || '';
+    if(adPendingImageFile){ btn.textContent='Uploading image...'; imageUrl = await uploadTokenImage(adPendingImageFile); }
+    if(!imageUrl){ toast('Upload a banner image','err'); btn.disabled=false; btn.textContent='Save changes'; return; }
+
+    const meta={ image_url:imageUrl, link_url:target, twitter:vals.twitter, telegram:vals.telegram,
+                 website:vals.website, discord:vals.discord, youtube:vals.youtube, tiktok:vals.tiktok };
+    btn.textContent='Confirm signature in wallet...';
+    const ts=Date.now();
+    const signature=await signer.signMessage(adEditMessage(ad.id, meta, ts));
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ action:'editOwn', adId:ad.id, ts, signature, meta })});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ toast(j.error||'Failed','err'); btn.disabled=false; btn.textContent='Save changes'; return; }
+    toast('Ad updated ✏️','ok');
+    adEditAd=null; closeAdModal(); await loadAdBoards();
+  }catch(e){
+    toast(e.message || 'Failed','err');
+  }
+  btn.disabled=false; btn.textContent='Save changes';
+}
+
 async function openExtendModal(adId){
   if(!userAddr){ connectWallet(); return; }
   const ad = adBoardsData[1] && adBoardsData[1].id===adId ? adBoardsData[1]
@@ -2301,7 +2415,8 @@ async function openExtendModal(adId){
   if(userAddr.toLowerCase() !== ad.wallet.toLowerCase()){ toast('Not your ad','err'); return; }
   const maxAdd = maxExtendDays(ad.end_at);
   if(maxAdd <= 0){ toast('Already booked '+MAX_AD_DAYS+' days ahead — extend later','err'); return; }
-  adExtendAd = ad; adSlotTarget = ad.slot; adPendingImageFile = null;
+  adExtendAd = ad; adEditAd = null; adSlotTarget = ad.slot; adPendingImageFile = null;
+  document.getElementById('adPayBlock').classList.remove('hidden');
   document.getElementById('adModalTitle').textContent = '⏱ Extend your ad — Board '+ad.slot;
   document.getElementById('adImgDrop').classList.add('hidden');
   document.getElementById('adImgHint').classList.add('hidden');
@@ -2316,7 +2431,7 @@ async function openExtendModal(adId){
   document.getElementById('adModal').classList.add('show');
   await updateAdPriceDisplay();
 }
-function closeAdModal(){ adExtendAd=null; document.getElementById('adModal').classList.remove('show'); }
+function closeAdModal(){ adExtendAd=null; adEditAd=null; document.getElementById('adModal').classList.remove('show'); }
 function previewAdImage(input){
   const f=input.files[0]; if(!f) return;
   if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
@@ -2355,6 +2470,7 @@ async function updateAdPriceDisplay(){
 }
 async function submitAd(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
+  if(adEditAd) return submitAdEdit();
   const isExtend = !!adExtendAd;
   const btnLabel = isExtend ? 'Pay & Extend' : 'Pay & Place Ad';
   const cap = isExtend ? maxExtendDays(adExtendAd.end_at) : MAX_AD_DAYS;
@@ -2521,10 +2637,37 @@ async function loadBlockedList(){
   }catch(e){ el.textContent = e.message || 'Failed to load'; }
 }
 
+function renderPauseState(){
+  const on = !!adPricing.ads_paused;
+  const st = document.getElementById('pauseState');
+  const btn = document.getElementById('pauseBtn');
+  if(!st || !btn) return;
+  st.textContent = on
+    ? 'Paused. Nobody can buy or extend ad slots. Ads already running keep showing until they expire.'
+    : 'Open. Anyone can buy an ad slot.';
+  btn.textContent = on ? 'Resume ad sales' : 'Pause new ad sales';
+}
+async function toggleAdsPause(){
+  if(!isOwnerWallet()){ toast('Owner only','err'); return; }
+  const want = !adPricing.ads_paused;
+  const btn = document.getElementById('pauseBtn');
+  btn.disabled = true;
+  try{
+    const { ts, signature } = await adminSign('pause ads', want ? 'on' : 'off');
+    await adminCall({ action:'adminPause', paused:want, ts, signature });
+    adPricing.ads_paused = want;
+    toast(want ? 'Ad sales paused' : 'Ad sales resumed','ok');
+    renderPauseState();
+    await loadAdBoards();
+  }catch(e){ toast(e.message||'Failed','err'); }
+  btn.disabled = false;
+}
+
 function openAdAdminModal(){
   document.getElementById('adminGoldPrice').value = adPricing.gold_price_usd;
   document.getElementById('adminSilverPrice').value = adPricing.silver_price_usd;
   document.getElementById('adminPublicPrice').value = adPricing.public_price_usd;
+  renderPauseState();
   document.getElementById('adAdminModal').classList.add('show');
 }
 function closeAdAdminModal(){ document.getElementById('adAdminModal').classList.remove('show'); }
