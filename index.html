@@ -42,8 +42,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .ad-remove-btn,.ad-extend-btn{position:static;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;min-height:36px;white-space:normal;}
 .ad-remove-btn{color:#fff;}
 .ad-extend-btn{color:var(--gold);}
-.mode-tabs{display:flex;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;max-width:340px;margin:0 auto 16px;}
-.mode-tab{flex:1;text-align:center;padding:11px 8px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:normal;min-height:44px;}
+.mode-tabs{display:flex;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:4px;margin:0;flex-shrink:0;}
+.mode-tab{text-align:center;padding:9px 14px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:13px;white-space:normal;min-height:44px;}
 .mode-tab.active{background:var(--gold);color:#000;}
 .new-ticker{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;overflow:hidden;}
 .new-ticker-label{color:var(--gold);font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0;}
@@ -178,7 +178,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .ad-slot{min-width:100%;height:120px;}
   .modal-box{padding:18px;max-width:96vw;}
   .modal-title{font-size:16px;}
-  .mode-tabs{max-width:100%;}
+  .mode-tabs{flex:1 1 100%;order:-1;}
+  .mode-tab{flex:1;padding:9px 6px;}
   .bs-presets{flex-wrap:wrap;}
   .quote-opt{min-width:70px;}
   .tc-social{width:44px;height:44px;font-size:18px;}
@@ -198,6 +199,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 <nav class="lab-nav">
   <div class="lab-logo" onclick="switchMode('launch')"><img class="dot" id="navLogo" alt="OpenGate" src="/logo.png" onerror="this.outerHTML='<div class=&quot;dot dotletter&quot;>O</div>'"/> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
   <div class="lab-nav-actions">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 Launch</button>
+      <button class="mode-tab" id="modePools" onclick="switchMode('pools')">🔄 List & Trade</button>
+    </div>
     <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How Launch works?">?</button>
     <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How List & Trade works?">?</button>
     <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Launch Token</button>
@@ -211,11 +216,6 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   <div class="ad-boards-row">
     <div id="adSlot1" class="ad-slot" onclick="handleAdSlotClick(1)"><span style="color:var(--muted);font-size:28px;">+</span></div>
     <div id="adSlot2" class="ad-slot" onclick="handleAdSlotClick(2)"><span style="color:var(--muted);font-size:28px;">+</span></div>
-  </div>
-
-  <div class="mode-tabs">
-    <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 Launch</button>
-    <button class="mode-tab" id="modePools" onclick="switchMode('pools')">🔄 List & Trade</button>
   </div>
 
   <div id="homeView">
@@ -2072,21 +2072,34 @@ async function executePoolTrade(){
   try{
     const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
     let txHash;
+    // Защита от проскальзывания. Раньше здесь стоял ноль — это означало
+    // «согласен на любой результат» и открывало дорогу сэндвич-ботам:
+    // бот вклинивается перед сделкой, двигает цену, забирает разницу.
+    // Считаем ожидаемый результат и разрешаем отклонение не больше SLIPPAGE_BPS.
+    const SLIPPAGE_BPS = 500n;   // 5%, как на вкладке Launch
+    const withSlippage = v => (v * (10000n - SLIPPAGE_BPS)) / 10000n;
+
     if(poolTradeSide==='buy'){
       const amtWei = ethers.parseEther(amtStr);
+      const [expOut] = await poolsC.quoteBuy(currentPoolId, amtWei);
+      if(!expOut || expOut === 0n){ toast('Pool has no liquidity for this amount','err'); btn.disabled=false; btn.textContent='Buy'; return; }
+      const minOut = withSlippage(expOut);
       if(currentPoolData.quote===0){
-        const tx=await poolsC.buy(currentPoolId, 0, 0, {value:amtWei});
+        const tx=await poolsC.buy(currentPoolId, 0, minOut, {value:amtWei});
         toast('Buying... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
       }else{
         await ensureApproval(quoteAddr(currentPoolData.quote), POOLS_ADDRESS, amtWei);
-        const tx=await poolsC.buy(currentPoolId, amtWei, 0);
+        const tx=await poolsC.buy(currentPoolId, amtWei, minOut);
         toast('Buying... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
       }
       toast('Bought! 🎉','ok');
     }else{
       const amtWei = ethers.parseEther(amtStr);
+      const [expQuote] = await poolsC.quoteSell(currentPoolId, amtWei);
+      if(!expQuote || expQuote === 0n){ toast('Pool has no liquidity for this amount','err'); btn.disabled=false; btn.textContent='Sell'; return; }
+      const minQuote = withSlippage(expQuote);
       await ensureApproval(currentPoolData.token, POOLS_ADDRESS, amtWei);
-      const tx=await poolsC.sell(currentPoolId, amtWei, 0);
+      const tx=await poolsC.sell(currentPoolId, amtWei, minQuote);
       toast('Selling... confirm in wallet','ok'); const rc=await tx.wait(); txHash=rc.hash;
       toast('Sold! 🎉','ok');
     }
