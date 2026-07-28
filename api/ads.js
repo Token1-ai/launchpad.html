@@ -106,12 +106,19 @@ function recoverSigner(message, signature) {
 /* ─── submit (place an ad) ─── */
 
 async function doSubmit(body, res) {
-  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website } = body;
+  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website, discord, youtube, tiktok } = body;
   if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
-  if (!wallet || !imageUrl || !linkUrl || !days || !token || !txHash) { res.status(400).json({ error: 'Missing params' }); return; }
+  if (!wallet || !imageUrl || !days || !token || !txHash) { res.status(400).json({ error: 'Missing params' }); return; }
   if (!isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
-  if (!/^https?:\/\//i.test(linkUrl)) { res.status(400).json({ error: 'Bad link URL' }); return; }
   if (!/^https?:\/\//i.test(imageUrl)) { res.status(400).json({ error: 'Bad image URL' }); return; }
+
+  // Основная ссылка не обязательна: рекламодателю может быть нужен только
+  // Telegram, только Twitter или только страница своего токена.
+  // Кликом по баннеру ведём на первую заполненную.
+  const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
+  const dc = safeUrl(discord), yt = safeUrl(youtube),  tk = safeUrl(tiktok);
+  const target = safeUrl(linkUrl) || tw || tg || ws || dc || yt || tk;
+  if (!target) { res.status(400).json({ error: 'Add at least one link' }); return; }
   const daysNum = Math.floor(Number(days));
   if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
   if (!['USDT', 'USDC'].includes(token)) { res.status(400).json({ error: 'Bad token' }); return; }
@@ -165,7 +172,7 @@ async function doSubmit(body, res) {
     p_slot: Number(slot),
     p_wallet: wallet.toLowerCase(),
     p_image_url: String(imageUrl).slice(0, 300),
-    p_link_url: String(linkUrl).slice(0, 300),
+    p_link_url: target,
     p_tx_hash: txHash,
     p_paid_amount: paidUsd,
     p_paid_token: token,
@@ -181,9 +188,13 @@ async function doSubmit(body, res) {
 
   // Ссылки для иконок пишем отдельным апдейтом: на защиту от гонки за слот
   // они не влияют, и так не приходится менять сигнатуру place_ad_atomic.
-  const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
-  if (newId && (tw || tg || ws)) {
-    try { await sb.from('ad_boards').update({ twitter: tw, telegram: tg, website: ws }).eq('id', newId); } catch (e) {}
+  if (newId && (tw || tg || ws || dc || yt || tk)) {
+    try {
+      await sb.from('ad_boards').update({
+        twitter: tw, telegram: tg, website: ws,
+        discord: dc, youtube: yt, tiktok: tk
+      }).eq('id', newId);
+    } catch (e) {}
   }
 
   res.status(200).json({ ok: true, id: newId });
