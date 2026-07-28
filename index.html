@@ -223,7 +223,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="new-ticker-items" id="newTickerItems"><span class="nti">Loading...</span></div>
     </div>
     <div class="lab-toolbar">
-      <input class="lab-search" id="searchInput" placeholder="🔍 Search tokens..." oninput="renderTokenList()"/>
+      <input class="lab-search" id="searchInput" placeholder="🔍 Search tokens..." oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
       <button class="filter-btn active" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
       <button class="filter-btn" id="filter-new" onclick="setFilter('new')">🆕 New</button>
       <button class="filter-btn" id="filter-graduated" onclick="setFilter('graduated')">🎓 Graduated</button>
@@ -295,7 +295,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
   <div id="poolsHomeView" class="hidden">
     <div class="lab-toolbar">
-      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search tokens..." oninput="renderPoolList()"/>
+      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search tokens..." oninput="visiblePools=PAGE_SIZE;renderPoolList()"/>
     </div>
     <div class="token-grid" id="poolGrid"><div class="empty">Loading tokens...</div></div>
   </div>
@@ -579,6 +579,8 @@ let tokensCache = [], metaCache = {};
 let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
 let chartTimeMap = {};
+const PAGE_SIZE = 20;
+let visibleTokens = PAGE_SIZE, visiblePools = PAGE_SIZE;
 let poolsCache = [], currentPoolId = null, currentPoolData = null, poolTradeSide = 'buy', poolQuoteChoice = 0, poolLockedChoice = true;
 let poolChart, poolCandleSeries, poolVolumeSeries, poolTradesChannel, poolChartTimeMap = {};
 let adPricing = { gold_price_usd:10, silver_price_usd:15, public_price_usd:25 };
@@ -643,6 +645,59 @@ async function pickHealthyProvider(){
     console.log('RPC выбран:', READ_RPCS[_activeIdx]);
   }catch(e){ console.error('ни один RPC не ответил при старте'); }
 }
+// ─── Multicall: пачка вызовов одним запросом ───
+// Раньше главная страница делала по 4 обращения к узлу на КАЖДЫЙ токен.
+// При сотне токенов это 400 запросов на одно открытие сайта — потолок
+// бесплатного тарифа Alchemy пробивался одним посетителем.
+// Multicall3 развёрнут по одному адресу почти во всех сетях, включая BNB Chain.
+const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MULTICALL_ABI = ['function aggregate3((address target, bool allowFailure, bytes callData)[] calls) view returns ((bool success, bytes returnData)[] returnData)'];
+const MC_CHUNK = 120;   // подвызовов в одном запросе: больше — риск упереться в лимит газа узла
+
+let IFACE_LP = null, IFACE_POOLS = null, IFACE_ERC20 = null;
+function ifaces(){
+  if(!IFACE_LP){
+    IFACE_LP    = new ethers.Interface(LAUNCHPAD_ABI);
+    IFACE_POOLS = new ethers.Interface(POOLS_ABI);
+    IFACE_ERC20 = new ethers.Interface(ERC20_ABI);
+  }
+  return { lp:IFACE_LP, pools:IFACE_POOLS, erc20:IFACE_ERC20 };
+}
+
+// calls: [{target, iface, fn, args}] → массив результатов, null там где вызов не удался
+async function multicallRaw(calls){
+  const mc = new ethers.Contract(MULTICALL3, MULTICALL_ABI, getReadProvider());
+  const packed = calls.map(c => ({
+    target: c.target,
+    allowFailure: true,                       // один сбойный токен не роняет всю пачку
+    callData: c.iface.encodeFunctionData(c.fn, c.args || [])
+  }));
+  const res = await withTimeout(mc.aggregate3(packed));
+  return res.map((r, i) => {
+    if(!r || !r[0]) return null;
+    try{ return calls[i].iface.decodeFunctionResult(calls[i].fn, r[1]); }catch(e){ return null; }
+  });
+}
+async function multicall(calls){
+  const out = [];
+  for(let i = 0; i < calls.length; i += MC_CHUNK){
+    const part = calls.slice(i, i + MC_CHUNK);
+    try{
+      out.push(...await multicallRaw(part));
+    }catch(e){
+      console.warn('multicall chunk failed, retrying on another RPC:', e && e.message);
+      try{
+        await pickHealthyProvider();
+        out.push(...await multicallRaw(part));
+      }catch(e2){
+        console.error('multicall chunk failed twice:', e2 && e2.message);
+        out.push(...part.map(()=>null));
+      }
+    }
+  }
+  return out;
+}
+
 function getReadLaunchpad(){ return new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, getReadProvider()); }
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
 function quoteLabel(q){ return q===0?'BNB':(q===1?'USDT':'USDC'); }
@@ -810,24 +865,64 @@ async function loadTokens(_retry){
   const grid=document.getElementById('tokenGrid');
   try{
     const lp=getReadLaunchpad();
-    const count=Number(await lp.tokenCount());
+    const count=Number(await withTimeout(lp.tokenCount()));
     const {data:metas}=await sb.from('launchpad_tokens').select('*');
     metaCache={}; (metas||[]).forEach(m=>metaCache[m.address.toLowerCase()]=m);
-    if(count===0){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; renderNewTicker(); return; }
+    if(count===0){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
+
+    const I = ifaces();
     const start=Math.max(0,count-100);
     const idxs=[]; for(let i=count-1;i>=start;i--) idxs.push(i);
-    const tokens=await Promise.all(idxs.map(async i=>{
-      try{
-        const lpr=getReadLaunchpad();
-        const addr=await lpr.allTokens(i);
-        const [c,progress,price]=await Promise.all([lpr.getCurve(addr),lpr.getProgress(addr),lpr.getPrice(addr)]);
-        const meta=metaCache[addr.toLowerCase()]||{};
-        let name=meta.name, symbol=meta.symbol;
-        if(!name||!symbol){ const tk=new ethers.Contract(addr,TOKEN_ABI,getReadProvider()); [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }
-        return {address:addr,name,symbol,creator:c[0],realBNB:c[1],tokensSold:c[2],graduated:c[3],createdAt:Number(c[4]),progress:Number(progress),price,meta};
-      }catch(e){ return null; }
-    }));
-    tokensCache=tokens.filter(Boolean);
+
+    // 1) адреса токенов — одной пачкой вместо N запросов
+    const addrRes = await multicall(idxs.map(i=>({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'allTokens', args:[i]})));
+    const addrs = addrRes.map(r=>r?String(r[0]):null).filter(a=>a && a!=='0x0000000000000000000000000000000000000000');
+    if(!addrs.length){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
+
+    // 2) кривая, прогресс и цена по всем токенам — тоже одной пачкой
+    const calls=[];
+    addrs.forEach(a=>{
+      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getCurve',    args:[a]});
+      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getProgress', args:[a]});
+      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getPrice',    args:[a]});
+    });
+    const res = await multicall(calls);
+
+    // 3) название и тикер запрашиваем только у тех, кого нет в базе
+    const need=[]; const nsCalls=[];
+    addrs.forEach(a=>{
+      const m=metaCache[a.toLowerCase()];
+      if(!m || !m.name || !m.symbol){
+        need.push(a);
+        nsCalls.push({target:a, iface:I.erc20, fn:'name'});
+        nsCalls.push({target:a, iface:I.erc20, fn:'symbol'});
+      }
+    });
+    const ns = nsCalls.length ? await multicall(nsCalls) : [];
+    const nsMap={};
+    need.forEach((a,k)=>{
+      const n=ns[k*2], sym=ns[k*2+1];
+      nsMap[a.toLowerCase()]={ name:n?String(n[0]):'', symbol:sym?String(sym[0]):'' };
+    });
+
+    const out=[];
+    addrs.forEach((addr,k)=>{
+      const c=res[k*3], pr=res[k*3+1], px=res[k*3+2];
+      if(!c) return;
+      const meta=metaCache[addr.toLowerCase()]||{};
+      const fb=nsMap[addr.toLowerCase()]||{};
+      const name=meta.name||fb.name||'Token';
+      const symbol=meta.symbol||fb.symbol||'TKN';
+      out.push({
+        address:addr, name, symbol,
+        creator:c[0], realBNB:c[1], tokensSold:c[2], graduated:c[3], createdAt:Number(c[4]),
+        progress: pr?Number(pr[0]):0,
+        price:    px?px[0]:0n,
+        meta
+      });
+    });
+    tokensCache=out;
+    visibleTokens = PAGE_SIZE;
     renderTokenList(); renderNewTicker();
   }catch(e){
     if(!_retry){ await pickHealthyProvider(); return loadTokens(true); }
@@ -851,6 +946,8 @@ function renderTokenList(){
   else list.sort((a,b)=>Number(b.realBNB)-Number(a.realBNB));
   if(q) list=list.filter(t=>t.name.toLowerCase().includes(q)||t.symbol.toLowerCase().includes(q));
   if(!list.length){ grid.innerHTML='<div class="empty">No tokens match.</div>'; return; }
+  const total=list.length;
+  list=list.slice(0, visibleTokens);   // рисуем частями, чтобы страница не тормозила
   grid.innerHTML='';
   list.forEach(t=>{
     const meta=t.meta||{};
@@ -869,9 +966,16 @@ function renderTokenList(){
     card.innerHTML='<div class="tc-head">'+avatar+'<div style="min-width:0;"><div class="tc-name">'+esc(t.name)+gradBadge+hotBadge+'</div><div class="tc-ticker">$'+esc(t.symbol)+'</div></div></div>'+desc+'<div class="tc-mc">Raised: '+fmtUsd(t.realBNB)+'</div><div class="tc-progress"><div class="tc-progress-fill" style="width:'+(t.progress/100)+'%"></div></div><div class="tc-progress-label">'+(t.progress/100).toFixed(1)+'% to graduate</div>'+foot;
     grid.appendChild(card);
   });
+  if(total > visibleTokens){
+    const more=document.createElement('button');
+    more.className='btn-ghost'; more.style.cssText='grid-column:1/-1;width:100%;padding:13px;';
+    more.textContent='Show more ('+(total-visibleTokens)+' left)';
+    more.onclick=()=>{ visibleTokens+=PAGE_SIZE; renderTokenList(); };
+    grid.appendChild(more);
+  }
 }
 
-function setFilter(f){ activeFilter=f; ['hot','new','graduated'].forEach(x=>document.getElementById('filter-'+x).classList.toggle('active',x===f)); renderTokenList(); }
+function setFilter(f){ activeFilter=f; visibleTokens=PAGE_SIZE; ['hot','new','graduated'].forEach(x=>document.getElementById('filter-'+x).classList.toggle('active',x===f)); renderTokenList(); }
 
 async function openTradePage(token,_retry){
   const lp=getReadLaunchpad();
@@ -1511,30 +1615,51 @@ async function loadPools(_retry){
   const grid=document.getElementById('poolGrid');
   try{
     const pl=getReadPools();
-    const count=Number(await pl.poolCount());
+    const count=Number(await withTimeout(pl.poolCount()));
     await loadPoolMeta();
-    if(count===0){ grid.innerHTML='<div class="empty">No tokens listed yet. Be the first! 🔄</div>'; return; }
-    const items=await Promise.all(Array.from({length:count},(_,i)=>i+1).reverse().map(async pid=>{
-      try{
-        const p=await pl.getPool(pid);
-        const tk=new ethers.Contract(p.token, ERC20_ABI, getReadProvider());
-        let name='Token', symbol='TKN';
-        try{ [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }catch(e){}
-        return {pid, token:p.token, name, symbol, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled};
-      }catch(e){ return null; }
-    }));
-    poolsCache = items.filter(Boolean);
+    if(count===0){ grid.innerHTML='<div class="empty">No tokens listed yet. Be the first! 🔄</div>'; poolsCache=[]; return; }
+
+    const I = ifaces();
+    const pids=Array.from({length:count},(_,i)=>i+1).reverse();
+
+    // все пулы одной пачкой вместо запроса на каждый
+    const poolRes = await multicall(pids.map(pid=>({target:POOLS_ADDRESS, iface:I.pools, fn:'getPool', args:[pid]})));
+
+    const items=[]; const nsCalls=[]; const nsOwner=[];
+    pids.forEach((pid,k)=>{
+      const p=poolRes[k];
+      if(!p) return;
+      items.push({pid, token:String(p[0]), quote:Number(p[1]), reserveToken:p[2], reserveQuote:p[3],
+                  creator:String(p[4]), locked:p[5], pulled:p[6], name:'Token', symbol:'TKN'});
+    });
+    items.forEach(it=>{
+      nsOwner.push(it);
+      nsCalls.push({target:it.token, iface:I.erc20, fn:'name'});
+      nsCalls.push({target:it.token, iface:I.erc20, fn:'symbol'});
+    });
+    const ns = nsCalls.length ? await multicall(nsCalls) : [];
+    nsOwner.forEach((it,k)=>{
+      const n=ns[k*2], sym=ns[k*2+1];
+      if(n)   it.name   = String(n[0]);
+      if(sym) it.symbol = String(sym[0]);
+    });
+
+    poolsCache = items;
+    visiblePools = PAGE_SIZE;
     renderPoolList();
   }catch(e){
     if(!_retry){ await pickHealthyProvider(); return loadPools(true); }
     grid.innerHTML='<div class="empty">Failed to load</div>';
   }
 }
+
 function renderPoolList(){
   const grid=document.getElementById('poolGrid');
   const q=(document.getElementById('poolSearchInput').value||'').toLowerCase();
   let list=poolsCache.filter(p=>!q||p.name.toLowerCase().includes(q)||p.symbol.toLowerCase().includes(q));
   if(!list.length){ grid.innerHTML='<div class="empty">No tokens match.</div>'; return; }
+  const total=list.length;
+  list=list.slice(0, visiblePools);
   grid.innerHTML='';
   list.forEach(p=>{
     const lockBadge = p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>';
@@ -1554,6 +1679,13 @@ function renderPoolList(){
     card.innerHTML='<div class="tc-head">'+avatar+'<div style="min-width:0;"><div class="tc-name">'+esc(p.name)+lockBadge+'</div><div class="tc-ticker">$'+esc(p.symbol)+' / '+quoteLabel(p.quote)+'</div></div></div>'+desc+foot;
     grid.appendChild(card);
   });
+  if(total > visiblePools){
+    const more=document.createElement('button');
+    more.className='btn-ghost'; more.style.cssText='grid-column:1/-1;width:100%;padding:13px;';
+    more.textContent='Show more ('+(total-visiblePools)+' left)';
+    more.onclick=()=>{ visiblePools+=PAGE_SIZE; renderPoolList(); };
+    grid.appendChild(more);
+  }
 }
 async function showPoolTrade(pid){
   document.getElementById('poolsHomeView').classList.add('hidden');
