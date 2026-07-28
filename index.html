@@ -84,7 +84,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .wallet-opt:hover{border-color:var(--gold);}
 .wallet-opt img{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:contain;}
 .wallet-opt .dotfallback{width:30px;height:30px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
-.ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;}
+.ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;flex-wrap:wrap;max-width:calc(100% - 16px);}
 .ad-social{width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;text-decoration:none;backdrop-filter:blur(3px);}
 .ad-social:hover{border-color:var(--gold);background:rgba(0,0,0,.85);}
 .field-hint{font-size:11px;color:var(--muted);margin:-9px 0 12px;line-height:1.4;}
@@ -491,17 +491,23 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
     <div class="img-hint" id="adImgHint">Recommended size: 1200×300px (wide banner). Formats: PNG, JPG, GIF. Max file size: 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
-    <label class="field-label" id="adLinkLabel">Link URL * — where the banner sends people when clicked</label>
-    <input class="field-input" id="adLinkUrl" placeholder="https://t.me/your_channel"/>
-    <div class="field-hint" id="adLinkHint">Paste the full address, starting with https:// — for example your Telegram channel, website or token page.</div>
+    <label class="field-label" id="adLinkLabel">Where the banner leads when clicked</label>
+    <input class="field-input" id="adLinkUrl" placeholder="https://t.me/your_channel" onblur="fixUrlField('adLinkUrl')"/>
+    <div class="field-hint" id="adLinkHint">Optional. Leave empty and the banner will use the first icon link below. You can paste a short form like <b>@channel</b> or <b>t.me/channel</b> — we complete it for you.</div>
     <div id="adSocialFields">
-      <label class="field-label">Twitter / X icon on the banner (optional)</label>
-      <input class="field-input" id="adTwitter" placeholder="https://x.com/..."/>
-      <label class="field-label">Telegram icon on the banner (optional)</label>
-      <input class="field-input" id="adTelegram" placeholder="https://t.me/..."/>
-      <label class="field-label">Website icon on the banner (optional)</label>
-      <input class="field-input" id="adWebsite" placeholder="https://..."/>
-      <div class="field-hint">These appear as small clickable icons in the corner of your banner. Leave empty to show none.</div>
+      <label class="field-label">Twitter / X icon on the banner</label>
+      <input class="field-input" id="adTwitter" placeholder="@yourname or x.com/yourname" onblur="fixUrlField('adTwitter','twitter')"/>
+      <label class="field-label">Telegram icon on the banner</label>
+      <input class="field-input" id="adTelegram" placeholder="@yourchannel or t.me/yourchannel" onblur="fixUrlField('adTelegram','telegram')"/>
+      <label class="field-label">Website or token page icon on the banner</label>
+      <input class="field-input" id="adWebsite" placeholder="https://..." onblur="fixUrlField('adWebsite')"/>
+      <label class="field-label">Discord icon on the banner</label>
+      <input class="field-input" id="adDiscord" placeholder="discord.gg/..." onblur="fixUrlField('adDiscord')"/>
+      <label class="field-label">YouTube icon on the banner</label>
+      <input class="field-input" id="adYoutube" placeholder="youtube.com/@yourchannel" onblur="fixUrlField('adYoutube')"/>
+      <label class="field-label">TikTok icon on the banner</label>
+      <input class="field-input" id="adTiktok" placeholder="@yourname or tiktok.com/@yourname" onblur="fixUrlField('adTiktok','tiktok')"/>
+      <div class="field-hint">These appear as small clickable icons in the corner of your banner. <b>Fill in at least one link</b> — here or in the field above.</div>
     </div>
     <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
     <input class="field-input" id="adDays" type="number" min="1" max="30" value="1" oninput="updateAdPriceDisplay()"/>
@@ -707,6 +713,40 @@ function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function safeHref(u){ const v=String(u||'').trim(); return /^https?:\/\//i.test(v) ? v : ''; }
+
+// Люди пишут адреса по-человечески: «@OpenGatelive», «t.me/канал», «x.com/имя».
+// Раньше всё это считалось ошибкой. Теперь достраиваем сами.
+function normalizeUrl(value, kind){
+  let v = String(value || '').trim();
+  if(!v) return '';
+  if(v.startsWith('@')){
+    const handle = v.slice(1).replace(/^\/+/, '');
+    if(!handle) return '';
+    if(kind === 'twitter')  return 'https://x.com/' + handle;
+    if(kind === 'telegram') return 'https://t.me/'  + handle;
+    if(kind === 'tiktok')   return 'https://www.tiktok.com/@' + handle;
+    return '';
+  }
+  if(/^https?:\/\//i.test(v)) return v;
+  if(v.startsWith('//')) return 'https:' + v;
+  // похоже на домен: example.com, t.me/chan, x.com/name
+  if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(v)) return 'https://' + v;
+  return '';
+}
+// Поправляем прямо в поле, чтобы человек видел итог
+function fixUrlField(id, kind){
+  const el = document.getElementById(id);
+  if(!el) return '';
+  const fixed = normalizeUrl(el.value, kind);
+  if(fixed) el.value = fixed;
+  return fixed;
+}
+function focusField(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  try{ el.scrollIntoView({block:'center', behavior:'smooth'}); }catch(e){}
+  el.focus();
+}
 function bscLink(addr,kind){
   if(!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) return '—';
   const path = kind==='token' ? 'token/' : 'address/';
@@ -973,6 +1013,7 @@ async function connectWallet(chosen){
 
 function switchMode(mode){
   const isLaunch = mode==='launch';
+  setHash('');
   document.getElementById('modeLaunch').classList.toggle('active', isLaunch);
   document.getElementById('modePools').classList.toggle('active', !isLaunch);
   document.getElementById('homeView').classList.toggle('hidden', !isLaunch);
@@ -986,10 +1027,26 @@ function switchMode(mode){
   if(isLaunch) loadTokens(); else loadPools();
 }
 function showHome(){ switchMode('launch'); }
+
+// Свой адрес у каждой страницы токена. Без этого рекламодатель не мог
+// дать ссылку на свой токен — сайт одностраничный, и все ссылки вели
+// на главную. Используем replaceState, чтобы не засорять историю браузера.
+function setHash(v){
+  try{ history.replaceState(null, '', v ? ('#'+v) : (location.pathname + location.search)); }
+  catch(e){ try{ location.hash = v || ''; }catch(e2){} }
+}
+async function openFromHash(){
+  const h=(location.hash||'').replace(/^#/,'');
+  const mt=h.match(/^t=(0x[0-9a-fA-F]{40})$/i);
+  if(mt){ switchMode('launch'); showTrade(mt[1]); return true; }
+  const mp=h.match(/^p=(\d+)$/);
+  if(mp){ switchMode('pools'); await showPoolTrade(Number(mp[1])); return true; }
+  return false;
+}
 function showTrade(token){
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tradeView').classList.remove('hidden');
-  currentToken=token; openTradePage(token);
+  currentToken=token; setHash('t='+token); openTradePage(token);
 }
 
 async function loadTokens(_retry){
@@ -1740,6 +1797,7 @@ async function submitPoolMeta(){
 function showPoolsHome(){
   document.getElementById('poolsHomeView').classList.remove('hidden');
   document.getElementById('poolsTradeView').classList.add('hidden');
+  setHash('');
   loadPools();
 }
 async function loadPools(_retry){
@@ -1821,7 +1879,7 @@ function renderPoolList(){
 async function showPoolTrade(pid){
   document.getElementById('poolsHomeView').classList.add('hidden');
   document.getElementById('poolsTradeView').classList.remove('hidden');
-  currentPoolId = pid;
+  currentPoolId = pid; setHash('p='+pid);
   await openPoolTradePage(pid);
 }
 async function openPoolTradePage(pid,_retry){
@@ -2176,11 +2234,19 @@ function renderAdSlot(slot){
   const isSelf = userAddr && userAddr.toLowerCase()===ad.wallet.toLowerCase();
   const removeBtn = canManage ? '<button class="ad-remove-btn" onclick="event.stopPropagation();requestRemoveAd('+ad.id+',\''+ad.wallet+'\')">🗑 Remove</button>' : '';
   const extendBtn = (isSelf && maxExtendDays(ad.end_at) > 0) ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openExtendModal('+ad.id+')">⏱ Extend</button>' : '';
-  const aTw=safeHref(ad.twitter), aTg=safeHref(ad.telegram), aWs=safeHref(ad.website);
+  const AD_LINK_KINDS = [
+    ['twitter',  '𝕏',  'Twitter / X'],
+    ['telegram', '✈️', 'Telegram'],
+    ['website',  '🌐', 'Website'],
+    ['discord',  '💬', 'Discord'],
+    ['youtube',  '▶️', 'YouTube'],
+    ['tiktok',   '🎵', 'TikTok']
+  ];
   let icons='';
-  if(aTw) icons+='<a class="ad-social" href="'+esc(aTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
-  if(aTg) icons+='<a class="ad-social" href="'+esc(aTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
-  if(aWs) icons+='<a class="ad-social" href="'+esc(aWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+  AD_LINK_KINDS.forEach(k=>{
+    const u=safeHref(ad[k[0]]);
+    if(u) icons+='<a class="ad-social" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="'+esc(k[2])+'">'+k[1]+'</a>';
+  });
   const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
   const actions = (extendBtn||removeBtn) ? '<div class="ad-actions">'+extendBtn+removeBtn+'</div>' : '';
   el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+actions;
@@ -2206,7 +2272,7 @@ async function openAdModal(slot){
   document.getElementById('adLinkHint').classList.remove('hidden');
   document.getElementById('adSocialFields').classList.remove('hidden');
   document.getElementById('adImageInput').value='';
-  ['adLinkUrl','adTwitter','adTelegram','adWebsite'].forEach(id=>document.getElementById(id).value='');
+  ['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('adDaysLabel').textContent='Days * (max '+MAX_AD_DAYS+')';
   document.getElementById('adDays').max=String(MAX_AD_DAYS);
   document.getElementById('adDays').value='1';
@@ -2281,10 +2347,34 @@ async function submitAd(){
   const cap = isExtend ? maxExtendDays(adExtendAd.end_at) : MAX_AD_DAYS;
   const days = Math.max(1, parseInt(document.getElementById('adDays').value)||1);
   if(days > cap){ toast('Max '+cap+' day'+(cap>1?'s':'')+' — total booking is capped at '+MAX_AD_DAYS+' days ahead','err'); return; }
-  const linkUrl = document.getElementById('adLinkUrl').value.trim();
+  let linkUrl='', tw='', tg='', ws='', dc='', yt='', tk='';
   if(!isExtend){
-    if(!/^https?:\/\//i.test(linkUrl)){ toast('Enter a valid link URL','err'); return; }
-    if(!adPendingImageFile){ toast('Upload a banner image','err'); return; }
+    linkUrl = fixUrlField('adLinkUrl');
+    tw      = fixUrlField('adTwitter','twitter');
+    tg      = fixUrlField('adTelegram','telegram');
+    ws      = fixUrlField('adWebsite');
+    dc      = fixUrlField('adDiscord');
+    yt      = fixUrlField('adYoutube');
+    tk      = fixUrlField('adTiktok','tiktok');
+    // Основная ссылка не обязательна: если её нет, баннер поведёт
+    // на первую заполненную иконку.
+    const target = linkUrl || tw || tg || ws || dc || yt || tk;
+    if(!target){
+      toast('Add at least one link — banner link, Twitter, Telegram or website','err');
+      focusField('adLinkUrl'); return;
+    }
+    const kindOf = id => id==='adTwitter'?'twitter':(id==='adTelegram'?'telegram':(id==='adTiktok'?'tiktok':''));
+    const typed = ['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok']
+      .filter(id=>document.getElementById(id).value.trim());
+    const broken = typed.find(id=>!normalizeUrl(document.getElementById(id).value, kindOf(id)));
+    if(broken){
+      const names={adLinkUrl:'banner link', adTwitter:'Twitter', adTelegram:'Telegram', adWebsite:'website',
+                   adDiscord:'Discord', adYoutube:'YouTube', adTiktok:'TikTok'};
+      toast('This does not look like a valid address: '+names[broken],'err');
+      focusField(broken); return;
+    }
+    if(!adPendingImageFile){ toast('Upload a banner image','err'); focusField('adImgDrop'); return; }
+    linkUrl = target;
   }
   const btn=document.getElementById('adSubmitBtn');
   btn.disabled=true;
@@ -2304,9 +2394,7 @@ async function submitAd(){
     const payload = isExtend
       ? { action:'extend', adId:adExtendAd.id, wallet:userAddr, days, token:adToken, txHash:rc.hash }
       : { action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash,
-          twitter:document.getElementById('adTwitter').value.trim(),
-          telegram:document.getElementById('adTelegram').value.trim(),
-          website:document.getElementById('adWebsite').value.trim() };
+          twitter:tw, telegram:tg, website:ws, discord:dc, youtube:yt, tiktok:tk };
     // Оплата уже прошла. Если активация не удалась из-за сети — пробуем ещё,
     // иначе деньги ушли, а объявления нет. txHash тот же, повторный зачёт
     // невозможен: сервер держит журнал использованных транзакций.
@@ -2445,7 +2533,13 @@ async function submitAdPricing(){
   }catch(e){ toast(e.message||'Failed','err'); }
 }
 
-(async function init(){ await pickHealthyProvider(); await loadBnbPrice(); setInterval(loadBnbPrice, 60000); await loadAdPricing(); await loadAdBoards(); showHome(); })();
+(async function init(){
+  await pickHealthyProvider();
+  await loadBnbPrice(); setInterval(loadBnbPrice, 60000);
+  await loadAdPricing(); await loadAdBoards();
+  const opened = await openFromHash();     // пришли по прямой ссылке на токен
+  if(!opened) showHome();
+})();
 </script>
 </body>
 </html>
