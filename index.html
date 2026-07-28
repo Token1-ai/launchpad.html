@@ -772,51 +772,144 @@ window.addEventListener('eip6963:announceProvider', (e)=>{
 });
 try{ window.dispatchEvent(new Event('eip6963:requestProvider')); }catch(e){}
 
+// ─── WalletConnect ───
+// На телефоне в обычном браузере (Chrome, Safari) кошельков не существует:
+// они живут внутри своих приложений. WalletConnect связывает сайт с
+// приложением кошелька — человек подтверждает у себя, а сайт открыт где угодно.
+// Библиотеку грузим ТОЛЬКО когда её выбрали: она весит ~850 КБ, и тянуть её
+// на каждое открытие сайта ради тех, у кого есть MetaMask, не имеет смысла.
+const WC_PROJECT_IDS = [
+  'a589ad2d884ca362de8e07ac6971ec85',
+  '8f4bebbc7a1825f8bd8ed01297b6c4f4',
+  'f0ec2e878a22cccc4241506fca622eae',
+  '2f53f95ef6bbc51d76edfa800da4d0b1',
+  'fceb518a977ba9be3fa8b7373f0a0872'
+];
+const WC_SCRIPTS = [
+  'https://opengate.bond/wc.js',
+  'https://unpkg.com/@walletconnect/ethereum-provider@2.23.10/dist/index.umd.js'
+];
+let wcProvider = null;
+
+function loadScriptOnce(src){
+  return new Promise((res, rej)=>{
+    if(document.querySelector('script[data-src="'+src+'"]')) return res();
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.setAttribute('data-src', src);
+    s.onload = ()=>res();
+    s.onerror = ()=>rej(new Error('load failed: '+src));
+    document.head.appendChild(s);
+  });
+}
+function wcBridge(){
+  if(window.EthereumProvider) return true;
+  const m = window['@walletconnect/ethereum-provider'];
+  if(m && m.EthereumProvider){ window.EthereumProvider = m.EthereumProvider; return true; }
+  return false;
+}
+async function loadWalletConnect(){
+  if(wcBridge()) return true;
+  for(const src of WC_SCRIPTS){
+    try{
+      await loadScriptOnce(src);
+      for(let i=0; i<60 && !wcBridge(); i++) await new Promise(r=>setTimeout(r,100));
+      if(wcBridge()) return true;
+    }catch(e){ console.warn('WalletConnect source failed:', src, e.message); }
+  }
+  return false;
+}
+async function connectViaWalletConnect(){
+  toast('Opening WalletConnect…','ok');
+  if(!await loadWalletConnect()) throw new Error('WalletConnect could not be loaded — check your connection');
+  const pid = WC_PROJECT_IDS[Math.floor(Math.random()*WC_PROJECT_IDS.length)];
+  wcProvider = await window.EthereumProvider.init({
+    projectId: pid,
+    chains: [56],
+    optionalChains: [56],
+    showQrModal: true,
+    methods: ['eth_sendTransaction','eth_signTransaction','eth_sign','personal_sign','eth_signTypedData','wallet_switchEthereumChain','wallet_addEthereumChain'],
+    events: ['chainChanged','accountsChanged'],
+    rpcMap: { 56: 'https://bsc-dataseed.binance.org/' },
+    metadata: {
+      name: 'OpenGate LaunchLab',
+      description: 'Launch and trade tokens on BNB Chain.',
+      url: window.location.origin,
+      icons: [window.location.origin + '/logo.png']
+    }
+  });
+  if(!(wcProvider.accounts && wcProvider.accounts.length)) await wcProvider.connect();
+  return wcProvider;
+}
+
 function rememberWallet(rdns){ try{ localStorage.setItem('og_wallet', rdns||''); }catch(e){} }
 function lastWallet(){ try{ return localStorage.getItem('og_wallet')||''; }catch(e){ return ''; } }
 
+// Список того, чем можно подключиться: найденные кошельки + WalletConnect
+function walletOptions(){
+  const opts = discoveredWallets.map((w,i)=>({ kind:'injected', idx:i, name:w.info.name||'Wallet', icon:w.info.icon, rdns:w.info.rdns }));
+  if(!discoveredWallets.length && window.ethereum){
+    opts.push({ kind:'legacy', name:'Browser wallet', icon:null, rdns:'legacy' });
+  }
+  opts.push({ kind:'wc', name:'WalletConnect (scan QR / mobile app)', icon:null, rdns:'walletconnect' });
+  return opts;
+}
 function openWalletModal(){
   const list = document.getElementById('walletList');
-  list.innerHTML = discoveredWallets.map((w,i)=>{
-    const icon = (w.info.icon && /^data:image\//i.test(w.info.icon))
-      ? '<img src="'+esc(w.info.icon)+'" alt=""/>'
-      : '<div class="dotfallback">'+esc(String(w.info.name||'?').charAt(0))+'</div>';
-    return '<button class="wallet-opt" onclick="pickWallet('+i+')">'+icon+'<span>'+esc(w.info.name||'Wallet')+'</span></button>';
+  list.innerHTML = walletOptions().map((o,i)=>{
+    const icon = (o.icon && /^data:image\//i.test(o.icon))
+      ? '<img src="'+esc(o.icon)+'" alt=""/>'
+      : '<div class="dotfallback">'+esc(o.kind==='wc' ? '🔗' : String(o.name).charAt(0))+'</div>';
+    return '<button class="wallet-opt" onclick="pickWallet('+i+')">'+icon+'<span>'+esc(o.name)+'</span></button>';
   }).join('');
   document.getElementById('walletModal').classList.add('show');
 }
 function closeWalletModal(){ document.getElementById('walletModal').classList.remove('show'); }
-function pickWallet(i){
-  const w = discoveredWallets[i];
-  if(!w) return;
+async function pickWallet(i){
+  const o = walletOptions()[i];
+  if(!o) return;
   closeWalletModal();
-  rememberWallet(w.info.rdns);
-  connectWallet(w.provider);
+  rememberWallet(o.rdns);
+  try{
+    if(o.kind === 'wc'){
+      const p = await connectViaWalletConnect();
+      await connectWallet(p);
+    } else if(o.kind === 'legacy'){
+      await connectWallet(window.ethereum);
+    } else {
+      await connectWallet(discoveredWallets[o.idx].provider);
+    }
+  }catch(e){
+    rememberWallet('');
+    toast(e.message || 'Connection failed','err');
+  }
 }
 
-// Какой провайдер использовать, если человек ещё не выбирал
+// Если человек уже выбирал кошелёк — берём его молча, иначе показываем список
 function resolveProvider(){
-  if(discoveredWallets.length === 1) return discoveredWallets[0].provider;
-  if(discoveredWallets.length > 1){
-    const saved = lastWallet();
-    const hit = saved && discoveredWallets.find(w => w.info.rdns === saved);
+  const saved = lastWallet();
+  if(saved === 'walletconnect') return 'wc';
+  if(saved){
+    const hit = discoveredWallets.find(w => w.info.rdns === saved);
     if(hit) return hit.provider;
-    return null;                     // нужен выбор
+    if(saved === 'legacy' && window.ethereum) return window.ethereum;
   }
-  return window.ethereum || null;    // старые кошельки без EIP-6963
+  if(discoveredWallets.length === 1) return discoveredWallets[0].provider;
+  return null;   // нужен выбор
 }
 
 async function connectWallet(chosen){
-  const eth = chosen || resolveProvider();
-  if(!eth){
-    if(discoveredWallets.length > 1){ openWalletModal(); return; }
-    toast('No wallet found. Install MetaMask, Trust Wallet or another Web3 wallet.','err');
-    return;
+  let eth = chosen || resolveProvider();
+  if(eth === 'wc'){
+    try{ eth = await connectViaWalletConnect(); }
+    catch(e){ rememberWallet(''); toast(e.message || 'WalletConnect failed','err'); return; }
   }
+  if(!eth){ openWalletModal(); return; }
   injected = eth;
   try{
     provider = new ethers.BrowserProvider(eth);
-    await provider.send('eth_requestAccounts', []);
+    // У WalletConnect адреса уже известны после connect(), а метода
+    // eth_requestAccounts в его списке нет — он бы вернул ошибку.
+    if(!(eth.accounts && eth.accounts.length)) await provider.send('eth_requestAccounts', []);
     try{ await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:BNB_PARAMS.chainId}]}); }
     catch(e){ if(e.code===4902) await eth.request({method:'wallet_addEthereumChain',params:[BNB_PARAMS]}); }
     provider = new ethers.BrowserProvider(eth);
