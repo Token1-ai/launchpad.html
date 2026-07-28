@@ -785,10 +785,34 @@ const WC_PROJECT_IDS = [
   '2f53f95ef6bbc51d76edfa800da4d0b1',
   'fceb518a977ba9be3fa8b7373f0a0872'
 ];
+// ВАЖНО: версия 2.17.0. Начиная примерно с 2.20 сборка для браузера перестала
+// быть самодостаточной — она ожидает, что рядом уже загружены viem, lit, valtio
+// и qrcode, и в одиночку не работает. 2.17.0 содержит всё внутри себя.
 const WC_SCRIPTS = [
-  'https://opengate.bond/wc.js',
-  'https://unpkg.com/@walletconnect/ethereum-provider@2.23.10/dist/index.umd.js'
+  'https://unpkg.com/@walletconnect/ethereum-provider@2.17.0/dist/index.umd.js',
+  'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.0/dist/index.umd.js',
+  'https://opengate.bond/wc.js'
 ];
+
+// На телефоне надёжнее всего открыть сайт внутри самого кошелька — там
+// window.ethereum уже есть, и всё работает как на компьютере.
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent || '');
+}
+function deepLinkFor(target){
+  const host = location.host + location.pathname + location.search;
+  const full = location.origin + location.pathname + location.search;
+  if(target === 'metamask') return 'https://metamask.app.link/dapp/' + host;
+  if(target === 'trust')    return 'https://link.trustwallet.com/open_url?coin_id=20000714&url=' + encodeURIComponent(full);
+  return '';
+}
+function openInWalletApp(target){
+  const url = deepLinkFor(target);
+  if(!url) return;
+  rememberWallet('');           // внутри кошелька выбор будет свой
+  toast('Opening the wallet app…','ok');
+  location.href = url;
+}
 let wcProvider = null;
 
 function loadScriptOnce(src){
@@ -820,7 +844,11 @@ async function loadWalletConnect(){
 }
 async function connectViaWalletConnect(){
   toast('Opening WalletConnect…','ok');
-  if(!await loadWalletConnect()) throw new Error('WalletConnect could not be loaded — check your connection');
+  if(!await loadWalletConnect()){
+    throw new Error(isMobileDevice()
+      ? 'WalletConnect unavailable. Try "Open in MetaMask" or "Open in Trust Wallet" instead.'
+      : 'WalletConnect could not be loaded — check your connection or ad blocker.');
+  }
   const pid = WC_PROJECT_IDS[Math.floor(Math.random()*WC_PROJECT_IDS.length)];
   wcProvider = await window.EthereumProvider.init({
     projectId: pid,
@@ -846,11 +874,17 @@ function lastWallet(){ try{ return localStorage.getItem('og_wallet')||''; }catch
 
 // Список того, чем можно подключиться: найденные кошельки + WalletConnect
 function walletOptions(){
-  const opts = discoveredWallets.map((w,i)=>({ kind:'injected', idx:i, name:w.info.name||'Wallet', icon:w.info.icon, rdns:w.info.rdns }));
+  const opts = discoveredWallets.map((w,i)=>({ kind:'injected', idx:i, name:w.info.name||'Wallet', icon:w.info.icon, rdns:w.info.rdns, emoji:'🦊' }));
   if(!discoveredWallets.length && window.ethereum){
-    opts.push({ kind:'legacy', name:'Browser wallet', icon:null, rdns:'legacy' });
+    opts.push({ kind:'legacy', name:'Browser wallet', icon:null, rdns:'legacy', emoji:'👛' });
   }
-  opts.push({ kind:'wc', name:'WalletConnect (scan QR / mobile app)', icon:null, rdns:'walletconnect' });
+  // На телефоне без встроенного кошелька прямой переход в приложение
+  // работает надёжнее QR-кода, поэтому ставим его первым.
+  if(isMobileDevice() && !discoveredWallets.length){
+    opts.unshift({ kind:'deeplink', target:'trust',    name:'Open in Trust Wallet', icon:null, rdns:'', emoji:'🛡' });
+    opts.unshift({ kind:'deeplink', target:'metamask', name:'Open in MetaMask',     icon:null, rdns:'', emoji:'🦊' });
+  }
+  opts.push({ kind:'wc', name:'WalletConnect (scan QR code)', icon:null, rdns:'walletconnect', emoji:'🔗' });
   return opts;
 }
 function openWalletModal(){
@@ -858,7 +892,7 @@ function openWalletModal(){
   list.innerHTML = walletOptions().map((o,i)=>{
     const icon = (o.icon && /^data:image\//i.test(o.icon))
       ? '<img src="'+esc(o.icon)+'" alt=""/>'
-      : '<div class="dotfallback">'+esc(o.kind==='wc' ? '🔗' : String(o.name).charAt(0))+'</div>';
+      : '<div class="dotfallback">'+esc(o.emoji || String(o.name).charAt(0))+'</div>';
     return '<button class="wallet-opt" onclick="pickWallet('+i+')">'+icon+'<span>'+esc(o.name)+'</span></button>';
   }).join('');
   document.getElementById('walletModal').classList.add('show');
@@ -870,6 +904,9 @@ async function pickWallet(i){
   closeWalletModal();
   rememberWallet(o.rdns);
   try{
+    if(o.kind === 'deeplink'){
+      openInWalletApp(o.target); return;
+    }
     if(o.kind === 'wc'){
       const p = await connectViaWalletConnect();
       await connectWallet(p);
