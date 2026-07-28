@@ -48,6 +48,8 @@ export default async function handler(req, res) {
     if (body.action === 'adminBlock')      return await doBlock(body, res);
     if (body.action === 'adminUnblock')    return await doUnblock(body, res);
     if (body.action === 'adminBlocked')    return await doListBlocked(body, res);
+    if (body.action === 'adminPause')      return await doPause(body, res);
+    if (body.action === 'editOwn')         return await doEditOwn(body, res);
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Failed' });
@@ -64,7 +66,8 @@ async function loadPricing() {
       return {
         gold_price_usd:   Number(data.gold_price_usd)   > 0 ? Number(data.gold_price_usd)   : DEFAULT_PRICING.gold_price_usd,
         silver_price_usd: Number(data.silver_price_usd) > 0 ? Number(data.silver_price_usd) : DEFAULT_PRICING.silver_price_usd,
-        public_price_usd: Number(data.public_price_usd) > 0 ? Number(data.public_price_usd) : DEFAULT_PRICING.public_price_usd
+        public_price_usd: Number(data.public_price_usd) > 0 ? Number(data.public_price_usd) : DEFAULT_PRICING.public_price_usd,
+        ads_paused: !!data.ads_paused
       };
     }
   } catch (e) {}
@@ -98,6 +101,11 @@ async function isBlocked(sb, wallet) {
   } catch (e) { return false; }
 }
 
+async function adsArePaused() {
+  const p = await loadPricing();
+  return !!p.ads_paused;
+}
+
 function recoverSigner(message, signature) {
   if (!signature || typeof signature !== 'string') return null;
   try { return verifyMsg(message, signature); } catch (e) { return null; }
@@ -126,6 +134,7 @@ async function doSubmit(body, res) {
 
   const sb = sbClient();
 
+  if (await adsArePaused()) { res.status(403).json({ error: 'Ad sales are temporarily paused by the platform' }); return; }
   if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
 
   const { data: existingTx } = await sb.from('ad_boards').select('id').eq('tx_hash', txHash).maybeSingle();
@@ -214,6 +223,7 @@ async function doExtend(body, res) {
 
   const sb = sbClient();
 
+  if (await adsArePaused()) { res.status(403).json({ error: 'Ad sales are temporarily paused by the platform' }); return; }
   if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
 
   // объявление должно существовать, быть живым и принадлежать плательщику
@@ -399,4 +409,83 @@ async function doListBlocked(body, res) {
   const { data, error } = await sb.from('ad_blocked').select('wallet,reason,blocked_at').order('blocked_at', { ascending: false }).limit(200);
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true, blocked: data || [] });
+}
+
+/* ─── пауза продажи рекламы (только владелец) ─── */
+
+async function doPause(body, res) {
+  const { paused, ts, signature } = body;
+  const want = !!paused;
+  const auth = adminAuth('pause ads', want ? 'on' : 'off', ts, signature);
+  if (auth.err) { res.status(403).json({ error: auth.err }); return; }
+
+  const sb = sbClient();
+  const { error } = await sb.from('ad_pricing').update({ ads_paused: want }).eq('id', 1);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true, paused: want });
+}
+
+/* ─── рекламодатель правит своё объявление, пока оно оплачено ─── */
+
+// Подпись покрывает всё содержимое: подменить картинку или ссылку
+// под чужой подписью нельзя.
+function adEditMessage(adId, m, ts) {
+  return 'OpenGate ad edit\n' +
+    'id: '    + adId + '\n' +
+    'image: ' + (m.image_url || '') + '\n' +
+    'link: '  + (m.link_url  || '') + '\n' +
+    'x: '     + (m.twitter   || '') + '\n' +
+    'tg: '    + (m.telegram  || '') + '\n' +
+    'web: '   + (m.website   || '') + '\n' +
+    'dc: '    + (m.discord   || '') + '\n' +
+    'yt: '    + (m.youtube   || '') + '\n' +
+    'tk: '    + (m.tiktok    || '') + '\n' +
+    'ts: '    + ts;
+}
+
+async function doEditOwn(body, res) {
+  const { adId, ts, signature, meta } = body;
+  const id = Math.floor(Number(adId));
+  if (!(id > 0) || !meta || !signature) { res.status(400).json({ error: 'Missing params' }); return; }
+
+  const tsNum = Number(ts);
+  if (!isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 10 * 60 * 1000) {
+    res.status(400).json({ error: 'Signature expired — try again' }); return;
+  }
+
+  const clean = {
+    image_url: safeUrl(meta.image_url),
+    link_url:  safeUrl(meta.link_url),
+    twitter:   safeUrl(meta.twitter),
+    telegram:  safeUrl(meta.telegram),
+    website:   safeUrl(meta.website),
+    discord:   safeUrl(meta.discord),
+    youtube:   safeUrl(meta.youtube),
+    tiktok:    safeUrl(meta.tiktok)
+  };
+  if (!clean.image_url) { res.status(400).json({ error: 'Banner image is required' }); return; }
+
+  const target = clean.link_url || clean.twitter || clean.telegram || clean.website || clean.discord || clean.youtube || clean.tiktok;
+  if (!target) { res.status(400).json({ error: 'Add at least one link' }); return; }
+  clean.link_url = target;
+
+  const signer = recoverSigner(adEditMessage(id, clean, tsNum), signature);
+  if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
+
+  const sb = sbClient();
+  const { data: ad } = await sb.from('ad_boards').select('id,wallet,removed,end_at').eq('id', id).maybeSingle();
+  if (!ad) { res.status(404).json({ error: 'Ad not found' }); return; }
+  if (ad.removed) { res.status(400).json({ error: 'Ad already removed' }); return; }
+  if (new Date(ad.end_at).getTime() <= Date.now()) { res.status(400).json({ error: 'Ad already expired' }); return; }
+
+  // Владелец площадки тоже может править — например, чтобы убрать
+  // неприемлемую картинку, не удаляя оплаченное объявление целиком.
+  const isOwner = signer.toLowerCase() === OWNER_WALLET.toLowerCase();
+  if (String(ad.wallet).toLowerCase() !== signer.toLowerCase() && !isOwner) {
+    res.status(403).json({ error: 'Not your ad' }); return;
+  }
+
+  const { error } = await sb.from('ad_boards').update(clean).eq('id', id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
 }
