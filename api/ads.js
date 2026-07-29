@@ -35,6 +35,9 @@ const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABA
 // Иконки на баннере рисуются из этих ссылок. Пускаем только http/https,
 // чтобы через javascript:/data: нельзя было протащить исполняемый код.
 const safeUrl = s => { const v = String(s || '').trim().slice(0, 300); return /^https?:\/\//i.test(v) ? v : ''; };
+// Адрес токена показывается на баннере, чтобы его можно было скопировать.
+// Пускаем только настоящий вид адреса — иначе туда впишут что угодно.
+const safeTokenAddr = s => { const v = String(s || '').trim(); return /^0x[0-9a-fA-F]{40}$/.test(v) ? v : ''; };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -114,7 +117,7 @@ function recoverSigner(message, signature) {
 /* ─── submit (place an ad) ─── */
 
 async function doSubmit(body, res) {
-  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website, discord, youtube, tiktok } = body;
+  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website, discord, youtube, tiktok, tokenAddress } = body;
   if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
   if (!wallet || !imageUrl || !days || !token || !txHash) { res.status(400).json({ error: 'Missing params' }); return; }
   if (!isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
@@ -197,11 +200,12 @@ async function doSubmit(body, res) {
 
   // Ссылки для иконок пишем отдельным апдейтом: на защиту от гонки за слот
   // они не влияют, и так не приходится менять сигнатуру place_ad_atomic.
-  if (newId && (tw || tg || ws || dc || yt || tk)) {
+  if (newId && (tw || tg || ws || dc || yt || tk || safeTokenAddr(tokenAddress))) {
     try {
       await sb.from('ad_boards').update({
         twitter: tw, telegram: tg, website: ws,
-        discord: dc, youtube: yt, tiktok: tk
+        discord: dc, youtube: yt, tiktok: tk,
+        token_address: safeTokenAddr(tokenAddress)
       }).eq('id', newId);
     } catch (e) {}
   }
@@ -440,6 +444,7 @@ function adEditMessage(adId, m, ts) {
     'dc: '    + (m.discord   || '') + '\n' +
     'yt: '    + (m.youtube   || '') + '\n' +
     'tk: '    + (m.tiktok    || '') + '\n' +
+    'ca: '    + (m.token_address || '') + '\n' +
     'ts: '    + ts;
 }
 
@@ -461,7 +466,8 @@ async function doEditOwn(body, res) {
     website:   safeUrl(meta.website),
     discord:   safeUrl(meta.discord),
     youtube:   safeUrl(meta.youtube),
-    tiktok:    safeUrl(meta.tiktok)
+    tiktok:    safeUrl(meta.tiktok),
+    token_address: safeTokenAddr(meta.token_address)
   };
   if (!clean.image_url) { res.status(400).json({ error: 'Banner image is required' }); return; }
 
