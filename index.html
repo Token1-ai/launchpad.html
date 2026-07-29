@@ -69,8 +69,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tc-progress-label{font-size:11px;color:var(--muted);margin-top:4px;}
 .tc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap;}
 .tc-socials{display:flex;gap:6px;}
-.tc-social{width:34px;height:34px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text);text-decoration:none;flex-shrink:0;}
-.tc-social:hover{border-color:var(--gold);}
+.tc-social{width:34px;height:34px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;transition:border-color .12s,transform .12s;}
+.tc-social svg{display:block;}
+.tc-social:hover{border-color:var(--gold);transform:translateY(-1px);}
 .tc-copy{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;min-height:34px;white-space:normal;}
 .tc-copy:hover{border-color:var(--gold);color:var(--text);}
 .bsc-link{color:var(--gold);text-decoration:none;border-bottom:1px dotted rgba(245,200,66,.5);}
@@ -86,8 +87,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .wallet-opt img{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:contain;}
 .wallet-opt .dotfallback{width:30px;height:30px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
 .ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;flex-wrap:wrap;max-width:calc(100% - 16px);}
-.ad-social{width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.68);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;text-decoration:none;backdrop-filter:blur(3px);}
-.ad-social:hover{border-color:var(--gold);background:rgba(0,0,0,.85);}
+.ad-social{width:34px;height:34px;border-radius:10px;background:rgba(10,10,14,.72);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;text-decoration:none;backdrop-filter:blur(4px);transition:transform .12s,border-color .12s,background .12s;}
+.ad-social:hover{border-color:rgba(255,255,255,.6);background:rgba(10,10,14,.9);transform:translateY(-2px);}
+.ad-social svg{display:block;}
 .field-hint{font-size:11px;color:var(--muted);margin:-9px 0 12px;line-height:1.4;}
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:6px;display:inline-block;}
 .badge-grad{background:var(--green);color:#000;}
@@ -110,7 +112,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .chart-price{font-size:14px;color:var(--muted);}
 #chartContainer,#poolChartContainer{height:420px;width:100%;}
 .socials{display:flex;gap:8px;}
-.social-link{width:36px;height:36px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;}
+.social-link{width:38px;height:38px;border-radius:9px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;transition:border-color .12s,transform .12s;}
+.social-link:hover{border-color:var(--gold);transform:translateY(-1px);}
+.social-link svg{display:block;}
 .trade-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;height:fit-content;}
 .bs-tabs{display:flex;gap:8px;margin-bottom:16px;background:var(--bg3);border-radius:10px;padding:4px;}
 .bs-tab{flex:1;text-align:center;padding:12px 8px;border-radius:8px;border:none;background:none;color:var(--muted);font-weight:700;font-size:14px;min-height:44px;white-space:normal;}
@@ -262,7 +266,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="info-row"><span class="k">Creator</span><span class="v" id="infoCreator">—</span></div>
           <div class="info-row"><span class="k">Contract</span><span class="v" id="infoContract">—</span></div>
           <div class="price-hint">Prices are tiny, so <b>0.0<sub>8</sub>125</b> is short for 0.00000000125 — the small number counts the zeros after the dot.</div>
-          <div class="info-row" id="infoGradRow" style="display:none;"><span class="k">Status</span><span class="v"><a id="infoPancake" href="#" target="_blank" style="color:var(--green);">🎓 Graduated — trade on PancakeSwap ↗</a></span></div>
+          <div class="info-row" id="infoGradRow" style="display:none;"><span class="k">Status</span><span class="v"><a id="infoPancake" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--green);">🎓 Graduated — trade on PancakeSwap ↗</a></span></div>
         </div>
         <div id="tradeDesc" style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px;"></div>
       </div>
@@ -285,7 +289,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           </div>
           <div class="bs-receive">You receive: <b id="receiveAmount">—</b></div>
           <button class="bs-action buy" id="tradeActionBtn" onclick="executeTrade()">Connect Wallet</button>
-          <div class="grad-note" id="gradNote">🎓 This token graduated. Trade it on <a id="gradPancake" href="#" target="_blank" style="text-decoration:underline;">PancakeSwap ↗</a></div>
+          <div class="grad-note" id="gradNote">🎓 This token graduated. Trade it on <a id="gradPancake" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">PancakeSwap ↗</a></div>
         </div>
         <div class="feed-box">
           <div class="feed-title">💱 Recent Trades</div>
@@ -376,11 +380,11 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">Description</label>
     <input class="field-input" id="launchDesc" placeholder="Tell people about it"/>
     <label class="field-label">Twitter (optional)</label>
-    <input class="field-input" id="launchTwitter" placeholder="https://x.com/..."/>
+    <input class="field-input" id="launchTwitter" placeholder="@yourname or x.com/yourname" onblur="fixUrlField('launchTwitter','twitter')"/>
     <label class="field-label">Telegram (optional)</label>
-    <input class="field-input" id="launchTelegram" placeholder="https://t.me/..."/>
+    <input class="field-input" id="launchTelegram" placeholder="@yourchannel or t.me/yourchannel" onblur="fixUrlField('launchTelegram','telegram')"/>
     <label class="field-label">Website (optional)</label>
-    <input class="field-input" id="launchWebsite" placeholder="https://..."/>
+    <input class="field-input" id="launchWebsite" placeholder="https://..." onblur="fixUrlField('launchWebsite')"/>
     <div class="fee-note" id="feeNote">Checking creation fee…</div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="launchSubmitBtn" onclick="submitLaunch()">Launch Token</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
@@ -424,11 +428,11 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">Description (optional)</label>
     <input class="field-input" id="poolDesc" placeholder="Tell people about it"/>
     <label class="field-label">Twitter (optional)</label>
-    <input class="field-input" id="poolTwitter" placeholder="https://x.com/..."/>
+    <input class="field-input" id="poolTwitter" placeholder="@yourname or x.com/yourname" onblur="fixUrlField('poolTwitter','twitter')"/>
     <label class="field-label">Telegram (optional)</label>
-    <input class="field-input" id="poolTelegram" placeholder="https://t.me/..."/>
+    <input class="field-input" id="poolTelegram" placeholder="@yourchannel or t.me/yourchannel" onblur="fixUrlField('poolTelegram','telegram')"/>
     <label class="field-label">Website (optional)</label>
-    <input class="field-input" id="poolWebsite" placeholder="https://..."/>
+    <input class="field-input" id="poolWebsite" placeholder="https://..." onblur="fixUrlField('poolWebsite')"/>
     <label class="field-label">Liquidity Type</label>
     <div class="lock-choice">
       <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 Locked</b>Permanent. Builds trust, can't be undone.</div>
@@ -472,11 +476,11 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">Description</label>
     <input class="field-input" id="metaDesc" placeholder="Tell people about it"/>
     <label class="field-label">Twitter</label>
-    <input class="field-input" id="metaTwitter" placeholder="https://x.com/..."/>
+    <input class="field-input" id="metaTwitter" placeholder="@yourname or x.com/yourname" onblur="fixUrlField('metaTwitter','twitter')"/>
     <label class="field-label">Telegram</label>
-    <input class="field-input" id="metaTelegram" placeholder="https://t.me/..."/>
+    <input class="field-input" id="metaTelegram" placeholder="@yourchannel or t.me/yourchannel" onblur="fixUrlField('metaTelegram','telegram')"/>
     <label class="field-label">Website</label>
-    <input class="field-input" id="metaWebsite" placeholder="https://..."/>
+    <input class="field-input" id="metaWebsite" placeholder="https://..." onblur="fixUrlField('metaWebsite')"/>
     <button class="btn-gold" style="width:100%;padding:13px;" id="metaSaveBtn" onclick="submitPoolMeta()">Save &amp; Sign</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closePoolMetaModal()">Cancel</button>
   </div>
@@ -503,9 +507,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <label class="field-label">Website or token page icon on the banner</label>
       <input class="field-input" id="adWebsite" placeholder="https://..." onblur="fixUrlField('adWebsite')"/>
       <label class="field-label">Discord icon on the banner</label>
-      <input class="field-input" id="adDiscord" placeholder="discord.gg/..." onblur="fixUrlField('adDiscord')"/>
+      <input class="field-input" id="adDiscord" placeholder="discord.gg/your-invite" onblur="fixUrlField('adDiscord')"/>
       <label class="field-label">YouTube icon on the banner</label>
-      <input class="field-input" id="adYoutube" placeholder="youtube.com/@yourchannel" onblur="fixUrlField('adYoutube')"/>
+      <input class="field-input" id="adYoutube" placeholder="@yourchannel or youtube.com/@yourchannel" onblur="fixUrlField('adYoutube')"/>
       <label class="field-label">TikTok icon on the banner</label>
       <input class="field-input" id="adTiktok" placeholder="@yourname or tiktok.com/@yourname" onblur="fixUrlField('adTiktok','tiktok')"/>
       <div class="field-hint">These appear as small clickable icons in the corner of your banner. <b>Fill in at least one link</b> — here or in the field above.</div>
@@ -721,6 +725,25 @@ function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
 
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||''); setTimeout(()=>t.className='',5000); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// ─── Значки ссылок ───
+// Раньше стояли эмодзи. Они рисуются по-разному на iOS, Android и Windows,
+// «плавают» по размеру и на баннере смотрелись неряшливо. Векторные значки
+// одинаковы везде, масштабируются без потерь и подсвечены фирменным цветом.
+const LINK_ICONS = {
+  twitter:  { color:'#FFFFFF', svg:'<path d="M17.53 3h3.02l-6.6 7.54L21.75 21h-5.9l-4.62-6.04L5.94 21H2.92l7.06-8.07L2.5 3h6.05l4.18 5.52L17.53 3Zm-1.06 16.14h1.67L7.6 4.77H5.81l10.66 14.37Z"/>' },
+  telegram: { color:'#29A9EB', svg:'<path d="M21.6 4.3 2.9 11.5c-.9.35-.85 1.65.06 1.94l4.62 1.44 1.76 5.4c.24.72 1.15.9 1.64.33l2.5-2.9 4.8 3.53c.65.48 1.58.12 1.75-.67l3.2-14.9c.18-.85-.66-1.6-1.6-1.27Zm-2.5 3.1-8.1 7.2c-.2.18-.32.42-.35.68l-.28 2.5-1.2-3.7 9.93-6.68Z"/>' },
+  website:  { color:'#F5C842', svg:'<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 6h-2.9a15.6 15.6 0 0 0-1.4-3.4A8 8 0 0 1 18.9 8ZM12 4.1c.7 1 1.3 2.4 1.7 3.9h-3.4c.4-1.5 1-2.9 1.7-3.9ZM4.3 14a8 8 0 0 1 0-4h3.3a17.8 17.8 0 0 0 0 4H4.3Zm.8 2h2.9c.35 1.25.83 2.4 1.4 3.4A8 8 0 0 1 5.1 16Zm2.9-8H5.1a8 8 0 0 1 4.3-3.4C8.83 5.6 8.35 6.75 8 8Zm4 11.9c-.7-1-1.3-2.4-1.7-3.9h3.4c-.4 1.5-1 2.9-1.7 3.9Zm2.1-5.9H9.9a15.9 15.9 0 0 1 0-4h4.2a15.9 15.9 0 0 1 0 4Zm.5 5.4c.57-1 1.05-2.15 1.4-3.4h2.9a8 8 0 0 1-4.3 3.4Zm1.8-5.4a17.8 17.8 0 0 0 0-4h3.3a8 8 0 0 1 0 4h-3.3Z"/>' },
+  discord:  { color:'#5865F2', svg:'<path d="M12 3C6.9 3 3 6.6 3 11.4c0 2.6 1.15 4.9 3 6.5v3.1l2.9-1.6c1 .28 2.05.4 3.1.4 5.1 0 9-3.6 9-8.4S17.1 3 12 3Zm-3.3 10.3a1.55 1.55 0 1 1 0-3.1 1.55 1.55 0 0 1 0 3.1Zm6.6 0a1.55 1.55 0 1 1 0-3.1 1.55 1.55 0 0 1 0 3.1Z"/>' },
+  youtube:  { color:'#FF0033', svg:'<path d="M21.6 7.2a2.5 2.5 0 0 0-1.75-1.77C18.28 5 12 5 12 5s-6.28 0-7.85.43A2.5 2.5 0 0 0 2.4 7.2C2 8.8 2 12 2 12s0 3.2.4 4.8a2.5 2.5 0 0 0 1.75 1.77C5.72 19 12 19 12 19s6.28 0 7.85-.43a2.5 2.5 0 0 0 1.75-1.77C22 15.2 22 12 22 12s0-3.2-.4-4.8ZM10 15.1V8.9l5.2 3.1-5.2 3.1Z"/>' },
+  tiktok:   { color:'#FF3B5C', svg:'<path d="M16.5 2h-2.9v13.1a2.6 2.6 0 1 1-2.2-2.57V9.6a5.7 5.7 0 1 0 5.1 5.67V8.9a6.6 6.6 0 0 0 3.9 1.27V7.2a3.7 3.7 0 0 1-3.9-3.6V2Z"/>' }
+};
+function linkIcon(kind, size){
+  const i = LINK_ICONS[kind];
+  if(!i) return '';
+  const px = size || 18;
+  return '<svg viewBox="0 0 24 24" width="'+px+'" height="'+px+'" fill="'+i.color+'" aria-hidden="true">'+i.svg+'</svg>';
+}
+
 function safeHref(u){ const v=String(u||'').trim(); return /^https?:\/\//i.test(v) ? v : ''; }
 
 // Люди пишут адреса по-человечески: «@OpenGatelive», «t.me/канал», «x.com/имя».
@@ -734,6 +757,7 @@ function normalizeUrl(value, kind){
     if(kind === 'twitter')  return 'https://x.com/' + handle;
     if(kind === 'telegram') return 'https://t.me/'  + handle;
     if(kind === 'tiktok')   return 'https://www.tiktok.com/@' + handle;
+    if(kind === 'youtube')  return 'https://www.youtube.com/@' + handle;
     return '';
   }
   if(/^https?:\/\//i.test(v)) return v;
@@ -1154,9 +1178,9 @@ function renderTokenList(){
     const desc=meta.description?'<div class="tc-desc">'+esc(meta.description)+'</div>':'';
     const uTw=safeHref(meta.twitter), uTg=safeHref(meta.telegram), uWs=safeHref(meta.website);
     let socials='';
-    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
-    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
-    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">'+linkIcon('twitter',17)+'</a>';
+    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">'+linkIcon('telegram',17)+'</a>';
+    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">'+linkIcon('website',17)+'</a>';
     const foot='<div class="tc-foot"><div class="tc-socials">'+socials+'</div><button class="tc-copy" onclick="copyAddr(event,\''+esc(t.address)+'\')" title="Copy contract address">📋 '+esc(shortAddr(t.address))+'</button></div>';
     const card=document.createElement('div');
     card.className='token-card'; card.onclick=()=>showTrade(t.address);
@@ -1192,9 +1216,10 @@ async function openTradePage(token,_retry){
     if(meta&&meta.image_url){ av.innerHTML='<img src="'+esc(meta.image_url)+'" style="width:100%;height:100%;border-radius:12px;object-fit:cover;"/>'; } else av.textContent=symbol.charAt(0);
     const soc=document.getElementById('tradeSocials'); soc.innerHTML='';
     if(meta){
-      if(meta.twitter) soc.innerHTML+='<a class="social-link" href="'+esc(meta.twitter)+'" target="_blank">𝕏</a>';
-      if(meta.telegram) soc.innerHTML+='<a class="social-link" href="'+esc(meta.telegram)+'" target="_blank">✈️</a>';
-      if(meta.website) soc.innerHTML+='<a class="social-link" href="'+esc(meta.website)+'" target="_blank">🌐</a>';
+      const mTw=safeHref(meta.twitter), mTg=safeHref(meta.telegram), mWs=safeHref(meta.website);
+      if(mTw) soc.innerHTML+='<a class="social-link" href="'+esc(mTw)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('twitter',18)+'</a>';
+      if(mTg) soc.innerHTML+='<a class="social-link" href="'+esc(mTg)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('telegram',18)+'</a>';
+      if(mWs) soc.innerHTML+='<a class="social-link" href="'+esc(mWs)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('website',18)+'</a>';
     }
     document.getElementById('infoPrice').textContent=fmtPriceUsd(price)+' ('+fmtTinyPrice(Number(price)/1e18,6)+' BNB)';
     document.getElementById('infoMC').textContent=fmtUsd(c[1]);
@@ -1628,9 +1653,9 @@ async function submitLaunch(){
           name, symbol,
           description: document.getElementById('launchDesc').value.trim(),
           image_url:   imageUrl,
-          twitter:     document.getElementById('launchTwitter').value.trim(),
-          telegram:    document.getElementById('launchTelegram').value.trim(),
-          website:     document.getElementById('launchWebsite').value.trim()
+          twitter:     fixUrlField('launchTwitter','twitter'),
+          telegram:    fixUrlField('launchTelegram','telegram'),
+          website:     fixUrlField('launchWebsite')
         });
       }catch(e){
         // Токен уже создан и торгуется — описание можно добавить позже кнопкой Edit
@@ -1780,9 +1805,9 @@ async function submitPoolMeta(){
     const meta = {
       description: document.getElementById('metaDesc').value.trim(),
       image_url:   imageUrl,
-      twitter:     document.getElementById('metaTwitter').value.trim(),
-      telegram:    document.getElementById('metaTelegram').value.trim(),
-      website:     document.getElementById('metaWebsite').value.trim()
+      twitter:     fixUrlField('metaTwitter','twitter'),
+      telegram:    fixUrlField('metaTelegram','telegram'),
+      website:     fixUrlField('metaWebsite')
     };
     if(isLaunch){
       await saveLaunchMeta(currentToken, meta);
@@ -1868,9 +1893,9 @@ function renderPoolList(){
     const desc = m.description ? '<div class="tc-desc">'+esc(m.description)+'</div>' : '';
     const uTw=safeHref(m.twitter), uTg=safeHref(m.telegram), uWs=safeHref(m.website);
     let socials='';
-    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">𝕏</a>';
-    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">✈️</a>';
-    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">🌐</a>';
+    if(uTw) socials+='<a class="tc-social" href="'+esc(uTw)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Twitter / X">'+linkIcon('twitter',17)+'</a>';
+    if(uTg) socials+='<a class="tc-social" href="'+esc(uTg)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Telegram">'+linkIcon('telegram',17)+'</a>';
+    if(uWs) socials+='<a class="tc-social" href="'+esc(uWs)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Website">'+linkIcon('website',17)+'</a>';
     const foot='<div class="tc-foot"><div class="tc-socials">'+socials+'</div><button class="tc-copy" onclick="copyAddr(event,\''+esc(p.token)+'\')" title="Copy contract address">📋 '+esc(shortAddr(p.token))+'</button></div>';
     const card=document.createElement('div');
     card.className='token-card'; card.onclick=()=>showPoolTrade(p.pid);
@@ -1906,9 +1931,9 @@ async function openPoolTradePage(pid,_retry){
     else { av.textContent = symbol.charAt(0); }
     const psoc = document.getElementById('poolSocials'); psoc.innerHTML='';
     const sTw=safeHref(meta.twitter), sTg=safeHref(meta.telegram), sWs=safeHref(meta.website);
-    if(sTw) psoc.innerHTML+='<a class="social-link" href="'+esc(sTw)+'" target="_blank" rel="noopener noreferrer">𝕏</a>';
-    if(sTg) psoc.innerHTML+='<a class="social-link" href="'+esc(sTg)+'" target="_blank" rel="noopener noreferrer">✈️</a>';
-    if(sWs) psoc.innerHTML+='<a class="social-link" href="'+esc(sWs)+'" target="_blank" rel="noopener noreferrer">🌐</a>';
+    if(sTw) psoc.innerHTML+='<a class="social-link" href="'+esc(sTw)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('twitter',18)+'</a>';
+    if(sTg) psoc.innerHTML+='<a class="social-link" href="'+esc(sTg)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('telegram',18)+'</a>';
+    if(sWs) psoc.innerHTML+='<a class="social-link" href="'+esc(sWs)+'" target="_blank" rel="noopener noreferrer">'+linkIcon('website',18)+'</a>';
     document.getElementById('poolDescText').textContent = meta.description || '';
     const canEdit = userAddr && (userAddr.toLowerCase()===String(p.creator).toLowerCase() || userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase());
     document.getElementById('poolEditBtn').classList.toggle('hidden', !canEdit);
@@ -2210,9 +2235,9 @@ async function submitCreatePool(){
         await savePoolMeta(tokenAddr, {
           description: document.getElementById('poolDesc').value.trim(),
           image_url:   imageUrl,
-          twitter:     document.getElementById('poolTwitter').value.trim(),
-          telegram:    document.getElementById('poolTelegram').value.trim(),
-          website:     document.getElementById('poolWebsite').value.trim()
+          twitter:     fixUrlField('poolTwitter','twitter'),
+          telegram:    fixUrlField('poolTelegram','telegram'),
+          website:     fixUrlField('poolWebsite')
         });
         toast('Token info saved','ok');
       }catch(e){
@@ -2263,17 +2288,17 @@ function renderAdSlot(slot){
   const extendBtn = (isSelf && maxExtendDays(ad.end_at) > 0) ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openExtendModal('+ad.id+')">⏱ Extend</button>' : '';
   const editBtn = canManage ? '<button class="ad-extend-btn" onclick="event.stopPropagation();openAdEditModal('+ad.id+')">✏️ Edit</button>' : '';
   const AD_LINK_KINDS = [
-    ['twitter',  '𝕏',  'Twitter / X'],
-    ['telegram', '✈️', 'Telegram'],
-    ['website',  '🌐', 'Website'],
-    ['discord',  '💬', 'Discord'],
-    ['youtube',  '▶️', 'YouTube'],
-    ['tiktok',   '🎵', 'TikTok']
+    ['twitter',  'Twitter / X'],
+    ['telegram', 'Telegram'],
+    ['website',  'Website'],
+    ['discord',  'Discord'],
+    ['youtube',  'YouTube'],
+    ['tiktok',   'TikTok']
   ];
   let icons='';
   AD_LINK_KINDS.forEach(k=>{
     const u=safeHref(ad[k[0]]);
-    if(u) icons+='<a class="ad-social" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="'+esc(k[2])+'">'+k[1]+'</a>';
+    if(u) icons+='<a class="ad-social" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="'+esc(k[1])+'">'+linkIcon(k[0],18)+'</a>';
   });
   const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
   const actions = (editBtn||extendBtn||removeBtn) ? '<div class="ad-actions">'+editBtn+extendBtn+removeBtn+'</div>' : '';
@@ -2369,14 +2394,17 @@ async function submitAdEdit(){
   const ad=adEditAd;
   btn.disabled=true;
   try{
-    const kindOf = id => id==='adTwitter'?'twitter':(id==='adTelegram'?'telegram':(id==='adTiktok'?'tiktok':''));
+    const kindOf = id => id==='adTwitter' ? 'twitter'
+                       : id==='adTelegram' ? 'telegram'
+                       : id==='adTiktok'   ? 'tiktok'
+                       : id==='adYoutube'  ? 'youtube' : '';
     const vals={
       link_url: fixUrlField('adLinkUrl'),
       twitter:  fixUrlField('adTwitter','twitter'),
       telegram: fixUrlField('adTelegram','telegram'),
       website:  fixUrlField('adWebsite'),
       discord:  fixUrlField('adDiscord'),
-      youtube:  fixUrlField('adYoutube'),
+      youtube:  fixUrlField('adYoutube','youtube'),
       tiktok:   fixUrlField('adTiktok')
     };
     const typed=['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok']
@@ -2483,7 +2511,7 @@ async function submitAd(){
     tg      = fixUrlField('adTelegram','telegram');
     ws      = fixUrlField('adWebsite');
     dc      = fixUrlField('adDiscord');
-    yt      = fixUrlField('adYoutube');
+    yt      = fixUrlField('adYoutube','youtube');
     tk      = fixUrlField('adTiktok','tiktok');
     // Основная ссылка не обязательна: если её нет, баннер поведёт
     // на первую заполненную иконку.
@@ -2492,14 +2520,20 @@ async function submitAd(){
       toast('Add at least one link — banner link, Twitter, Telegram or website','err');
       focusField('adLinkUrl'); return;
     }
-    const kindOf = id => id==='adTwitter'?'twitter':(id==='adTelegram'?'telegram':(id==='adTiktok'?'tiktok':''));
+    const kindOf = id => id==='adTwitter' ? 'twitter'
+                       : id==='adTelegram' ? 'telegram'
+                       : id==='adTiktok'   ? 'tiktok'
+                       : id==='adYoutube'  ? 'youtube' : '';
     const typed = ['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok']
       .filter(id=>document.getElementById(id).value.trim());
     const broken = typed.find(id=>!normalizeUrl(document.getElementById(id).value, kindOf(id)));
     if(broken){
       const names={adLinkUrl:'banner link', adTwitter:'Twitter', adTelegram:'Telegram', adWebsite:'website',
                    adDiscord:'Discord', adYoutube:'YouTube', adTiktok:'TikTok'};
-      toast('This does not look like a valid address: '+names[broken],'err');
+      const hints={adLinkUrl:'https://t.me/channel', adTwitter:'@name', adTelegram:'@channel',
+                   adWebsite:'https://site.com', adDiscord:'discord.gg/invite',
+                   adYoutube:'@channel', adTiktok:'@name'};
+      toast(names[broken]+' — use something like: '+hints[broken],'err');
       focusField(broken); return;
     }
     if(!adPendingImageFile){ toast('Upload a banner image','err'); focusField('adImgDrop'); return; }
