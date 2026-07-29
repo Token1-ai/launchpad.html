@@ -32,11 +32,30 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px 16px;font-weight:600;font-size:14px;min-height:44px;white-space:normal;}
 .wallet-chip{background:var(--bg3);border:1px solid var(--green);color:var(--green);border-radius:100px;padding:9px 14px;font-size:13px;font-weight:600;}
 .btn-how{position:relative;background:var(--gold);color:#000;border:none;border-radius:100px;width:40px;height:40px;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;box-shadow:0 0 0 0 rgba(245,200,66,.7);animation:pulseGold 2s infinite;}
-@keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(245,200,66,.6);}70%{box-shadow:0 0 0 12px rgba(245,200,66,0);}100%{box-shadow:0 0 0 0 rgba(245,200,66,0);}}
+.btn-how::after{content:'';position:absolute;inset:0;border-radius:100px;border:2px solid rgba(245,200,66,.7);animation:pulseGold 2.4s infinite;pointer-events:none;}
+@keyframes pulseGold{0%{transform:scale(1);opacity:.75;}70%{transform:scale(1.5);opacity:0;}100%{transform:scale(1.5);opacity:0;}}
+@media(prefers-reduced-motion:reduce){.btn-how::after{animation:none;opacity:0;}}
 .lab-wrap{max-width:1400px;margin:0 auto;padding:20px;}
 .ad-boards-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
 .ad-slot{flex:1 1 0;min-width:260px;aspect-ratio:3/1;max-height:230px;min-height:120px;border-radius:14px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;}
+/* Занятый слот: рамка убрана, вместо неё мягкое статичное свечение.
+   Статичное — потому что анимировать тень дорого, телефон греется. */
+.ad-slot.filled{border:1px solid rgba(255,255,255,.10);box-shadow:0 0 22px rgba(245,200,66,.13),0 0 0 1px rgba(245,200,66,.10);}
+/* Пульсация сделана прозрачностью светового блика — это считает видеокарта,
+   процессор не задействован. */
+.ad-slot.filled::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.16) 48%,transparent 66%);
+  opacity:0;animation:adSheen 4.5s ease-in-out infinite;}
+@keyframes adSheen{0%{opacity:0;}45%{opacity:.85;}70%{opacity:0;}100%{opacity:0;}}
+@media(prefers-reduced-motion:reduce){.ad-slot.filled::after{animation:none;}}
+/* Если загрузили логотип, а не широкий баннер — показываем его целиком
+   слева, а остальное поле заливаем градиентом, без обрезки. */
+.ad-slot.logo-mode{background:linear-gradient(120deg,#161a24 0%,#241c33 45%,#33261a 100%);}
+.ad-slot.logo-mode img{width:auto;height:58%;margin:5% auto 0 4%;align-self:flex-start;border-radius:12px;object-fit:contain;}
+.ad-ca{position:absolute;right:8px;bottom:8px;z-index:4;display:flex;align-items:center;gap:6px;
+  background:rgba(10,10,14,.82);border:1px solid rgba(255,255,255,.22);border-radius:9px;
+  padding:7px 10px;font-size:12px;font-weight:600;color:#fff;min-height:34px;white-space:normal;}
+.ad-ca:hover{border-color:rgba(255,255,255,.6);}
 .ad-paused-note{color:var(--muted);font-size:13px;text-align:center;padding:0 16px;line-height:1.4;}
 .ad-slot img{width:100%;height:100%;object-fit:cover;}
 .ad-actions{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:4;flex-wrap:wrap;justify-content:flex-end;max-width:72%;}
@@ -87,7 +106,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .wallet-opt img{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:contain;}
 .wallet-opt .dotfallback{width:30px;height:30px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
 .ad-socials{position:absolute;left:8px;bottom:8px;display:flex;gap:6px;z-index:3;flex-wrap:wrap;max-width:calc(100% - 16px);}
-.ad-social{width:34px;height:34px;border-radius:10px;background:rgba(10,10,14,.72);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;text-decoration:none;backdrop-filter:blur(4px);transition:transform .12s,border-color .12s,background .12s;}
+.ad-social{width:34px;height:34px;border-radius:10px;background:rgba(10,10,14,.82);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;text-decoration:none;transition:transform .12s,border-color .12s,background .12s;}
 .ad-social:hover{border-color:rgba(255,255,255,.6);background:rgba(10,10,14,.9);transform:translateY(-2px);}
 .ad-social svg{display:block;}
 .field-hint{font-size:11px;color:var(--muted);margin:-9px 0 12px;line-height:1.4;}
@@ -190,6 +209,16 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   .tc-social{width:44px;height:44px;font-size:18px;}
   .tc-copy{min-height:44px;padding:11px 12px;font-size:12px;}
   .ad-social{width:44px;height:44px;font-size:17px;}
+  /* Шесть иконок по 44px требуют двух рядов и налезают на чип с адресом.
+     На узком экране показываем первые четыре — они помещаются в строку. */
+  .ad-socials{max-width:calc(100% - 132px);flex-wrap:nowrap;}
+  .ad-social:nth-child(n+5){display:none;}
+  /* Слот на телефоне низкий: логотип на 58% высоты налезал бы на иконки */
+  .ad-slot.logo-mode img{height:44%;margin-top:4%;}
+}
+/* Очень узкие экраны (iPhone SE и подобные): три иконки вместо четырёх */
+@media(max-width:360px){
+  .ad-social:nth-child(n+4){display:none;}
   .social-link{width:44px;height:44px;font-size:18px;}
   .btn-how{width:44px;height:44px;}
   .ad-remove-btn,.ad-extend-btn{min-height:44px;padding:11px 12px;}
@@ -229,7 +258,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="new-ticker-items" id="newTickerItems"><span class="nti">Loading...</span></div>
     </div>
     <div class="lab-toolbar">
-      <input class="lab-search" id="searchInput" placeholder="🔍 Search tokens..." oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
+      <input class="lab-search" id="searchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
       <button class="filter-btn active" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
       <button class="filter-btn" id="filter-new" onclick="setFilter('new')">🆕 New</button>
       <button class="filter-btn" id="filter-graduated" onclick="setFilter('graduated')">🎓 Graduated</button>
@@ -301,7 +330,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
   <div id="poolsHomeView" class="hidden">
     <div class="lab-toolbar">
-      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search tokens..." oninput="visiblePools=PAGE_SIZE;renderPoolList()"/>
+      <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visiblePools=PAGE_SIZE;renderPoolList()"/>
     </div>
     <div class="token-grid" id="poolGrid"><div class="empty">Loading tokens...</div></div>
   </div>
@@ -494,7 +523,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span id="adImgDropText">📷 Click to upload banner image</span>
       <img id="adImgPreview" class="img-preview hidden"/>
     </div>
-    <div class="img-hint" id="adImgHint">Recommended size: 1200×400px. Any size works — the image is scaled to fit automatically. Formats: PNG, JPG, GIF. Max 3MB.</div>
+    <div class="img-hint" id="adImgHint">Recommended: a wide banner 1200×400px. A square logo also works — it will be placed on a glowing background without cropping. PNG, JPG, GIF. Max 3MB.</div>
     <input type="file" id="adImageInput" accept="image/*" class="hidden" onchange="previewAdImage(this)"/>
     <label class="field-label" id="adLinkLabel">Where the banner leads when clicked</label>
     <input class="field-input" id="adLinkUrl" placeholder="https://t.me/your_channel" onblur="fixUrlField('adLinkUrl')"/>
@@ -513,6 +542,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <label class="field-label">TikTok icon on the banner</label>
       <input class="field-input" id="adTiktok" placeholder="@yourname or tiktok.com/@yourname" onblur="fixUrlField('adTiktok','tiktok')"/>
       <div class="field-hint">These appear as small clickable icons in the corner of your banner. <b>Fill in at least one link</b> — here or in the field above.</div>
+      <label class="field-label">Token contract address on the banner (optional)</label>
+      <input class="field-input" id="adTokenAddr" placeholder="0x..."/>
+      <div class="field-hint">Shown in the corner of your banner with a copy button, so people can paste it straight into the search on this site.</div>
     </div>
     <div id="adPayBlock">
       <label class="field-label" id="adDaysLabel">Days * (max 30)</label>
@@ -653,6 +685,16 @@ function rotateReadProvider(){
   console.warn('RPC переключён на', READ_RPCS[_activeIdx]);
   return _providers[_activeIdx];
 }
+// Promise.any появился только в iOS 14. На более старых iPhone без этого
+// сайт не смог бы выбрать рабочий узел и не загрузился бы вовсе.
+function anyOf(list){
+  if(typeof Promise.any === 'function') return Promise.any(list);
+  return new Promise((resolve, reject)=>{
+    let left = list.length;
+    if(!left){ reject(new Error('no providers')); return; }
+    list.forEach(p => Promise.resolve(p).then(resolve, ()=>{ if(--left === 0) reject(new Error('all failed')); }));
+  });
+}
 function withTimeout(p, ms){
   return Promise.race([p, new Promise((_,rj)=>setTimeout(()=>rj(new Error('RPC timeout')), ms || RPC_TIMEOUT_MS))]);
 }
@@ -661,7 +703,7 @@ function withTimeout(p, ms){
 async function pickHealthyProvider(){
   if(!_providers) _providers = buildProviders();
   try{
-    _activeIdx = await Promise.any(_providers.map((p,i)=> withTimeout(p.getBlockNumber(), 5000).then(()=>i)));
+    _activeIdx = await anyOf(_providers.map((p,i)=> withTimeout(p.getBlockNumber(), 5000).then(()=>i)));
     console.log('RPC выбран:', READ_RPCS[_activeIdx]);
   }catch(e){ console.error('ни один RPC не ответил при старте'); }
 }
@@ -785,7 +827,7 @@ function bscLink(addr,kind){
   const path = kind==='token' ? 'token/' : 'address/';
   return '<a class="bsc-link" href="https://bscscan.com/'+path+esc(addr)+'" target="_blank" rel="noopener noreferrer" title="'+esc(addr)+'">'+esc(shortAddr(addr))+' ↗</a>';
 }
-function msLeft(endAt){ return new Date(endAt).getTime() - Date.now(); }
+function msLeft(endAt){ return parseTs(endAt).getTime() - Date.now(); }
 function fmtLeft(endAt){
   const ms = msLeft(endAt);
   if(ms <= 0) return 'expired';
@@ -827,7 +869,25 @@ function fmtPriceUsd(priceWei){
 }
 function fmtTokens(wei){ const n=Number(wei)/1e18; return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toFixed(0); }
 function shortAddr(a){ return a? a.slice(0,6)+'...'+a.slice(-4) : ''; }
-function timeAgo(ts){ const s=Math.floor((Date.now()-new Date(ts).getTime())/1000); if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; if(s<86400) return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
+// Safari (iPhone, iPad, Mac) не понимает даты вида «2026-07-26 15:05:41.975124+00»:
+// пробел вместо T, шесть знаков после запятой и часовой пояс без минут.
+// В Chrome такое разбирается, на iPhone возвращается Invalid Date — и тогда
+// ломаются свечи и время в ленте сделок. Приводим к виду, понятному везде.
+function parseTs(v){
+  if(v instanceof Date) return v;
+  if(typeof v === 'number') return new Date(v);
+  const raw = String(v == null ? '' : v).trim();
+  if(!raw) return new Date(NaN);
+  let x = raw.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1');
+  if(/([+-]\d{2})$/.test(x)) x += ':00';
+  if(!/[zZ]$|[+-]\d{2}:\d{2}$/.test(x)) x += 'Z';
+  let d = new Date(x);
+  if(!isNaN(d.getTime())) return d;
+  d = new Date(raw);
+  return isNaN(d.getTime()) ? new Date(NaN) : d;
+}
+
+function timeAgo(ts){ const s=Math.floor((Date.now()-parseTs(ts).getTime())/1000); if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; if(s<86400) return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
 
 // ─── Выбор кошелька (стандарт EIP-6963) ───
 // Раньше сайт брал window.ethereum напрямую. Когда в браузере стоит
@@ -871,6 +931,13 @@ const WC_SCRIPTS = [
 // window.ethereum уже есть, и всё работает как на компьютере.
 function isMobileDevice(){
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent || '');
+}
+// iPad с iPadOS 13+ представляется как Macintosh, поэтому дополнительно
+// смотрим на наличие сенсорного экрана.
+function isIOSDevice(){
+  const ua = navigator.userAgent || '';
+  if(/iPhone|iPad|iPod/i.test(ua)) return true;
+  return /Macintosh/i.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document;
 }
 function deepLinkFor(target){
   const host = location.host + location.pathname + location.search;
@@ -919,7 +986,9 @@ async function connectViaWalletConnect(){
   toast('Opening WalletConnect…','ok');
   if(!await loadWalletConnect()){
     throw new Error(isMobileDevice()
-      ? 'WalletConnect unavailable. Try "Open in MetaMask" or "Open in Trust Wallet" instead.'
+      ? (isIOSDevice()
+          ? 'WalletConnect unavailable. Try "Open in MetaMask", or open this site inside your wallet app.'
+          : 'WalletConnect unavailable. Try "Open in MetaMask" or "Open in Trust Wallet" instead.')
       : 'WalletConnect could not be loaded — check your connection or ad blocker.');
   }
   const pid = WC_PROJECT_IDS[Math.floor(Math.random()*WC_PROJECT_IDS.length)];
@@ -953,11 +1022,20 @@ function walletOptions(){
   }
   // На телефоне без встроенного кошелька прямой переход в приложение
   // работает надёжнее QR-кода, поэтому ставим его первым.
+  const wcOpt = { kind:'wc', name:'WalletConnect (Trust Wallet, Rabby, others)', icon:null, rdns:'walletconnect', emoji:'🔗' };
   if(isMobileDevice() && !discoveredWallets.length){
+    if(isIOSDevice()){
+      // На iPhone у Trust Wallet нет встроенного браузера — его убрали
+      // ради правил App Store. Единственный рабочий путь там WalletConnect,
+      // поэтому предлагать переход в приложение бессмысленно.
+      opts.unshift(wcOpt);
+      opts.unshift({ kind:'deeplink', target:'metamask', name:'Open in MetaMask', icon:null, rdns:'', emoji:'🦊' });
+      return opts;
+    }
     opts.unshift({ kind:'deeplink', target:'trust',    name:'Open in Trust Wallet', icon:null, rdns:'', emoji:'🛡' });
     opts.unshift({ kind:'deeplink', target:'metamask', name:'Open in MetaMask',     icon:null, rdns:'', emoji:'🦊' });
   }
-  opts.push({ kind:'wc', name:'WalletConnect (scan QR code)', icon:null, rdns:'walletconnect', emoji:'🔗' });
+  opts.push(wcOpt);
   return opts;
 }
 function openWalletModal(){
@@ -1047,6 +1125,7 @@ async function connectWallet(chosen){
 function switchMode(mode){
   const isLaunch = mode==='launch';
   setHash('');
+  leaveTokenPages();
   document.getElementById('modeLaunch').classList.toggle('active', isLaunch);
   document.getElementById('modePools').classList.toggle('active', !isLaunch);
   document.getElementById('homeView').classList.toggle('hidden', !isLaunch);
@@ -1165,7 +1244,9 @@ function renderTokenList(){
   if(activeFilter==='new') list.sort((a,b)=>b.createdAt-a.createdAt);
   else if(activeFilter==='graduated') list=list.filter(t=>t.graduated);
   else list.sort((a,b)=>Number(b.realBNB)-Number(a.realBNB));
-  if(q) list=list.filter(t=>t.name.toLowerCase().includes(q)||t.symbol.toLowerCase().includes(q));
+  // Ищем и по названию, и по тикеру, и по адресу контракта —
+  // адрес чаще всего и есть то, что человек копирует из рекламы или чата.
+  if(q) list=list.filter(t=>t.name.toLowerCase().includes(q)||t.symbol.toLowerCase().includes(q)||String(t.address||'').toLowerCase().includes(q));
   if(!list.length){ grid.innerHTML='<div class="empty">No tokens match.</div>'; return; }
   const total=list.length;
   list=list.slice(0, visibleTokens);   // рисуем частями, чтобы страница не тормозила
@@ -1331,6 +1412,24 @@ function applyPriceFormat(series, candles){
   catch(e){ console.error('applyPriceFormat failed:', e); }
 }
 
+function destroyChart(){
+  if(chart){ try{ chart.remove(); }catch(e){} }
+  chart=null; candleSeries=null; volumeSeries=null;
+  lpChartState={ lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0, lastTradeAt:null };
+}
+function destroyPoolChart(){
+  if(poolChart){ try{ poolChart.remove(); }catch(e){} }
+  poolChart=null; poolCandleSeries=null; poolVolumeSeries=null;
+  poolChartState={ lastIndex:-1, lastBucket:null, lastClose:null, lastCandle:null, lastVol:0, lastTradeAt:null };
+}
+// Каналы Supabase держат постоянное соединение. Уходя со страницы токена,
+// закрываем их — иначе они копятся и продолжают будить телефон.
+function closeTradeChannels(){
+  if(tradesChannel){ try{ sb.removeChannel(tradesChannel); }catch(e){} tradesChannel=null; }
+  if(poolTradesChannel){ try{ sb.removeChannel(poolTradesChannel); }catch(e){} poolTradesChannel=null; }
+}
+function leaveTokenPages(){ closeTradeChannels(); destroyChart(); destroyPoolChart(); }
+
 function volColor(c){ return c.close >= c.open ? '#22c55e88' : '#ef444488'; }
 
 // true — свеча обновлена на месте; false — базы нет, нужна полная перезагрузка
@@ -1373,7 +1472,7 @@ async function syncChartTail(token){
     if(error){ console.error('syncChartTail:', error); return; }
     if(!data || !data.length) return;
     for(const t of data){
-      const okk = pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, new Date(t.created_at));
+      const okk = pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, parseTs(t.created_at));
       if(!okk){ await loadChartFromTrades(token); return; }
       st.lastTradeAt = t.created_at;
     }
@@ -1390,7 +1489,7 @@ async function syncPoolChartTail(pid){
     if(error){ console.error('syncPoolChartTail:', error); return; }
     if(!data || !data.length) return;
     for(const t of data){
-      const okk = pushTradeToChart(st, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, new Date(t.created_at));
+      const okk = pushTradeToChart(st, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, parseTs(t.created_at));
       if(!okk){ await loadPoolChartFromTrades(pid); return; }
       st.lastTradeAt = t.created_at;
     }
@@ -1398,7 +1497,11 @@ async function syncPoolChartTail(pid){
 }
 
 function initChart(){
-  const el=document.getElementById('chartContainer'); el.innerHTML='';
+  const el=document.getElementById('chartContainer');
+  // Без этого каждый открытый токен оставлял позади живой график
+  // со своими таймерами — телефон грелся тем сильнее, чем дольше сидишь.
+  destroyChart();
+  el.innerHTML='';
   chartTimeMap = {};
   chart=LightweightCharts.createChart(el,{
     width:el.clientWidth,height:el.clientHeight,
@@ -1425,6 +1528,7 @@ function initChart(){
 }
 
 async function loadChartFromTrades(token){
+  if(!candleSeries) return;
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
     const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
@@ -1439,7 +1543,7 @@ async function loadChartFromTrades(token){
     for(const t of trades){
       const closePrice=Number(t.price);
       const openPrice = prevClose===null ? closePrice : prevClose;
-      chained.push({ date:new Date(t.created_at), open:openPrice, close:closePrice, vol:Number(t.bnb_amount)||0 });
+      chained.push({ date:parseTs(t.created_at), open:openPrice, close:closePrice, vol:Number(t.bnb_amount)||0 });
       prevClose=closePrice;
     }
     const buckets={}; const order=[];
@@ -1832,6 +1936,7 @@ function showPoolsHome(){
   document.getElementById('poolsHomeView').classList.remove('hidden');
   document.getElementById('poolsTradeView').classList.add('hidden');
   setHash('');
+  leaveTokenPages();
   loadPools();
 }
 async function loadPools(_retry){
@@ -1879,7 +1984,7 @@ async function loadPools(_retry){
 function renderPoolList(){
   const grid=document.getElementById('poolGrid');
   const q=(document.getElementById('poolSearchInput').value||'').toLowerCase();
-  let list=poolsCache.filter(p=>!q||p.name.toLowerCase().includes(q)||p.symbol.toLowerCase().includes(q));
+  let list=poolsCache.filter(p=>!q||p.name.toLowerCase().includes(q)||p.symbol.toLowerCase().includes(q)||String(p.token||'').toLowerCase().includes(q));
   if(!list.length){ grid.innerHTML='<div class="empty">No tokens match.</div>'; return; }
   const total=list.length;
   list=list.slice(0, visiblePools);
@@ -1958,7 +2063,9 @@ async function openPoolTradePage(pid,_retry){
 }
 
 function initPoolChart(){
-  const el=document.getElementById('poolChartContainer'); el.innerHTML='';
+  const el=document.getElementById('poolChartContainer');
+  destroyPoolChart();
+  el.innerHTML='';
   poolChartTimeMap = {};
   poolChart=LightweightCharts.createChart(el,{
     width:el.clientWidth,height:el.clientHeight,
@@ -1984,6 +2091,7 @@ function initPoolChart(){
 }
 
 async function loadPoolChartFromTrades(pid){
+  if(!poolCandleSeries) return;
   try{
     const {data:trades}=await sb.from('pool_trades').select('price,quote_amount,side,created_at').eq('pool_id',pid).order('created_at',{ascending:true}).limit(3000);
     const currentPrice = Number(await getReadPools().getPrice(pid))/1e18;
@@ -1998,7 +2106,7 @@ async function loadPoolChartFromTrades(pid){
     for(const t of trades){
       const closePrice=Number(t.price);
       const openPrice = prevClose===null ? closePrice : prevClose;
-      chained.push({ date:new Date(t.created_at), open:openPrice, close:closePrice, vol:Number(t.quote_amount)||0 });
+      chained.push({ date:parseTs(t.created_at), open:openPrice, close:closePrice, vol:Number(t.quote_amount)||0 });
       prevClose=closePrice;
     }
     const buckets={}; const order=[];
@@ -2277,6 +2385,7 @@ function renderAdSlot(slot){
   const el = document.getElementById('adSlot'+slot);
   const ad = adBoardsData[slot];
   if(!ad){
+    el.classList.remove('filled','logo-mode');
     el.innerHTML = adPricing.ads_paused
       ? '<span class="ad-paused-note">⏸ Ad slots are temporarily closed</span>'
       : '<span style="color:var(--muted);font-size:28px;">+</span>';
@@ -2302,7 +2411,22 @@ function renderAdSlot(slot){
   });
   const socials = icons ? '<div class="ad-socials">'+icons+'</div>' : '';
   const actions = (editBtn||extendBtn||removeBtn) ? '<div class="ad-actions">'+editBtn+extendBtn+removeBtn+'</div>' : '';
-  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+actions;
+  const ca = /^0x[0-9a-fA-F]{40}$/.test(ad.token_address||'')
+    ? '<button class="ad-ca" onclick="event.stopPropagation();copyAddr(event,\''+esc(ad.token_address)+'\')" title="Copy contract address">📋 '+esc(shortAddr(ad.token_address))+'</button>'
+    : '';
+  el.classList.add('filled');
+  el.classList.remove('logo-mode');
+  el.innerHTML = '<img src="'+esc(ad.image_url)+'"/>'+socials+ca+actions;
+  // Широкий баннер растягиваем на весь слот, а квадратный логотип
+  // показываем целиком слева — иначе у него срезало бы половину.
+  const img = el.querySelector('img');
+  if(img){
+    const decide = ()=>{
+      const r = img.naturalWidth / (img.naturalHeight || 1);
+      el.classList.toggle('logo-mode', isFinite(r) && r < 1.9);
+    };
+    if(img.complete && img.naturalWidth) decide(); else img.addEventListener('load', decide, {once:true});
+  }
 }
 function handleAdSlotClick(slot){
   if(!adBoardsData[slot] && adPricing.ads_paused){
@@ -2330,7 +2454,7 @@ async function openAdModal(slot){
   document.getElementById('adLinkHint').classList.remove('hidden');
   document.getElementById('adSocialFields').classList.remove('hidden');
   document.getElementById('adImageInput').value='';
-  ['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok'].forEach(id=>document.getElementById(id).value='');
+  ['adLinkUrl','adTwitter','adTelegram','adWebsite','adDiscord','adYoutube','adTiktok','adTokenAddr'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('adDaysLabel').textContent='Days * (max '+MAX_AD_DAYS+')';
   document.getElementById('adDays').max=String(MAX_AD_DAYS);
   document.getElementById('adDays').value='1';
@@ -2356,6 +2480,7 @@ function adEditMessage(adId, m, ts){
     'dc: '    + (m.discord   || '') + '\n' +
     'yt: '    + (m.youtube   || '') + '\n' +
     'tk: '    + (m.tiktok    || '') + '\n' +
+    'ca: '    + (m.token_address || '') + '\n' +
     'ts: '    + ts;
 }
 async function openAdEditModal(adId){
@@ -2386,6 +2511,7 @@ async function openAdEditModal(adId){
   document.getElementById('adDiscord').value  = ad.discord  || '';
   document.getElementById('adYoutube').value  = ad.youtube  || '';
   document.getElementById('adTiktok').value   = ad.tiktok   || '';
+  document.getElementById('adTokenAddr').value = ad.token_address || '';
   document.getElementById('adSubmitBtn').textContent='Save changes';
   document.getElementById('adModal').classList.add('show');
 }
@@ -2418,8 +2544,14 @@ async function submitAdEdit(){
     if(adPendingImageFile){ btn.textContent='Uploading image...'; imageUrl = await uploadTokenImage(adPendingImageFile); }
     if(!imageUrl){ toast('Upload a banner image','err'); btn.disabled=false; btn.textContent='Save changes'; return; }
 
+    const caEdit = document.getElementById('adTokenAddr').value.trim();
+    if(caEdit && !/^0x[0-9a-fA-F]{40}$/.test(caEdit)){
+      toast('Token address must look like 0x… (42 characters)','err'); focusField('adTokenAddr');
+      btn.disabled=false; btn.textContent='Save changes'; return;
+    }
     const meta={ image_url:imageUrl, link_url:target, twitter:vals.twitter, telegram:vals.telegram,
-                 website:vals.website, discord:vals.discord, youtube:vals.youtube, tiktok:vals.tiktok };
+                 website:vals.website, discord:vals.discord, youtube:vals.youtube, tiktok:vals.tiktok,
+                 token_address: caEdit };
     btn.textContent='Confirm signature in wallet...';
     const ts=Date.now();
     const signature=await signer.signMessage(adEditMessage(ad.id, meta, ts));
@@ -2536,6 +2668,10 @@ async function submitAd(){
       toast(names[broken]+' — use something like: '+hints[broken],'err');
       focusField(broken); return;
     }
+    const ca = document.getElementById('adTokenAddr').value.trim();
+    if(ca && !/^0x[0-9a-fA-F]{40}$/.test(ca)){
+      toast('Token address must look like 0x… (42 characters)','err'); focusField('adTokenAddr'); return;
+    }
     if(!adPendingImageFile){ toast('Upload a banner image','err'); focusField('adImgDrop'); return; }
     linkUrl = target;
   }
@@ -2557,7 +2693,8 @@ async function submitAd(){
     const payload = isExtend
       ? { action:'extend', adId:adExtendAd.id, wallet:userAddr, days, token:adToken, txHash:rc.hash }
       : { action:'submit', slot:adSlotTarget, wallet:userAddr, imageUrl:adImageUrl, linkUrl, days, token:adToken, txHash:rc.hash,
-          twitter:tw, telegram:tg, website:ws, discord:dc, youtube:yt, tiktok:tk };
+          twitter:tw, telegram:tg, website:ws, discord:dc, youtube:yt, tiktok:tk,
+          tokenAddress: document.getElementById('adTokenAddr').value.trim() };
     // Оплата уже прошла. Если активация не удалась из-за сети — пробуем ещё,
     // иначе деньги ушли, а объявления нет. txHash тот же, повторный зачёт
     // невозможен: сервер держит журнал использованных транзакций.
@@ -2723,9 +2860,19 @@ async function submitAdPricing(){
   }catch(e){ toast(e.message||'Failed','err'); }
 }
 
+// Пока вкладка не на экране, опрашивать курс незачем — на телефоне
+// это будит процессор и радио вхолостую.
+let _priceTimer = null;
+function startPriceTimer(){ if(!_priceTimer) _priceTimer = setInterval(loadBnbPrice, 60000); }
+function stopPriceTimer(){ if(_priceTimer){ clearInterval(_priceTimer); _priceTimer = null; } }
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ stopPriceTimer(); }
+  else { startPriceTimer(); loadBnbPrice(); }
+});
+
 (async function init(){
   await pickHealthyProvider();
-  await loadBnbPrice(); setInterval(loadBnbPrice, 60000);
+  await loadBnbPrice(); startPriceTimer();
   await loadAdPricing(); await loadAdBoards();
   const opened = await openFromHash();     // пришли по прямой ссылке на токен
   if(!opened) showHome();
