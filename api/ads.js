@@ -37,6 +37,7 @@ const sbClient = () => createClient(process.env.SUPABASE_URL, process.env.SUPABA
 const safeUrl = s => { const v = String(s || '').trim().slice(0, 300); return /^https?:\/\//i.test(v) ? v : ''; };
 // Адрес токена показывается на баннере, чтобы его можно было скопировать.
 // Пускаем только настоящий вид адреса — иначе туда впишут что угодно.
+const clip = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 const safeTokenAddr = s => { const v = String(s || '').trim(); return /^0x[0-9a-fA-F]{40}$/.test(v) ? v : ''; };
 
 export default async function handler(req, res) {
@@ -117,7 +118,7 @@ function recoverSigner(message, signature) {
 /* ─── submit (place an ad) ─── */
 
 async function doSubmit(body, res) {
-  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website, discord, youtube, tiktok, tokenAddress } = body;
+  const { slot, wallet, imageUrl, linkUrl, days, token, txHash, twitter, telegram, website, discord, youtube, tiktok, tokenAddress, headline } = body;
   if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
   if (!wallet || !imageUrl || !days || !token || !txHash) { res.status(400).json({ error: 'Missing params' }); return; }
   if (!isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
@@ -128,8 +129,11 @@ async function doSubmit(body, res) {
   // Кликом по баннеру ведём на первую заполненную.
   const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
   const dc = safeUrl(discord), yt = safeUrl(youtube),  tk = safeUrl(tiktok);
+  const ca = safeTokenAddr(tokenAddress);
   const target = safeUrl(linkUrl) || tw || tg || ws || dc || yt || tk;
-  if (!target) { res.status(400).json({ error: 'Add at least one link' }); return; }
+  // Адрес токена сам по себе годится: клик по баннеру откроет его график
+  // прямо на сайте, внешняя ссылка при этом не нужна.
+  if (!target && !ca) { res.status(400).json({ error: 'Add at least one link or a token address' }); return; }
   const daysNum = Math.floor(Number(days));
   if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
   if (!['USDT', 'USDC'].includes(token)) { res.status(400).json({ error: 'Bad token' }); return; }
@@ -200,12 +204,13 @@ async function doSubmit(body, res) {
 
   // Ссылки для иконок пишем отдельным апдейтом: на защиту от гонки за слот
   // они не влияют, и так не приходится менять сигнатуру place_ad_atomic.
-  if (newId && (tw || tg || ws || dc || yt || tk || safeTokenAddr(tokenAddress))) {
+  const head = clip(headline, 80);
+  if (newId && (tw || tg || ws || dc || yt || tk || ca || head)) {
     try {
       await sb.from('ad_boards').update({
         twitter: tw, telegram: tg, website: ws,
         discord: dc, youtube: yt, tiktok: tk,
-        token_address: safeTokenAddr(tokenAddress)
+        token_address: ca, headline: head
       }).eq('id', newId);
     } catch (e) {}
   }
@@ -445,6 +450,7 @@ function adEditMessage(adId, m, ts) {
     'yt: '    + (m.youtube   || '') + '\n' +
     'tk: '    + (m.tiktok    || '') + '\n' +
     'ca: '    + (m.token_address || '') + '\n' +
+    'txt: '   + (m.headline || '') + '\n' +
     'ts: '    + ts;
 }
 
@@ -467,12 +473,13 @@ async function doEditOwn(body, res) {
     discord:   safeUrl(meta.discord),
     youtube:   safeUrl(meta.youtube),
     tiktok:    safeUrl(meta.tiktok),
-    token_address: safeTokenAddr(meta.token_address)
+    token_address: safeTokenAddr(meta.token_address),
+    headline:      clip(meta.headline, 80)
   };
   if (!clean.image_url) { res.status(400).json({ error: 'Banner image is required' }); return; }
 
   const target = clean.link_url || clean.twitter || clean.telegram || clean.website || clean.discord || clean.youtube || clean.tiktok;
-  if (!target) { res.status(400).json({ error: 'Add at least one link' }); return; }
+  if (!target && !clean.token_address) { res.status(400).json({ error: 'Add at least one link or a token address' }); return; }
   clean.link_url = target;
 
   const signer = recoverSigner(adEditMessage(id, clean, tsNum), signature);
