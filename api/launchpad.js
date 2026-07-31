@@ -8,7 +8,12 @@ const fmtEther = v => V6 ? ethers.formatEther(v) : ethers.utils.formatEther(v);
 const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
 const ZERO = '0x0000000000000000000000000000000000000000';
 
-const LAUNCHPAD = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+// Два лаунчпада: старый со всеми уже созданными токенами и новый,
+// где у людей без пропуска есть один бесплатный токен.
+const LAUNCHPAD_V1 = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+const LAUNCHPAD_V2 = '0x672F6a4a78a1650617BFc5FA5E6B1428A594E5FE';
+const LAUNCHPADS = [LAUNCHPAD_V1, LAUNCHPAD_V2];
+const isLaunchpad = a => !!a && LAUNCHPADS.some(x => x.toLowerCase() === String(a).toLowerCase());
 const RPCS = [
   'https://bsc-dataseed.binance.org/',
   'https://bsc-dataseed1.defibit.io/',
@@ -94,12 +99,12 @@ async function doTrade(body, res) {
   }
   if (!receipt) { res.status(404).json({ error: 'Tx not found' }); return; }
   if (Number(receipt.status) !== 1) { res.status(400).json({ error: 'Tx failed' }); return; }
-  if (!receipt.to || receipt.to.toLowerCase() !== LAUNCHPAD.toLowerCase()) { res.status(400).json({ error: 'Wrong contract' }); return; }
+  if (!isLaunchpad(receipt.to)) { res.status(400).json({ error: 'Wrong contract' }); return; }
 
   const iface = mkIface(EVENT_ABI);
   let found = null;
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== LAUNCHPAD.toLowerCase()) continue;
+    if (!isLaunchpad(log.address)) continue;
     let p; try { p = iface.parseLog(log); } catch (e) { continue; }
     if (!p) continue;
     if (String(p.args.token).toLowerCase() !== tokenAddress.toLowerCase()) continue;
@@ -153,14 +158,17 @@ async function doToken(body, res) {
   if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
 
   // Создателя берём ИЗ БЛОКЧЕЙНА, а не из запроса — это и есть суть правки
+  // Токен может жить на любом из двух контрактов — спрашиваем оба
   let creator = null;
+  outer:
   for (const url of RPCS) {
-    try {
-      const lp = new ethers.Contract(LAUNCHPAD, CURVE_ABI, mkProvider(url));
-      const c = await lp.getCurve(tokenAddress);
-      creator = c[0];
-      break;
-    } catch (e) {}
+    for (const pad of LAUNCHPADS) {
+      try {
+        const lp = new ethers.Contract(pad, CURVE_ABI, mkProvider(url));
+        const c = await lp.getCurve(tokenAddress);
+        if (c[0] && c[0] !== ZERO) { creator = c[0]; break outer; }
+      } catch (e) {}
+    }
   }
   if (!creator || creator === ZERO) { res.status(404).json({ error: 'Token not found' }); return; }
 
