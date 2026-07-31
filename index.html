@@ -441,7 +441,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   <div class="modal-box wide">
     <div class="modal-title">💡 How Launch works</div>
     <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB.</div></div>
-    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Creating a new token requires a Silver or Gold Pass.</b> Silver: up to 7 tokens per week. Gold: up to 3 tokens every day.</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Everyone gets 1 free token launch</b> — no pass needed. After that: Silver Pass gives up to 7 per week, Gold Pass up to 3 every day.</div></div>
     <div class="how-step"><div class="how-num">3</div><div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div></div>
     <div class="how-step"><div class="how-num">4</div><div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div></div>
     <div class="how-step"><div class="how-num">5</div><div class="how-text">Once a token raises enough BNB, it <b>"graduates"</b>: liquidity moves to PancakeSwap automatically and the LP is burned forever — nobody, not even the creator, can pull the liquidity out. That's the anti-rug guarantee.</div></div>
@@ -621,7 +621,13 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     location.replace('https://launchlab.opengate.bond' + location.pathname + location.search + location.hash);
   }
 })();
-const LAUNCHPAD_ADDRESS = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+// Два лаунчпада: старый со всеми уже созданными токенами и новый,
+// где у людей без пропуска есть один бесплатный токен.
+// Новые токены создаются только на новом; старый остаётся для торговли.
+const LAUNCHPAD_V1 = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+const LAUNCHPAD_V2 = '0x672F6a4a78a1650617BFc5FA5E6B1428A594E5FE';
+const LAUNCHPAD_ADDRESS = LAUNCHPAD_V2;   // куда создавать новые токены
+const PAD_ADDR = { v1: LAUNCHPAD_V1, v2: LAUNCHPAD_V2 };
 const SUPABASE_URL = 'https://hgzthbidfdqomuotdocb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnenRoYmlkZmRxb211b3Rkb2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTI2NjEsImV4cCI6MjA5NjU4ODY2MX0.otgk-jq2k0COrIE3cUEnRBPYKGnzAHRi3LEIQhE7khA';
 const BNB_PARAMS = {
@@ -631,6 +637,15 @@ const BNB_PARAMS = {
   blockExplorerUrls:['https://bscscan.com/']
 };
 const LAUNCHPAD_ABI = [{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"}],"name":"createToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_router","type":"address"},{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint256","name":"bnbToLP","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensToLP","type":"uint256"}],"name":"Graduated","type":"event"},{"inputs":[{"internalType":"address","name":"_pass","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minBNBOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setCreationFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint16","name":"_tradeFee","type":"uint16"},{"internalType":"uint16","name":"_creatorFee","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_r","type":"address"}],"name":"setRouter","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_target","type":"uint256"}],"name":"setTargetBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_v","type":"uint256"}],"name":"setVirtualBNB","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"string","name":"symbol","type":"string"}],"name":"TokenCreated","type":"event"},{"stateMutability":"payable","type":"receive"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allTokens","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creationFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"CURVE_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"curves","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DEAD","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getCurve","outputs":[{"internalType":"address","name":"creator","type":"address"},{"internalType":"uint256","name":"realBNB","type":"uint256"},{"internalType":"uint256","name":"tokensSold","type":"uint256"},{"internalType":"bool","name":"graduated","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getProgress","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"LP_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pancakeRouter","outputs":[{"internalType":"contract IPancakeRouter","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"bnbIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"bnbOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"targetBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"TOTAL_SUPPLY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"virtualBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+const LAUNCHPAD_V2_EXTRA = [
+  'function remainingCreates(address) view returns (uint256)',
+  'function getPublicUsed(address) view returns (uint256,uint256)',
+  'function isGold(address) view returns (bool)',
+  'function isSilver(address) view returns (bool)',
+  'function publicLifetimeLimit() view returns (uint256)',
+  'function goldDailyLimit() view returns (uint256)',
+  'function silverWeeklyLimit() view returns (uint256)'
+];
 const TOKEN_ABI = [{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}];
 
 const POOLS_ADDRESS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
@@ -780,7 +795,18 @@ async function multicall(calls){
   return out;
 }
 
-function getReadLaunchpad(){ return new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, getReadProvider()); }
+function getReadLaunchpad(which){
+  return new ethers.Contract(PAD_ADDR[which||'v2'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), getReadProvider());
+}
+function getWriteLaunchpad(which){
+  return new ethers.Contract(PAD_ADDR[which||'v2'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
+}
+// К какому контракту относится открытый сейчас токен
+let currentPad = 'v2';
+function padOf(address){
+  const t = tokensCache.find(x => String(x.address||'').toLowerCase() === String(address||'').toLowerCase());
+  return t ? t.pad : 'v2';
+}
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
 function quoteLabel(q){ return q===0?'BNB':(q===1?'USDT':'USDC'); }
 function quoteAddr(q){ return q===0?null:(q===1?USDT_ADDR:USDC_ADDR); }
@@ -1123,7 +1149,7 @@ async function connectWallet(chosen){
     provider = new ethers.BrowserProvider(eth);
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
-    launchpad = new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, signer);
+    launchpad = new ethers.Contract(LAUNCHPAD_V2, LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
     document.getElementById('connectBtn').classList.add('hidden');
     const chip=document.getElementById('walletChip');
     chip.classList.remove('hidden'); chip.textContent=shortAddr(userAddr);
@@ -1184,63 +1210,69 @@ function showTrade(token){
 async function loadTokens(_retry){
   const grid=document.getElementById('tokenGrid');
   try{
-    const lp=getReadLaunchpad();
-    const count=Number(await withTimeout(lp.tokenCount()));
+    const I = ifaces();
     const {data:metas}=await sb.from('launchpad_tokens').select('*');
     metaCache={}; (metas||[]).forEach(m=>metaCache[m.address.toLowerCase()]=m);
-    if(count===0){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
 
-    const I = ifaces();
-    const start=Math.max(0,count-100);
-    const idxs=[]; for(let i=count-1;i>=start;i--) idxs.push(i);
-
-    // 1) адреса токенов — одной пачкой вместо N запросов
-    const addrRes = await multicall(idxs.map(i=>({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'allTokens', args:[i]})));
-    const addrs = addrRes.map(r=>r?String(r[0]):null).filter(a=>a && a!=='0x0000000000000000000000000000000000000000');
-    if(!addrs.length){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
-
-    // 2) кривая, прогресс и цена по всем токенам — тоже одной пачкой
-    const calls=[];
-    addrs.forEach(a=>{
-      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getCurve',    args:[a]});
-      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getProgress', args:[a]});
-      calls.push({target:LAUNCHPAD_ADDRESS, iface:I.lp, fn:'getPrice',    args:[a]});
-    });
-    const res = await multicall(calls);
-
-    // 3) название и тикер запрашиваем только у тех, кого нет в базе
-    const need=[]; const nsCalls=[];
-    addrs.forEach(a=>{
-      const m=metaCache[a.toLowerCase()];
-      if(!m || !m.name || !m.symbol){
-        need.push(a);
-        nsCalls.push({target:a, iface:I.erc20, fn:'name'});
-        nsCalls.push({target:a, iface:I.erc20, fn:'symbol'});
-      }
-    });
-    const ns = nsCalls.length ? await multicall(nsCalls) : [];
-    const nsMap={};
-    need.forEach((a,k)=>{
-      const n=ns[k*2], sym=ns[k*2+1];
-      nsMap[a.toLowerCase()]={ name:n?String(n[0]):'', symbol:sym?String(sym[0]):'' };
-    });
-
+    // Собираем токены с обоих контрактов: старые остались на первом,
+    // новые создаются на втором.
     const out=[];
-    addrs.forEach((addr,k)=>{
-      const c=res[k*3], pr=res[k*3+1], px=res[k*3+2];
-      if(!c) return;
-      const meta=metaCache[addr.toLowerCase()]||{};
-      const fb=nsMap[addr.toLowerCase()]||{};
-      const name=meta.name||fb.name||'Token';
-      const symbol=meta.symbol||fb.symbol||'TKN';
-      out.push({
-        address:addr, name, symbol,
-        creator:c[0], realBNB:c[1], tokensSold:c[2], graduated:c[3], createdAt:Number(c[4]),
-        progress: pr?Number(pr[0]):0,
-        price:    px?px[0]:0n,
-        meta
+    for(const which of ['v1','v2']){
+      const padAddr = PAD_ADDR[which];
+      let count = 0;
+      try{ count = Number(await withTimeout(getReadLaunchpad(which).tokenCount())); }
+      catch(e){ console.warn('tokenCount не прочитан на', which, e && e.message); continue; }
+      if(count === 0) continue;
+
+      const start=Math.max(0,count-100);
+      const idxs=[]; for(let i=count-1;i>=start;i--) idxs.push(i);
+      const addrRes = await multicall(idxs.map(i=>({target:padAddr, iface:I.lp, fn:'allTokens', args:[i]})));
+      const addrs = addrRes.map(r=>r?String(r[0]):null)
+                           .filter(a=>a && a!=='0x0000000000000000000000000000000000000000');
+      if(!addrs.length) continue;
+
+      const calls=[];
+      addrs.forEach(a=>{
+        calls.push({target:padAddr, iface:I.lp, fn:'getCurve',    args:[a]});
+        calls.push({target:padAddr, iface:I.lp, fn:'getProgress', args:[a]});
+        calls.push({target:padAddr, iface:I.lp, fn:'getPrice',    args:[a]});
       });
-    });
+      const res = await multicall(calls);
+
+      const need=[]; const nsCalls=[];
+      addrs.forEach(a=>{
+        const m=metaCache[a.toLowerCase()];
+        if(!m || !m.name || !m.symbol){
+          need.push(a);
+          nsCalls.push({target:a, iface:I.erc20, fn:'name'});
+          nsCalls.push({target:a, iface:I.erc20, fn:'symbol'});
+        }
+      });
+      const ns = nsCalls.length ? await multicall(nsCalls) : [];
+      const nsMap={};
+      need.forEach((a,k)=>{
+        const n=ns[k*2], sym=ns[k*2+1];
+        nsMap[a.toLowerCase()]={ name:n?String(n[0]):'', symbol:sym?String(sym[0]):'' };
+      });
+
+      addrs.forEach((address,k)=>{
+        const c=res[k*3], pr=res[k*3+1], px=res[k*3+2];
+        if(!c) return;
+        const meta=metaCache[address.toLowerCase()]||{};
+        const fb=nsMap[address.toLowerCase()]||{};
+        out.push({
+          address, pad: which,
+          name: meta.name||fb.name||'Token',
+          symbol: meta.symbol||fb.symbol||'TKN',
+          creator:c[0], realBNB:c[1], tokensSold:c[2], graduated:c[3], createdAt:Number(c[4]),
+          progress: pr?Number(pr[0]):0,
+          price:    px?px[0]:0n,
+          meta
+        });
+      });
+    }
+
+    if(!out.length){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
     tokensCache=out;
     visibleTokens = PAGE_SIZE;
     renderTokenList(); renderNewTicker();
@@ -1300,7 +1332,8 @@ function renderTokenList(){
 function setFilter(f){ activeFilter=f; visibleTokens=PAGE_SIZE; ['hot','new','graduated'].forEach(x=>document.getElementById('filter-'+x).classList.toggle('active',x===f)); renderTokenList(); }
 
 async function openTradePage(token,_retry){
-  const lp=getReadLaunchpad();
+  currentPad = padOf(token);
+  const lp=getReadLaunchpad(currentPad);
   try{
     const {data:meta}=await sb.from('launchpad_tokens').select('*').eq('address',token.toLowerCase()).maybeSingle();
     currentTokenMeta=meta||{};
@@ -1603,7 +1636,7 @@ function subscribeTrades(token){
 }
 async function refreshTradeInfo(token){
   try{
-    const lp=getReadLaunchpad();
+    const lp=getReadLaunchpad(padOf(token));
     const c=await lp.getCurve(token);
     const progress=Number(await lp.getProgress(token));
     const price=await lp.getPrice(token);
@@ -1645,7 +1678,7 @@ async function updateReceive(){
   const amtStr=document.getElementById('tradeAmount').value;
   if(!amtStr||Number(amtStr)<=0||!currentToken){ el.textContent='—'; return; }
   try{
-    const lp=getReadLaunchpad();
+    const lp=getReadLaunchpad(currentPad);
     if(tradeSide==='buy'){ const [tokensOut]=await lp.quoteBuy(currentToken,ethers.parseEther(amtStr)); el.textContent=fmtTokens(tokensOut)+' tokens'; }
     else{ const [bnbOut]=await lp.quoteSell(currentToken,ethers.parseEther(amtStr)); el.textContent=fmtBNB(bnbOut)+' BNB ('+fmtUsd(bnbOut)+')'; }
   }catch(e){ el.textContent='—'; }
@@ -1670,24 +1703,28 @@ async function executeTrade(){
   const btn=document.getElementById('tradeActionBtn');
   btn.disabled=true; btn.textContent='Processing...';
   try{
+    // Торгуем в том контракте, которому принадлежит именно этот токен
+    const which = padOf(currentToken);
+    const padAddress = PAD_ADDR[which];
+    const pad = getWriteLaunchpad(which);
     let txHash;
     if(tradeSide==='buy'){
       const bnbIn=ethers.parseEther(amtStr);
       const bal=await provider.getBalance(userAddr);
       if(bal<bnbIn){ toast('Insufficient BNB balance for this amount','err'); btn.disabled=false; btn.textContent='Buy'; return; }
-      const [tokensOut]=await launchpad.quoteBuy(currentToken,bnbIn);
+      const [tokensOut]=await pad.quoteBuy(currentToken,bnbIn);
       const minOut=tokensOut*95n/100n;
-      const tx=await launchpad.buy(currentToken,minOut,{value:bnbIn});
+      const tx=await pad.buy(currentToken,minOut,{value:bnbIn});
       toast('Buying... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Bought! 🎉','ok');
     }else{
       const tokensIn=ethers.parseEther(amtStr);
       const tk=new ethers.Contract(currentToken,TOKEN_ABI,signer);
-      const allowance=await tk.allowance(userAddr,LAUNCHPAD_ADDRESS);
-      if(allowance<tokensIn){ const atx=await tk.approve(LAUNCHPAD_ADDRESS,tokensIn); toast('Approving...','ok'); await atx.wait(); }
-      const [bnbOut]=await launchpad.quoteSell(currentToken,tokensIn);
+      const allowance=await tk.allowance(userAddr,padAddress);
+      if(allowance<tokensIn){ const atx=await tk.approve(padAddress,tokensIn); toast('Approving...','ok'); await atx.wait(); }
+      const [bnbOut]=await pad.quoteSell(currentToken,tokensIn);
       const minOut=bnbOut*95n/100n;
-      const tx=await launchpad.sell(currentToken,tokensIn,minOut);
+      const tx=await pad.sell(currentToken,tokensIn,minOut);
       toast('Selling... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Sold! 🎉','ok');
     }
@@ -1726,29 +1763,40 @@ async function updateFeeNote(){
   const limitNote=document.getElementById('limitNote');
   if(!launchpad || !userAddr){
     note.textContent='Connect your wallet to see the creation fee.'; note.className='fee-note';
-    limitNote.textContent='Connect your wallet to see your remaining launches.';
+    limitNote.textContent='Connect your wallet to see how many tokens you can launch.';
     return;
   }
   try{
     const fee=await launchpad.creationFee();
     const bal=await provider.getBalance(userAddr);
-    const feeStr=fmtBNB(fee);
-    const balStr=fmtBNB(bal);
+    const feeStr=fmtBNB(fee), balStr=fmtBNB(bal);
     if(bal<fee){ note.className='fee-note warn'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough. Top up your wallet before launching.'; }
     else{ note.className='fee-note'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.'; }
-  }catch(e){ note.textContent='Requires Silver or Gold Pass. Price rises as people buy on the curve.'; note.className='fee-note'; }
+  }catch(e){ note.textContent='Price rises as people buy on the curve.'; note.className='fee-note'; }
+
+  // Три тарифа: Gold — 3 в сутки, Silver — 7 в неделю,
+  // без пропуска — один токен навсегда.
   try{
-    const goldPassAddr = await launchpad.goldPass();
-    let isGold=false;
-    if(goldPassAddr && goldPassAddr!=='0x0000000000000000000000000000000000000000'){
-      const goldAbi=['function balanceOf(address) view returns (uint256)'];
-      const gp=new ethers.Contract(goldPassAddr, goldAbi, provider);
-      isGold = (await gp.balanceOf(userAddr)) > 0n;
+    const left = await launchpad.remainingCreates(userAddr);
+    if(await launchpad.isGold(userAddr)){
+      const [used, lim] = await launchpad.getGoldUsedToday(userAddr);
+      limitNote.textContent = '🥇 Gold Pass: '+used+' / '+lim+' tokens launched today. Resets at midnight UTC.';
+    } else if(await launchpad.isSilver(userAddr)){
+      const [used, lim] = await launchpad.getSilverUsedThisWeek(userAddr);
+      limitNote.textContent = '🥈 Silver Pass: '+used+' / '+lim+' tokens launched this week.';
+    } else {
+      const [used, lim] = await launchpad.getPublicUsed(userAddr);
+      limitNote.textContent = Number(left) > 0
+        ? '🎁 No pass needed — you have '+left+' free launch. Silver Pass gives 7 per week, Gold 3 every day.'
+        : '🎁 Your free launch is used ('+used+' / '+lim+'). Get a Silver or Gold Pass to launch more.';
     }
-    if(isGold){ const [used,limit]=await launchpad.getGoldUsedToday(userAddr); limitNote.textContent='🥇 Gold Pass: '+used+' / '+limit+' tokens launched today. Resets at midnight UTC.'; }
-    else{ const [used,limit]=await launchpad.getSilverUsedThisWeek(userAddr); limitNote.textContent='🥈 Silver Pass: '+used+' / '+limit+' tokens launched this week.'; }
-  }catch(e){ limitNote.textContent='Requires Silver or Gold Pass to launch a token.'; }
+    document.getElementById('launchSubmitBtn').disabled = Number(left) === 0;
+  }catch(e){
+    console.warn('лимиты не прочитаны:', e && e.message);
+    limitNote.textContent='Everyone gets 1 free token. Silver Pass: 7 per week. Gold Pass: 3 every day.';
+  }
 }
+
 async function submitLaunch(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
   const name=document.getElementById('launchName').value.trim();
@@ -1757,8 +1805,11 @@ async function submitLaunch(){
   const btn=document.getElementById('launchSubmitBtn');
   btn.disabled=true; btn.textContent='Launching...';
   try{
-    const hasPass=await launchpad.hasPass(userAddr);
-    if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='Launch Token'; return; }
+    const left = await launchpad.remainingCreates(userAddr);
+    if(Number(left) === 0){
+      toast('You have used your free launch — a Silver or Gold Pass is needed for more','err');
+      btn.disabled=false; btn.textContent='Launch Token'; return;
+    }
     const fee=await launchpad.creationFee();
     const bal=await provider.getBalance(userAddr);
     if(bal<fee){ toast('Not enough BNB for the creation fee ('+fmtBNB(fee)+' BNB required)','err'); btn.disabled=false; btn.textContent='Launch Token'; return; }
