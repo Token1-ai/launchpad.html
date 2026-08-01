@@ -844,7 +844,29 @@ function getWriteLaunchpad(which){
 let currentPad = 'v2';
 function padOf(address){
   const t = tokensCache.find(x => String(x.address||'').toLowerCase() === String(address||'').toLowerCase());
-  return t ? t.pad : 'v2';
+  if(t) return t.pad;
+  const known = _padProbe[String(address||'').toLowerCase()];
+  return known || 'v2';
+}
+// По прямой ссылке страница токена открывается раньше, чем загрузился список,
+// и определить контракт по кэшу невозможно. Спрашиваем оба контракта:
+// у «своего» токена создатель не пустой.
+const _padProbe = {};
+async function resolvePad(address){
+  const key = String(address||'').toLowerCase();
+  const cached = tokensCache.find(x => String(x.address||'').toLowerCase() === key);
+  if(cached) return cached.pad;
+  if(_padProbe[key]) return _padProbe[key];
+  for(const which of ['v2','v1']){
+    try{
+      const c = await withTimeout(getReadLaunchpad(which).getCurve(address), 6000);
+      if(c && c[0] && c[0] !== '0x0000000000000000000000000000000000000000'){
+        _padProbe[key] = which;
+        return which;
+      }
+    }catch(e){}
+  }
+  return 'v2';
 }
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
 // Ликвидность пула в долларах: обе стороны вместе.
@@ -1328,15 +1350,16 @@ function setHash(v){
 async function openFromHash(){
   const h=(location.hash||'').replace(/^#/,'');
   const mt=h.match(/^t=(0x[0-9a-fA-F]{40})$/i);
-  if(mt){ switchMode('launch'); showTrade(mt[1]); return true; }
+  if(mt){ switchMode('launch'); await showTrade(mt[1]); return true; }
   const mp=h.match(/^p=(\d+)$/);
   if(mp){ switchMode('pools'); await showPoolTrade(Number(mp[1])); return true; }
   return false;
 }
-function showTrade(token){
+async function showTrade(token){
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tradeView').classList.remove('hidden');
-  currentToken=token; setHash('t='+token); openTradePage(token);
+  currentToken=token; setHash('t='+token);
+  await openTradePage(token);
 }
 
 async function loadTokens(_retry){
@@ -1464,7 +1487,7 @@ function renderTokenList(){
 function setFilter(f){ activeFilter=f; visibleTokens=PAGE_SIZE; ['hot','new','graduated'].forEach(x=>document.getElementById('filter-'+x).classList.toggle('active',x===f)); renderTokenList(); }
 
 async function openTradePage(token,_retry){
-  currentPad = padOf(token);
+  currentPad = await resolvePad(token);
   const lp=getReadLaunchpad(currentPad);
   try{
     const {data:meta}=await sb.from('launchpad_tokens').select('*').eq('address',token.toLowerCase()).maybeSingle();
@@ -1581,11 +1604,11 @@ function priceFormatFor(candles){
   for(const c of candles){ if(c.low  > 0 && c.low  < lo) lo = c.low; if(c.high > hi) hi = c.high; }
   if(!isFinite(lo) || lo <= 0) lo = hi > 0 ? hi : 1;
   if(hi <= 0) hi = lo;
-  // Размах берём не меньше 2% от цены — столько же, сколько показывает шкала,
-  // иначе подписи делений округляются в одно и то же число.
-  const shown = Math.max(hi - lo, ((hi + lo) / 2) * 0.02);
-  const range = Math.max(0, shown);
-  const ref = range > 0 ? range / 100 : lo / 1000;
+  // Знаков в подписи должно хватать, чтобы соседние деления различались.
+  // Раньше при одной сделке (размах ноль) бралось lo/1000 — выходило
+  // четыре знака и все подписи сливались в одно число.
+  const range = Math.max(0, hi - lo);
+  const ref = range > 0 ? range / 100 : lo * 1e-6;
   let minMove = Math.pow(10, Math.floor(Math.log10(ref)));
   if(!isFinite(minMove) || minMove <= 0) minMove = 1e-12;
   // столько значащих цифр, чтобы соседние деления различались на письме
@@ -1596,9 +1619,10 @@ function priceFormatFor(candles){
   }
   return { type:'custom', minMove:minMove, formatter:(v)=>fmtTinyPrice(v, digits) };
 }
-// У нового токена одна-две сделки, размах цены почти нулевой — график
-// растягивал его на всю высоту, и выходила одна гигантская свеча,
-// а подписи на шкале получались одинаковыми. Задаём минимальный размах.
+// График должен приближаться к реальному движению цены, каким бы малым оно
+// ни было — иначе свечи схлопываются в чёрточки. Вмешиваемся только когда
+// движения нет совсем (одна сделка): даём символический размах, чтобы
+// свеча не оказалась ровно на краю шкалы.
 function applyMinScale(series){
   if(!series) return;
   try{
@@ -1608,10 +1632,9 @@ function applyMinScale(series){
         if(!res || !res.priceRange) return res;
         const { minValue, maxValue } = res.priceRange;
         const span = maxValue - minValue;
-        const mid = (maxValue + minValue) / 2;
-        const minSpan = Math.abs(mid) * 0.02;    // не меньше 2% от цены
-        if(!isFinite(minSpan) || minSpan <= 0 || span >= minSpan) return res;
-        const pad = (minSpan - span) / 2;
+        if(span > 0) return res;                      // есть движение — не трогаем
+        const pad = Math.abs(maxValue) * 0.0005;      // плоская линия: 0.05%
+        if(!isFinite(pad) || pad <= 0) return res;
         return { ...res, priceRange: { minValue: minValue - pad, maxValue: maxValue + pad } };
       }
     });
@@ -1910,7 +1933,7 @@ async function executeTrade(){
   btn.disabled=true; btn.textContent='Processing...';
   try{
     // Торгуем в том контракте, которому принадлежит именно этот токен
-    const which = padOf(currentToken);
+    const which = await resolvePad(currentToken);
     const padAddress = PAD_ADDR[which];
     const pad = getWriteLaunchpad(which);
     let txHash;
@@ -2800,7 +2823,7 @@ function handleAdSlotClick(slot){
 async function openAdTarget(ad){
   const ca = String(ad.token_address||'').toLowerCase();
   const t = tokensCache.find(x => String(x.address||'').toLowerCase() === ca);
-  if(t){ switchMode('launch'); showTrade(t.address); return; }
+  if(t){ switchMode('launch'); await showTrade(t.address); return; }
   // Токен может быть не на кривой, а в пулах. Список пулов грузится
   // только при заходе на вкладку, поэтому при необходимости подгружаем.
   if(!poolsCache.length){ try{ await loadPools(); }catch(e){} }
