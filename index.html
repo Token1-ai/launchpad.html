@@ -172,6 +172,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .bs-action.buy{background:var(--green);color:#000;}
 .bs-action.sell{background:var(--red);color:#fff;}
 .bs-action:disabled{opacity:.5;}
+.dead-note{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;
+  padding:12px;font-size:13px;color:var(--red);text-align:center;margin-top:12px;display:none;}
 .grad-note{background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;font-size:13px;color:var(--green);text-align:center;margin-top:12px;display:none;}
 .info-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-top:16px;}
 .info-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;}
@@ -438,6 +440,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           </div>
           <div class="bs-receive">You receive: <b id="poolReceiveAmount">—</b></div>
           <button class="bs-action buy" id="poolTradeActionBtn" onclick="executePoolTrade()">Connect Wallet</button>
+          <div class="dead-note" id="poolDeadNote">⚠️ The lister withdrew all liquidity from this pool. Trading here is no longer possible.</div>
         </div>
         <div class="feed-box">
           <div class="feed-title">💱 Recent Trades<span class="live-dot" id="liveDotPool" title="Live updates"></span></div>
@@ -493,7 +496,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <div class="modal-title">🔄 List a Token</div>
     <div class="limit-note" id="poolLimitNote">Connect your wallet to see your remaining launches.</div>
     <label class="field-label">Token Address *</label>
-    <input class="field-input" id="poolTokenAddr" placeholder="0x..."/>
+    <input class="field-input" id="poolTokenAddr" placeholder="0x..." oninput="onPoolTokenAddrInput()"/>
     <label class="field-label">Quote Currency *</label>
     <div class="quote-select">
       <button class="quote-opt active" data-q="0" onclick="setPoolQuote(0)">BNB</button>
@@ -502,8 +505,22 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
     <label class="field-label">Token Amount *</label>
     <input class="field-input" id="poolTokenAmount" type="number" placeholder="e.g. 500000"/>
+    <div class="bs-presets" id="poolTokenPresets">
+      <button class="bs-preset" onclick="setPoolTokenPct(25)">25%</button>
+      <button class="bs-preset" onclick="setPoolTokenPct(50)">50%</button>
+      <button class="bs-preset" onclick="setPoolTokenPct(75)">75%</button>
+      <button class="bs-preset" onclick="setPoolTokenPct(100)">Max</button>
+    </div>
+    <div class="field-hint" id="poolTokenBalance">Paste the token address above to see your balance.</div>
     <label class="field-label" id="poolQuoteAmountLabel">Quote Amount (BNB) *</label>
     <input class="field-input" id="poolQuoteAmount" type="number" placeholder="e.g. 1"/>
+    <div class="bs-presets" id="poolQuotePresets">
+      <button class="bs-preset" onclick="setPoolQuotePct(25)">25%</button>
+      <button class="bs-preset" onclick="setPoolQuotePct(50)">50%</button>
+      <button class="bs-preset" onclick="setPoolQuotePct(75)">75%</button>
+      <button class="bs-preset" onclick="setPoolQuotePct(100)">Max</button>
+    </div>
+    <div class="field-hint" id="poolQuoteBalance">Connect your wallet to see your balance.</div>
     <div class="img-drop" id="poolImgDrop" onclick="document.getElementById('poolImageInput').click()">
       <span id="poolImgDropText">📷 Click to upload token logo (optional)</span>
       <img id="poolImgPreview" class="img-preview hidden"/>
@@ -2298,7 +2315,9 @@ function renderPoolList(){
   list=list.slice(0, visiblePools);
   grid.innerHTML='';
   list.forEach(p=>{
-    const lockBadge = p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>';
+    const lockBadge = p.pulled
+      ? '<span class="pool-lock removable">⛔ Liquidity withdrawn</span>'
+      : (p.locked ? '<span class="pool-lock locked">🔒 Locked</span>' : '<span class="pool-lock removable">⚠️ Removable</span>');
     const m = poolMetaOf(p.token);
     const avatar = m.image_url
       ? '<img class="tc-avatar" src="'+esc(m.image_url)+'" onerror="this.outerHTML=\'<div class=&quot;tc-avatar&quot;>'+esc(p.symbol.charAt(0))+'</div>\'"/>'
@@ -2360,12 +2379,31 @@ async function openPoolTradePage(pid,_retry){
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
     document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Withdrawn by lister' : '⚠️ Removable');
+    // Показываем обе стороны отдельно: «общая стоимость» вводила в заблуждение
+    // — при выводе на руки приходит только котируемая часть, а токены
+    // формально стоят столько же, но продать их некому.
     const liq = poolLiquidityUsd(p.reserveQuote, Number(p.quote));
-    document.getElementById('poolLiqUsd').textContent =
-      liq === null ? '—' : fmtUsdPlain(liq) + '  ·  ' + fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6) + ' ' + quoteLabel(Number(p.quote));
+    const qAmt = Number(ethers.formatEther(p.reserveQuote));
+    document.getElementById('poolLiqUsd').innerHTML =
+      liq === null ? '—'
+      : esc(fmtTinyPrice(qAmt,6)) + ' ' + esc(quoteLabel(Number(p.quote)))
+        + ' + ' + esc(fmtTokens(p.reserveToken)) + ' ' + esc(symbol)
+        + '<br><span style="color:var(--muted);font-size:11px;">pool value ' + esc(fmtUsdPlain(liq)) + '</span>';
     document.getElementById('poolContract').innerHTML = bscLink(p.token,'token');
     document.getElementById('poolCreator').innerHTML = bscLink(p.creator,'address');
     document.getElementById('poolTradeCur').textContent = quoteLabel(currentPoolData.quote);
+    // После вывода ликвидности пул мёртв: резервы обнулены, торговать нельзя.
+    // Раньше страница выглядела как рабочая, и человек упирался в отказ контракта.
+    const isDead = !!p.liquidityPulled || (p.reserveToken === 0n && p.reserveQuote === 0n);
+    document.getElementById('poolDeadNote').style.display = isDead ? 'block' : 'none';
+    const pBtn = document.getElementById('poolTradeActionBtn');
+    const pAmt = document.getElementById('poolTradeAmount');
+    pBtn.disabled = isDead;
+    pAmt.disabled = isDead;
+    if(isDead){ pBtn.textContent = 'Pool closed'; }
+    document.getElementById('poolTabBuy').style.pointerEvents = isDead ? 'none' : '';
+    document.getElementById('poolTabSell').style.pointerEvents = isDead ? 'none' : '';
+
     const removeBox = document.getElementById('removeLiqBox');
     if(userAddr && userAddr.toLowerCase()===p.creator.toLowerCase() && !p.locked && !p.liquidityPulled){ removeBox.classList.remove('hidden'); } else { removeBox.classList.add('hidden'); }
     initPoolChart(); await loadPoolChartFromTrades(pid); await loadPoolTradesFeed(pid);
@@ -2505,7 +2543,11 @@ async function refreshPoolInfo(pid){
     document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(q);
     const liq2 = poolLiquidityUsd(p.reserveQuote, q);
     const liqEl = document.getElementById('poolLiqUsd');
-    if(liqEl) liqEl.textContent = liq2 === null ? '—' : fmtUsdPlain(liq2) + '  ·  ' + fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6) + ' ' + quoteLabel(q);
+    const sym2 = currentPoolData ? currentPoolData.symbol : '';
+    if(liqEl) liqEl.innerHTML = liq2 === null ? '—'
+      : esc(fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)) + ' ' + esc(quoteLabel(q))
+        + ' + ' + esc(fmtTokens(p.reserveToken)) + ' ' + esc(sym2)
+        + '<br><span style="color:var(--muted);font-size:11px;">pool value ' + esc(fmtUsdPlain(liq2)) + '</span>';
     if(currentPoolData){ currentPoolData.reserveToken=p.reserveToken; currentPoolData.reserveQuote=p.reserveQuote; }
     updatePoolTradeButton();
   }catch(e){ console.error('refreshPoolInfo failed:', e); }
@@ -2533,6 +2575,7 @@ async function updatePoolReceive(){
 async function updatePoolTradeButton(){
   const btn=document.getElementById('poolTradeActionBtn');
   const lbl=document.getElementById('poolBalanceLabel');
+  if(currentPoolData && currentPoolData.pulled){ btn.textContent='Pool closed'; btn.disabled=true; lbl.textContent=''; return; }
   if(!userAddr){ btn.textContent='Connect Wallet'; lbl.textContent=''; return; }
   btn.textContent = poolTradeSide==='buy' ? 'Buy' : 'Sell';
   if(!currentPoolData || !provider){ lbl.textContent=''; return; }
@@ -2612,6 +2655,21 @@ async function executePoolTrade(){
 async function removePoolLiquidity(){
   if(!userAddr){ connectWallet(); return; }
   try{
+    // Человек должен видеть, что именно вернётся, до подтверждения:
+    // котируемая часть приходит деньгами, токены — просто токенами.
+    const pl = getReadPools();
+    const p = await withTimeout(pl.getPool(currentPoolId));
+    const q = Number(p.quote);
+    const back = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6) + ' ' + quoteLabel(q);
+    const backTok = fmtTokens(p.reserveToken) + ' ' + (currentPoolData ? currentPoolData.symbol : 'tokens');
+    const ok = confirm(
+      'Withdraw all liquidity?\n\n' +
+      'You will receive:\n' +
+      '  • ' + back + '\n' +
+      '  • ' + backTok + '\n\n' +
+      'Trading in this pool will stop permanently and it cannot be re-listed with the same currency.'
+    );
+    if(!ok) return;
     const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
     const tx = await poolsC.removeLiquidity(currentPoolId);
     toast('Withdrawing liquidity... confirm in wallet','ok');
@@ -2626,6 +2684,7 @@ async function removePoolLiquidity(){
 
 function setPoolQuote(q){
   poolQuoteChoice=q;
+  updatePoolQuoteBalance();
   document.querySelectorAll('#createPoolModal .quote-opt').forEach(el=>el.classList.toggle('active', Number(el.dataset.q)===q));
   document.getElementById('poolQuoteAmountLabel').textContent='Quote Amount ('+quoteLabel(q)+') *';
 }
@@ -2634,9 +2693,97 @@ function setPoolLocked(v){
   document.getElementById('lockOptLocked').classList.toggle('active', v);
   document.getElementById('lockOptRemovable').classList.toggle('active', !v);
 }
-function openCreatePoolModal(){ document.getElementById('createPoolModal').classList.add('show'); updatePoolLimitNote(); }
+// ─── Баланс токена при листинге ───
+// Знаки после запятой у токенов бывают не только 18: встречаются 6, 8, 9.
+// Раньше сумма считалась всегда как 18 — для такого токена выходило
+// в миллиарды раз больше, и листинг срывался.
+let poolTokenInfo = null;      // { decimals, symbol, balance }
+let _addrDebounce = null;
+
+function onPoolTokenAddrInput(){
+  poolTokenInfo = null;
+  const hint = document.getElementById('poolTokenBalance');
+  const addr = document.getElementById('poolTokenAddr').value.trim();
+  if(!ethers.isAddress(addr)){
+    hint.textContent = addr ? 'Not a valid address yet…' : 'Paste the token address above to see your balance.';
+    return;
+  }
+  hint.textContent = 'Reading your balance…';
+  if(_addrDebounce) clearTimeout(_addrDebounce);
+  _addrDebounce = setTimeout(()=>loadPoolTokenInfo(addr), 400);
+}
+
+async function loadPoolTokenInfo(addr){
+  const hint = document.getElementById('poolTokenBalance');
+  if(!userAddr){ hint.textContent = 'Connect your wallet to see your balance.'; return; }
+  try{
+    const tk = new ethers.Contract(addr, ERC20_ABI, getReadProvider());
+    const [dec, sym, bal] = await Promise.all([
+      withTimeout(tk.decimals()).catch(()=>18),
+      withTimeout(tk.symbol()).catch(()=>'TOKEN'),
+      withTimeout(tk.balanceOf(userAddr))
+    ]);
+    const decimals = Number(dec);
+    poolTokenInfo = { decimals, symbol: String(sym), balance: bal, address: addr };
+    const human = Number(ethers.formatUnits(bal, decimals));
+    if(human <= 0){
+      hint.innerHTML = '⚠️ You hold 0 ' + esc(String(sym)) + ' — nothing to list from this wallet.';
+      return;
+    }
+    hint.innerHTML = 'Your balance: <b style="color:var(--text);">'
+      + esc(human.toLocaleString('en-US',{maximumFractionDigits:6})) + ' ' + esc(String(sym))
+      + '</b>' + (decimals !== 18 ? ' <span style="color:var(--muted);">(' + decimals + ' decimals)</span>' : '');
+  }catch(e){
+    poolTokenInfo = null;
+    hint.textContent = 'Could not read this token — check the address and network.';
+  }
+}
+
+function setPoolTokenPct(pct){
+  if(!poolTokenInfo){ toast('Paste a valid token address first','err'); focusField('poolTokenAddr'); return; }
+  const part = (poolTokenInfo.balance * BigInt(pct)) / 100n;
+  document.getElementById('poolTokenAmount').value = ethers.formatUnits(part, poolTokenInfo.decimals);
+}
+
+async function updatePoolQuoteBalance(){
+  const hint = document.getElementById('poolQuoteBalance');
+  if(!userAddr || !provider){ hint.textContent = 'Connect your wallet to see your balance.'; return; }
+  try{
+    const label = quoteLabel(poolQuoteChoice);
+    let bal, dec = 18;
+    if(poolQuoteChoice === 0){ bal = await provider.getBalance(userAddr); }
+    else{
+      const tk = new ethers.Contract(quoteAddr(poolQuoteChoice), ERC20_ABI, provider);
+      dec = Number(await withTimeout(tk.decimals()).catch(()=>18));
+      bal = await withTimeout(tk.balanceOf(userAddr));
+    }
+    window._poolQuoteBal = { bal, dec };
+    hint.innerHTML = 'Your balance: <b style="color:var(--text);">'
+      + esc(Number(ethers.formatUnits(bal, dec)).toLocaleString('en-US',{maximumFractionDigits:6}))
+      + ' ' + esc(label) + '</b>';
+  }catch(e){ hint.textContent = 'Could not read your balance.'; }
+}
+
+function setPoolQuotePct(pct){
+  const info = window._poolQuoteBal;
+  if(!info){ toast('Connect your wallet first','err'); return; }
+  let part = (info.bal * BigInt(pct)) / 100n;
+  // На газ нужно немного BNB — при «Max» оставляем запас
+  if(poolQuoteChoice === 0 && pct === 100){
+    const keep = ethers.parseEther('0.003');
+    part = part > keep ? part - keep : 0n;
+  }
+  document.getElementById('poolQuoteAmount').value = ethers.formatUnits(part, info.dec);
+}
+
+function openCreatePoolModal(){
+  document.getElementById('createPoolModal').classList.add('show');
+  updatePoolLimitNote();
+  updatePoolQuoteBalance();
+  onPoolTokenAddrInput();
+}
 function closeCreatePoolModal(){
-  poolPendingImage=null;
+  poolPendingImage=null; poolTokenInfo=null;
   clearPreview(document.getElementById('poolImgPreview'));
   document.getElementById('createPoolModal').classList.remove('show');
 }
@@ -2672,8 +2819,29 @@ async function submitCreatePool(){
     const poolsC = new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, signer);
     const hasPass = await poolsC.hasPass(userAddr);
     if(!hasPass){ toast('Silver or Gold Pass required','err'); btn.disabled=false; btn.textContent='List Token'; return; }
-    const tokenAmtWei = ethers.parseEther(tokenAmtStr);
+    // Знаки после запятой берём у самого токена, а не считаем 18 по умолчанию
+    let tokenDecimals = 18;
+    if(poolTokenInfo && poolTokenInfo.address && poolTokenInfo.address.toLowerCase() === tokenAddr.toLowerCase()){
+      tokenDecimals = poolTokenInfo.decimals;
+    } else {
+      try{
+        const tkr = new ethers.Contract(tokenAddr, ERC20_ABI, getReadProvider());
+        tokenDecimals = Number(await withTimeout(tkr.decimals()));
+      }catch(e){ tokenDecimals = 18; }
+    }
+    const tokenAmtWei = ethers.parseUnits(tokenAmtStr, tokenDecimals);
     const quoteAmtWei = ethers.parseEther(quoteAmtStr);
+
+    // Хватает ли токенов — понятная ошибка вместо отказа контракта
+    try{
+      const tkb = new ethers.Contract(tokenAddr, ERC20_ABI, getReadProvider());
+      const have = await withTimeout(tkb.balanceOf(userAddr));
+      if(have < tokenAmtWei){
+        toast('Not enough tokens: you hold '+ethers.formatUnits(have, tokenDecimals),'err');
+        btn.disabled=false; btn.textContent='List Token'; return;
+      }
+    }catch(e){}
+
     await ensureApproval(tokenAddr, POOLS_ADDRESS, tokenAmtWei);
     let tx;
     if(poolQuoteChoice===0){ tx = await poolsC.createPool(tokenAddr, 0, tokenAmtWei, quoteAmtWei, poolLockedChoice, {value:quoteAmtWei}); }
