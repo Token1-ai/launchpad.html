@@ -1389,68 +1389,80 @@ async function loadTokens(_retry){
   const grid=document.getElementById('tokenGrid');
   try{
     const I = ifaces();
-    const {data:metas}=await sb.from('launchpad_tokens').select('*');
-    metaCache={}; (metas||[]).forEach(m=>metaCache[m.address.toLowerCase()]=m);
 
-    // Собираем токены с обоих контрактов: старые остались на первом,
-    // новые создаются на втором.
-    const out=[];
-    for(const which of ['v1','v2']){
-      const padAddr = PAD_ADDR[which];
-      let count = 0;
-      try{ count = Number(await withTimeout(getReadLaunchpad(which).tokenCount())); }
-      catch(e){ console.warn('tokenCount не прочитан на', which, e && e.message); continue; }
-      if(count === 0) continue;
+    // Раньше шаги выполнялись по очереди для каждого контракта: счётчик,
+    // адреса, данные, названия — восемь обращений подряд. Теперь всё, что
+    // не зависит друг от друга, идёт одновременно. Запросов столько же,
+    // просто они не стоят в очереди.
+    const [metaRes, cntV1, cntV2] = await Promise.all([
+      sb.from('launchpad_tokens').select('*'),
+      withTimeout(getReadLaunchpad('v1').tokenCount()).catch(()=>0),
+      withTimeout(getReadLaunchpad('v2').tokenCount()).catch(()=>0)
+    ]);
+    metaCache={}; ((metaRes && metaRes.data)||[]).forEach(m=>metaCache[m.address.toLowerCase()]=m);
 
-      const start=Math.max(0,count-100);
-      const idxs=[]; for(let i=count-1;i>=start;i--) idxs.push(i);
-      const addrRes = await multicall(idxs.map(i=>({target:padAddr, iface:I.lp, fn:'allTokens', args:[i]})));
-      const addrs = addrRes.map(r=>r?String(r[0]):null)
-                           .filter(a=>a && a!=='0x0000000000000000000000000000000000000000');
-      if(!addrs.length) continue;
-
-      const calls=[];
-      addrs.forEach(a=>{
-        calls.push({target:padAddr, iface:I.lp, fn:'getCurve',    args:[a]});
-        calls.push({target:padAddr, iface:I.lp, fn:'getProgress', args:[a]});
-        calls.push({target:padAddr, iface:I.lp, fn:'getPrice',    args:[a]});
-      });
-      const res = await multicall(calls);
-
-      const need=[]; const nsCalls=[];
-      addrs.forEach(a=>{
-        const m=metaCache[a.toLowerCase()];
-        if(!m || !m.name || !m.symbol){
-          need.push(a);
-          nsCalls.push({target:a, iface:I.erc20, fn:'name'});
-          nsCalls.push({target:a, iface:I.erc20, fn:'symbol'});
-        }
-      });
-      const ns = nsCalls.length ? await multicall(nsCalls) : [];
-      const nsMap={};
-      need.forEach((a,k)=>{
-        const n=ns[k*2], sym=ns[k*2+1];
-        nsMap[a.toLowerCase()]={ name:n?String(n[0]):'', symbol:sym?String(sym[0]):'' };
-      });
-
-      addrs.forEach((address,k)=>{
-        const c=res[k*3], pr=res[k*3+1], px=res[k*3+2];
-        if(!c) return;
-        const meta=metaCache[address.toLowerCase()]||{};
-        const fb=nsMap[address.toLowerCase()]||{};
-        out.push({
-          address, pad: which,
-          name: meta.name||fb.name||'Token',
-          symbol: meta.symbol||fb.symbol||'TKN',
-          creator:c[0], realBNB:c[1], tokensSold:c[2], graduated:c[3], createdAt:Number(c[4]),
-          progress: pr?Number(pr[0]):0,
-          price:    px?px[0]:0n,
-          meta
-        });
-      });
+    const counts = { v1: Number(cntV1)||0, v2: Number(cntV2)||0 };
+    if(!counts.v1 && !counts.v2){
+      grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>';
+      tokensCache=[]; renderNewTicker(); return;
     }
 
-    if(!out.length){ grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>'; tokensCache=[]; renderNewTicker(); return; }
+    // Адреса с обоих контрактов — одной пачкой
+    const addrCalls=[]; const addrOwner=[];
+    for(const which of ['v1','v2']){
+      const count = counts[which];
+      if(!count) continue;
+      const start=Math.max(0,count-100);
+      for(let i=count-1;i>=start;i--){ addrCalls.push({target:PAD_ADDR[which], iface:I.lp, fn:'allTokens', args:[i]}); addrOwner.push(which); }
+    }
+    const addrRes = await multicall(addrCalls);
+    const entries=[];
+    addrRes.forEach((r,k)=>{
+      if(!r) return;
+      const a=String(r[0]);
+      if(a && a!=='0x0000000000000000000000000000000000000000') entries.push({ address:a, pad:addrOwner[k] });
+    });
+    if(!entries.length){
+      grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>';
+      tokensCache=[]; renderNewTicker(); return;
+    }
+
+    // Данные и названия — тоже одной пачкой, а не двумя
+    const calls=[]; const plan=[];
+    entries.forEach(e=>{
+      const pa = PAD_ADDR[e.pad];
+      plan.push({ e, base: calls.length, needName: !(metaCache[e.address.toLowerCase()]||{}).name });
+      calls.push({target:pa, iface:I.lp, fn:'getCurve',    args:[e.address]});
+      calls.push({target:pa, iface:I.lp, fn:'getProgress', args:[e.address]});
+      calls.push({target:pa, iface:I.lp, fn:'getPrice',    args:[e.address]});
+      const m = metaCache[e.address.toLowerCase()]||{};
+      if(!m.name || !m.symbol){
+        calls.push({target:e.address, iface:I.erc20, fn:'name'});
+        calls.push({target:e.address, iface:I.erc20, fn:'symbol'});
+      }
+    });
+    const res = await multicall(calls);
+
+    const out=[];
+    plan.forEach(({e, base})=>{
+      const c=res[base], pr=res[base+1], px=res[base+2];
+      if(!c) return;
+      const meta=metaCache[e.address.toLowerCase()]||{};
+      let name=meta.name, symbol=meta.symbol;
+      if(!name || !symbol){
+        const n=res[base+3], sy=res[base+4];
+        name   = name   || (n ?String(n[0]) :'Token');
+        symbol = symbol || (sy?String(sy[0]):'TKN');
+      }
+      out.push({
+        address:e.address, pad:e.pad, name, symbol,
+        creator:c[0], realBNB:c[1], tokensSold:c[2], graduated:c[3], createdAt:Number(c[4]),
+        progress: pr?Number(pr[0]):0,
+        price:    px?px[0]:0n,
+        meta
+      });
+    });
+
     tokensCache=out;
     visibleTokens = PAGE_SIZE;
     renderTokenList(); renderNewTicker();
@@ -3493,11 +3505,23 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 (async function init(){
+  // Выбор узла нужен раньше всего — от него зависят обращения к блокчейну.
   await pickHealthyProvider();
-  await loadBnbPrice(); startPriceTimer();
-  await loadAdPricing(); await loadAdBoards();
-  const opened = await openFromHash();     // пришли по прямой ссылке на токен
+
+  // Дальше независимые вещи запускаем одновременно, а не по очереди:
+  // курс, цены рекламы и баннеры не ждут друг друга.
+  const side = Promise.all([
+    loadBnbPrice().catch(()=>{}),
+    loadAdPricing().catch(()=>{}),
+  ]).then(()=> loadAdBoards().catch(()=>{}));   // баннерам нужны цены
+
+  startPriceTimer();
+
+  // Список токенов начинаем грузить сразу, не дожидаясь рекламы
+  const opened = await openFromHash();
   if(!opened) showHome();
+
+  await side;
   subscribeNewTokens(); startCountTimer();
 })();
 </script>
