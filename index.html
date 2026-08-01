@@ -888,8 +888,8 @@ async function resolvePad(address){
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
 // Ликвидность пула в долларах: обе стороны вместе.
 // В AMM стоимость обеих сторон равна, поэтому берём котируемую и удваиваем.
-function poolLiquidityUsd(reserveQuote, quote){
-  const amount = Number(ethers.formatEther(reserveQuote));
+function poolLiquidityUsd(reserveQuote, quote, qDec){
+  const amount = Number(ethers.formatUnits(reserveQuote, qDec || 18));
   if(!isFinite(amount) || amount <= 0) return null;
   // USDT и USDC считаем за доллар, BNB переводим по текущему курсу
   const usdPerUnit = (quote === 0) ? bnbUsdPrice : 1;
@@ -1022,6 +1022,12 @@ function fmtPriceUsd(priceWei){
   if(!bnbUsdPrice) return '—';
   const usd = (Number(priceWei)/1e18) * bnbUsdPrice;
   return '$' + fmtTinyPrice(usd, 4);
+}
+// То же, что fmtTokens, но с настоящим числом знаков токена
+function fmtUnitsShort(raw, dec){
+  const n = Number(ethers.formatUnits(raw, dec || 18));
+  if(!isFinite(n)) return '0';
+  return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toFixed(n<1?6:0);
 }
 function fmtTokens(wei){ const n=Number(wei)/1e18; return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toFixed(0); }
 function shortAddr(a){ return a? a.slice(0,6)+'...'+a.slice(-4) : ''; }
@@ -2357,7 +2363,18 @@ async function openPoolTradePage(pid,_retry){
     const tk=new ethers.Contract(p.token, ERC20_ABI, getReadProvider());
     let name='Token', symbol='TKN';
     try{ [name,symbol]=await Promise.all([tk.name(),tk.symbol()]); }catch(e){}
-    currentPoolData = {token:p.token, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled, symbol, name};
+    // Знаки после запятой у токена бывают не только 18 — читаем настоящие,
+    // иначе при продаже сумма выйдет в миллионы раз больше или меньше.
+    let tDec = 18;
+    try{ tDec = Number(await withTimeout(tk.decimals())); }catch(e){}
+    let qDec = 18;
+    if(Number(p.quote) !== 0){
+      try{
+        const qc = new ethers.Contract(quoteAddr(Number(p.quote)), ERC20_ABI, getReadProvider());
+        qDec = Number(await withTimeout(qc.decimals()));
+      }catch(e){}
+    }
+    currentPoolData = {token:p.token, quote:Number(p.quote), reserveToken:p.reserveToken, reserveQuote:p.reserveQuote, creator:p.creator, locked:p.locked, pulled:p.liquidityPulled, symbol, name, tDec, qDec};
     const price = await pl.getPrice(pid);
     const meta = poolMetaOf(p.token);
     const av = document.getElementById('poolAvatar');
@@ -2376,18 +2393,18 @@ async function openPoolTradePage(pid,_retry){
     document.getElementById('poolName').textContent = name+' ($'+symbol+') / '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolInfoPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(currentPoolData.quote);
-    document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+symbol;
+    document.getElementById('poolReserveToken').textContent = fmtUnitsShort(p.reserveToken, tDec)+' '+symbol;
     document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(currentPoolData.quote);
     document.getElementById('poolLockStatus').textContent = p.locked ? '🔒 Locked forever' : (p.liquidityPulled ? '⚠️ Withdrawn by lister' : '⚠️ Removable');
     // Показываем обе стороны отдельно: «общая стоимость» вводила в заблуждение
     // — при выводе на руки приходит только котируемая часть, а токены
     // формально стоят столько же, но продать их некому.
-    const liq = poolLiquidityUsd(p.reserveQuote, Number(p.quote));
+    const liq = poolLiquidityUsd(p.reserveQuote, Number(p.quote), qDec);
     const qAmt = Number(ethers.formatEther(p.reserveQuote));
     document.getElementById('poolLiqUsd').innerHTML =
       liq === null ? '—'
       : esc(fmtTinyPrice(qAmt,6)) + ' ' + esc(quoteLabel(Number(p.quote)))
-        + ' + ' + esc(fmtTokens(p.reserveToken)) + ' ' + esc(symbol)
+        + ' + ' + esc(fmtUnitsShort(p.reserveToken, tDec)) + ' ' + esc(symbol)
         + '<br><span style="color:var(--muted);font-size:11px;">pool value ' + esc(fmtUsdPlain(liq)) + '</span>';
     document.getElementById('poolContract').innerHTML = bscLink(p.token,'token');
     document.getElementById('poolCreator').innerHTML = bscLink(p.creator,'address');
@@ -2541,7 +2558,7 @@ async function refreshPoolInfo(pid){
     document.getElementById('poolInfoPrice').textContent = fmtTinyPrice(Number(ethers.formatEther(price)),6)+' '+quoteLabel(q);
     document.getElementById('poolReserveToken').textContent = fmtTokens(p.reserveToken)+' '+(currentPoolData?currentPoolData.symbol:'');
     document.getElementById('poolReserveQuote').textContent = fmtTinyPrice(Number(ethers.formatEther(p.reserveQuote)),6)+' '+quoteLabel(q);
-    const liq2 = poolLiquidityUsd(p.reserveQuote, q);
+    const liq2 = poolLiquidityUsd(p.reserveQuote, q, (currentPoolData&&currentPoolData.qDec)||18);
     const liqEl = document.getElementById('poolLiqUsd');
     const sym2 = currentPoolData ? currentPoolData.symbol : '';
     if(liqEl) liqEl.innerHTML = liq2 === null ? '—'
@@ -2568,8 +2585,15 @@ async function updatePoolReceive(){
   if(!amtStr||Number(amtStr)<=0||!currentPoolId){ el.textContent='—'; return; }
   try{
     const pl=getReadPools();
-    if(poolTradeSide==='buy'){ const [out]=await pl.quoteBuy(currentPoolId, ethers.parseEther(amtStr)); el.textContent=fmtTokens(out)+' '+currentPoolData.symbol; }
-    else{ const [out]=await pl.quoteSell(currentPoolId, ethers.parseEther(amtStr)); el.textContent=ethers.formatEther(out)+' '+quoteLabel(currentPoolData.quote); }
+    const TD = (currentPoolData && currentPoolData.tDec) || 18;
+    const QD = (currentPoolData && currentPoolData.qDec) || 18;
+    if(poolTradeSide==='buy'){
+      const [out]=await pl.quoteBuy(currentPoolId, ethers.parseUnits(amtStr, QD));
+      el.textContent=fmtUnitsShort(out, TD)+' '+currentPoolData.symbol;
+    } else {
+      const [out]=await pl.quoteSell(currentPoolId, ethers.parseUnits(amtStr, TD));
+      el.textContent=fmtTinyPrice(Number(ethers.formatUnits(out, QD)),6)+' '+quoteLabel(currentPoolData.quote);
+    }
   }catch(e){ el.textContent='—'; }
 }
 async function updatePoolTradeButton(){
@@ -2582,13 +2606,13 @@ async function updatePoolTradeButton(){
   try{
     if(poolTradeSide==='sell'){
       const tk=new ethers.Contract(currentPoolData.token, ERC20_ABI, provider);
-      lbl.textContent='Balance: '+fmtTokens(await tk.balanceOf(userAddr))+' '+currentPoolData.symbol;
+      lbl.textContent='Balance: '+fmtUnitsShort(await tk.balanceOf(userAddr), currentPoolData.tDec||18)+' '+currentPoolData.symbol;
     } else if(currentPoolData.quote===0){
       lbl.textContent='Balance: '+fmtBNB(await provider.getBalance(userAddr))+' BNB';
     } else {
       const tk=new ethers.Contract(quoteAddr(currentPoolData.quote), ERC20_ABI, provider);
       const b=await tk.balanceOf(userAddr);
-      lbl.textContent='Balance: '+Number(ethers.formatEther(b)).toFixed(4)+' '+quoteLabel(currentPoolData.quote);
+      lbl.textContent='Balance: '+Number(ethers.formatUnits(b, currentPoolData.qDec||18)).toFixed(4)+' '+quoteLabel(currentPoolData.quote);
     }
   }catch(e){ lbl.textContent=''; }
 }
@@ -2613,8 +2637,10 @@ async function executePoolTrade(){
     const SLIPPAGE_BPS = 500n;   // 5%, как на вкладке Launch
     const withSlippage = v => (v * (10000n - SLIPPAGE_BPS)) / 10000n;
 
+    const TD = (currentPoolData && currentPoolData.tDec) || 18;
+    const QD = (currentPoolData && currentPoolData.qDec) || 18;
     if(poolTradeSide==='buy'){
-      const amtWei = ethers.parseEther(amtStr);
+      const amtWei = ethers.parseUnits(amtStr, QD);
       const [expOut] = await poolsC.quoteBuy(currentPoolId, amtWei);
       if(!expOut || expOut === 0n){ toast('Pool has no liquidity for this amount','err'); btn.disabled=false; btn.textContent='Buy'; return; }
       const minOut = withSlippage(expOut);
@@ -2628,7 +2654,7 @@ async function executePoolTrade(){
       }
       toast('Bought! 🎉','ok');
     }else{
-      const amtWei = ethers.parseEther(amtStr);
+      const amtWei = ethers.parseUnits(amtStr, TD);
       const [expQuote] = await poolsC.quoteSell(currentPoolId, amtWei);
       if(!expQuote || expQuote === 0n){ toast('Pool has no liquidity for this amount','err'); btn.disabled=false; btn.textContent='Sell'; return; }
       const minQuote = withSlippage(expQuote);
@@ -2830,7 +2856,14 @@ async function submitCreatePool(){
       }catch(e){ tokenDecimals = 18; }
     }
     const tokenAmtWei = ethers.parseUnits(tokenAmtStr, tokenDecimals);
-    const quoteAmtWei = ethers.parseEther(quoteAmtStr);
+    let quoteDecimals = 18;
+    if(poolQuoteChoice !== 0){
+      try{
+        const qcr = new ethers.Contract(quoteAddr(poolQuoteChoice), ERC20_ABI, getReadProvider());
+        quoteDecimals = Number(await withTimeout(qcr.decimals()));
+      }catch(e){ quoteDecimals = 18; }
+    }
+    const quoteAmtWei = ethers.parseUnits(quoteAmtStr, quoteDecimals);
 
     // Хватает ли токенов — понятная ошибка вместо отказа контракта
     try{
