@@ -188,6 +188,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tfeed{display:grid;grid-template-columns:52px 1fr 1fr 74px;gap:6px;align-items:center;
   padding:8px 2px;border-bottom:1px solid var(--border);font-size:12px;}
 .tfeed:last-child{border-bottom:none;}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);
+  margin-left:8px;vertical-align:middle;transition:background .2s;}
+.live-dot.on{background:var(--green);box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:livePulse 2s infinite;}
+.live-dot.off{background:var(--red);}
+@keyframes livePulse{0%{opacity:1;}50%{opacity:.35;}100%{opacity:1;}}
+@media(prefers-reduced-motion:reduce){.live-dot.on{animation:none;}}
 .tfeed-head{color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;
   letter-spacing:.03em;border-bottom:1px solid var(--border);padding-bottom:6px;position:sticky;top:0;
   background:var(--bg2);z-index:1;}
@@ -367,7 +373,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="grad-note" id="gradNote">🎓 This token graduated. Trade it on <a id="gradPancake" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">PancakeSwap ↗</a></div>
         </div>
         <div class="feed-box">
-          <div class="feed-title">💱 Recent Trades</div>
+          <div class="feed-title">💱 Recent Trades<span class="live-dot" id="liveDotLaunch" title="Live updates"></span></div>
           <div id="tradesFeed"><div style="color:var(--muted);font-size:12px;">No trades yet</div></div>
         </div>
       </div>
@@ -434,7 +440,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <button class="bs-action buy" id="poolTradeActionBtn" onclick="executePoolTrade()">Connect Wallet</button>
         </div>
         <div class="feed-box">
-          <div class="feed-title">💱 Recent Trades</div>
+          <div class="feed-title">💱 Recent Trades<span class="live-dot" id="liveDotPool" title="Live updates"></span></div>
           <div id="poolTradesFeed"><div style="color:var(--muted);font-size:12px;">No trades yet</div></div>
         </div>
       </div>
@@ -883,6 +889,20 @@ function linkIcon(kind, size){
   return '<svg viewBox="0 0 24 24" width="'+px+'" height="'+px+'" fill="'+i.color+'" aria-hidden="true">'+i.svg+'</svg>';
 }
 
+// Ссылки на выбранные файлы браузер держит в памяти до перезагрузки.
+// Перебрал десяток баннеров по 3 МБ — тридцать мегабайт висят зря.
+// Поэтому перед новой ссылкой освобождаем предыдущую.
+function setPreview(imgEl, file){
+  if(!imgEl) return;
+  const prev = imgEl.getAttribute('data-objurl');
+  if(prev){ try{ URL.revokeObjectURL(prev); }catch(e){} imgEl.removeAttribute('data-objurl'); }
+  if(!file){ imgEl.removeAttribute('src'); return; }
+  const url = URL.createObjectURL(file);
+  imgEl.setAttribute('data-objurl', url);
+  imgEl.src = url;
+}
+function clearPreview(imgEl){ setPreview(imgEl, null); }
+
 function safeHref(u){ const v=String(u||'').trim(); return /^https?:\/\//i.test(v) ? v : ''; }
 
 // Люди пишут адреса по-человечески: «@OpenGatelive», «t.me/канал», «x.com/имя».
@@ -1245,6 +1265,59 @@ function switchMode(mode){
 }
 function showHome(){ switchMode('launch'); }
 
+// ─── Живое появление новых токенов ───
+// Сделки обновлялись сами, а вот новый токен другие люди видели только
+// после перезагрузки страницы. Закрываем двумя путями сразу:
+//   1) уведомление из базы, когда сохранены название и логотип;
+//   2) редкая перепроверка счётчика в контрактах — на случай, если человек
+//      отказался подписывать метаданные и строки в базе нет.
+let newTokensChannel = null, _listReloadTimer = null, _countTimer = null;
+let _lastCounts = { v1: null, v2: null, pools: null };
+
+function queueListReload(reason){
+  if(_listReloadTimer) return;                 // не дёргаем список много раз подряд
+  _listReloadTimer = setTimeout(async ()=>{
+    _listReloadTimer = null;
+    if(document.hidden) return;
+    const onLaunchList = !document.getElementById('homeView').classList.contains('hidden');
+    const onPoolList   = !document.getElementById('poolsHomeView').classList.contains('hidden');
+    if(onLaunchList){ console.log('обновляю список токенов:', reason); await loadTokens(); }
+    else if(onPoolList){ console.log('обновляю список пулов:', reason); await loadPools(); }
+  }, 1500);
+}
+
+function subscribeNewTokens(){
+  if(newTokensChannel) return;
+  newTokensChannel = sb.channel('new-tokens')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_tokens'},()=>queueListReload('новый токен'))
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_tokens'},()=>queueListReload('новый пул'))
+    .subscribe((st)=>console.log('realtime new tokens:', st));
+}
+
+// Счётчики в контрактах — три дешёвых запроса раз в минуту,
+// только когда открыт список и вкладка на экране.
+async function checkForNewTokens(){
+  if(document.hidden) return;
+  const onLaunchList = !document.getElementById('homeView').classList.contains('hidden');
+  const onPoolList   = !document.getElementById('poolsHomeView').classList.contains('hidden');
+  if(!onLaunchList && !onPoolList) return;
+  try{
+    if(onLaunchList){
+      for(const which of ['v1','v2']){
+        const c = Number(await withTimeout(getReadLaunchpad(which).tokenCount(), 6000));
+        if(_lastCounts[which] !== null && c > _lastCounts[which]){ _lastCounts[which] = c; queueListReload('счётчик '+which); return; }
+        _lastCounts[which] = c;
+      }
+    } else {
+      const c = Number(await withTimeout(getReadPools().poolCount(), 6000));
+      if(_lastCounts.pools !== null && c > _lastCounts.pools){ _lastCounts.pools = c; queueListReload('счётчик пулов'); return; }
+      _lastCounts.pools = c;
+    }
+  }catch(e){ /* сеть моргнула — просто пропускаем этот круг */ }
+}
+function startCountTimer(){ if(!_countTimer) _countTimer = setInterval(checkForNewTokens, 60000); }
+function stopCountTimer(){ if(_countTimer){ clearInterval(_countTimer); _countTimer = null; } }
+
 // Свой адрес у каждой страницы токена. Без этого рекламодатель не мог
 // дать ссылку на свой токен — сайт одностраничный, и все ссылки вели
 // на главную. Используем replaceState, чтобы не засорять историю браузера.
@@ -1508,8 +1581,10 @@ function priceFormatFor(candles){
   for(const c of candles){ if(c.low  > 0 && c.low  < lo) lo = c.low; if(c.high > hi) hi = c.high; }
   if(!isFinite(lo) || lo <= 0) lo = hi > 0 ? hi : 1;
   if(hi <= 0) hi = lo;
-  const range = Math.max(0, hi - lo);
-  // ~100 делений на видимый диапазон; если движения нет вовсе — от самой цены
+  // Размах берём не меньше 2% от цены — столько же, сколько показывает шкала,
+  // иначе подписи делений округляются в одно и то же число.
+  const shown = Math.max(hi - lo, ((hi + lo) / 2) * 0.02);
+  const range = Math.max(0, shown);
   const ref = range > 0 ? range / 100 : lo / 1000;
   let minMove = Math.pow(10, Math.floor(Math.log10(ref)));
   if(!isFinite(minMove) || minMove <= 0) minMove = 1e-12;
@@ -1521,6 +1596,28 @@ function priceFormatFor(candles){
   }
   return { type:'custom', minMove:minMove, formatter:(v)=>fmtTinyPrice(v, digits) };
 }
+// У нового токена одна-две сделки, размах цены почти нулевой — график
+// растягивал его на всю высоту, и выходила одна гигантская свеча,
+// а подписи на шкале получались одинаковыми. Задаём минимальный размах.
+function applyMinScale(series){
+  if(!series) return;
+  try{
+    series.applyOptions({
+      autoscaleInfoProvider: original => {
+        const res = original();
+        if(!res || !res.priceRange) return res;
+        const { minValue, maxValue } = res.priceRange;
+        const span = maxValue - minValue;
+        const mid = (maxValue + minValue) / 2;
+        const minSpan = Math.abs(mid) * 0.02;    // не меньше 2% от цены
+        if(!isFinite(minSpan) || minSpan <= 0 || span >= minSpan) return res;
+        const pad = (minSpan - span) / 2;
+        return { ...res, priceRange: { minValue: minValue - pad, maxValue: maxValue + pad } };
+      }
+    });
+  }catch(e){ console.warn('applyMinScale:', e && e.message); }
+}
+
 function applyPriceFormat(series, candles){
   if(!series || !candles || !candles.length) return;
   try{ series.applyOptions({ priceFormat: priceFormatFor(candles) }); }
@@ -1540,6 +1637,7 @@ function destroyPoolChart(){
 // Каналы Supabase держат постоянное соединение. Уходя со страницы токена,
 // закрываем их — иначе они копятся и продолжают будить телефон.
 function closeTradeChannels(){
+  setLiveDot('liveDotLaunch', null); setLiveDot('liveDotPool', null);
   if(tradesChannel){ try{ sb.removeChannel(tradesChannel); }catch(e){} tradesChannel=null; }
   if(poolTradesChannel){ try{ sb.removeChannel(poolTradesChannel); }catch(e){} poolTradesChannel=null; }
 }
@@ -1587,6 +1685,7 @@ async function syncChartTail(token){
     if(error){ console.error('syncChartTail:', error); return; }
     if(!data || !data.length) return;
     for(const t of data){
+      if(!isFinite(Number(t.price)) || Number(t.price) <= 0){ st.lastTradeAt = t.created_at; continue; }
       const okk = pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, parseTs(t.created_at));
       if(!okk){ await loadChartFromTrades(token); return; }
       st.lastTradeAt = t.created_at;
@@ -1604,6 +1703,7 @@ async function syncPoolChartTail(pid){
     if(error){ console.error('syncPoolChartTail:', error); return; }
     if(!data || !data.length) return;
     for(const t of data){
+      if(!isFinite(Number(t.price)) || Number(t.price) <= 0){ st.lastTradeAt = t.created_at; continue; }
       const okk = pushTradeToChart(st, poolCandleSeries, poolVolumeSeries, poolChartTimeMap, Number(t.price), Number(t.quote_amount)||0, parseTs(t.created_at));
       if(!okk){ await loadPoolChartFromTrades(pid); return; }
       st.lastTradeAt = t.created_at;
@@ -1636,6 +1736,7 @@ function initChart(){
     wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444', priceLineVisible:false,
     priceFormat:{type:'price',precision:10,minMove:0.0000000001}
   });
+  applyMinScale(candleSeries);
   volumeSeries=chart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'', color:'#F5C84266' });
   volumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
   chart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
@@ -1646,7 +1747,7 @@ async function loadChartFromTrades(token){
   if(!candleSeries) return;
   try{
     const {data:trades}=await sb.from('launchpad_trades').select('price,bnb_amount,side,created_at').eq('token_address',token.toLowerCase()).order('created_at',{ascending:true}).limit(3000);
-    const currentPrice=Number(await getReadLaunchpad().getPrice(token))/1e18;
+    const currentPrice=Number(await getReadLaunchpad(padOf(token)).getPrice(token))/1e18;
     if(!trades||!trades.length){
       chartTimeMap={0:new Date()};
       applyPriceFormat(candleSeries, [{low:currentPrice*0.995,high:currentPrice*1.005}]);
@@ -1654,12 +1755,22 @@ async function loadChartFromTrades(token){
       volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
       return;
     }
+    // Одна запись с нулевой или битой ценой растягивала свечу от нуля
+    // до текущей цены — весь график превращался в одну полосу.
     const chained=[]; let prevClose=null;
     for(const t of trades){
       const closePrice=Number(t.price);
+      if(!isFinite(closePrice) || closePrice <= 0) continue;
       const openPrice = prevClose===null ? closePrice : prevClose;
       chained.push({ date:parseTs(t.created_at), open:openPrice, close:closePrice, vol:Number(t.bnb_amount)||0 });
       prevClose=closePrice;
+    }
+    if(!chained.length){
+      chartTimeMap={0:new Date()};
+      applyPriceFormat(candleSeries, [{low:currentPrice*0.995,high:currentPrice*1.005}]);
+      candleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
+      volumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
+      return;
     }
     const buckets={}; const order=[];
     for(const c of chained){
@@ -1670,7 +1781,11 @@ async function loadChartFromTrades(token){
     const candles=[],volumes=[]; chartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; chartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     applyPriceFormat(candleSeries, candles);
-    candleSeries.setData(candles); volumeSeries.setData(volumes); chart.timeScale().fitContent();
+    candleSeries.setData(candles); volumeSeries.setData(volumes);
+    // fitContent на двух свечах растягивал их во всю ширину — оставляем
+    // привычный шаг, чтобы новый токен выглядел как начало графика
+    if(candles.length > 6) chart.timeScale().fitContent();
+    else chart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 10 });
     resetChartState(lpChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
 }
@@ -1703,12 +1818,27 @@ function renderTradesFeed(trades){
       + '</div>';
   }).join('');
 }
+// Зелёная точка у заголовка — признак того, что живые обновления подключены.
+// Без неё невозможно понять, работает реальное время или нет.
+function setLiveDot(id, state){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('on','off');
+  if(state === 'on'){ el.classList.add('on'); el.title = 'Live updates on'; }
+  else if(state === 'off'){ el.classList.add('off'); el.title = 'Live updates unavailable — refresh to see new trades'; }
+  else { el.title = 'Connecting…'; }
+}
 function subscribeTrades(token){
   if(tradesChannel){ sb.removeChannel(tradesChannel); tradesChannel=null; }
+  setLiveDot('liveDotLaunch', null);
   tradesChannel=sb.channel('trades-'+token.toLowerCase()).on('postgres_changes',{event:'INSERT',schema:'public',table:'launchpad_trades',filter:'token_address=eq.'+token.toLowerCase()},()=>{
     loadTradesFeed(token); refreshTradeInfo(token);
     syncChartTail(token);
-  }).subscribe();
+  }).subscribe((status)=>{
+    console.log('realtime launchpad_trades:', status);
+    setLiveDot('liveDotLaunch', status === 'SUBSCRIBED' ? 'on'
+      : (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') ? 'off' : null);
+  });
 }
 async function refreshTradeInfo(token){
   try{
@@ -1825,8 +1955,8 @@ function previewImage(input){
   const drop=document.getElementById('imgDrop');
   const prev=document.getElementById('imgPreview');
   const txt=document.getElementById('imgDropText');
-  const url=URL.createObjectURL(f);
-  prev.src=url; prev.classList.remove('hidden'); txt.classList.add('hidden'); drop.classList.add('has-img');
+  setPreview(prev, f);
+  prev.classList.remove('hidden'); txt.classList.add('hidden'); drop.classList.add('has-img');
 }
 async function uploadTokenImage(file){
   const dataBase64 = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
@@ -1930,7 +2060,10 @@ async function submitLaunch(){
   btn.disabled=false; btn.textContent='Launch Token';
 }
 function openLaunchModal(){ document.getElementById('launchModal').classList.add('show'); updateFeeNote(); }
-function closeLaunchModal(){ document.getElementById('launchModal').classList.remove('show'); }
+function closeLaunchModal(){
+  clearPreview(document.getElementById('imgPreview'));
+  document.getElementById('launchModal').classList.remove('show');
+}
 function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
 function closeHowModal(){ document.getElementById('howModal').classList.remove('show'); }
 </script>
@@ -1954,7 +2087,7 @@ function previewPoolImage(input){
   if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
   poolPendingImage = f;
   const p = document.getElementById('poolImgPreview');
-  p.src = URL.createObjectURL(f); p.classList.remove('hidden');
+  setPreview(p, f); p.classList.remove('hidden');
   document.getElementById('poolImgDropText').classList.add('hidden');
 }
 function previewMetaImage(input){
@@ -1962,7 +2095,7 @@ function previewMetaImage(input){
   if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
   metaPendingImage = f;
   const p = document.getElementById('metaImgPreview');
-  p.src = URL.createObjectURL(f); p.classList.remove('hidden');
+  setPreview(p, f); p.classList.remove('hidden');
   document.getElementById('metaImgDropText').classList.add('hidden');
 }
 
@@ -2012,11 +2145,12 @@ async function saveLaunchMeta(tokenAddress, meta){
 function fillMetaModal(m){
   metaPendingImage = null;
   document.getElementById('metaImageInput').value='';
+  clearPreview(document.getElementById('metaImgPreview'));
   document.getElementById('metaImgPreview').classList.add('hidden');
   document.getElementById('metaImgDropText').classList.remove('hidden');
   if(m.image_url){
     const p=document.getElementById('metaImgPreview');
-    p.src=m.image_url; p.classList.remove('hidden');
+    clearPreview(p); p.src=m.image_url; p.classList.remove('hidden');
     document.getElementById('metaImgDropText').classList.add('hidden');
   }
   document.getElementById('metaDesc').value     = m.description || '';
@@ -2040,7 +2174,11 @@ function openPoolMetaModal(){
   metaMode = 'pool';
   fillMetaModal(poolMetaOf(currentPoolData.token));
 }
-function closePoolMetaModal(){ document.getElementById('poolMetaModal').classList.remove('show'); }
+function closePoolMetaModal(){
+  metaPendingImage=null;
+  clearPreview(document.getElementById('metaImgPreview'));
+  document.getElementById('poolMetaModal').classList.remove('show');
+}
 
 async function submitPoolMeta(){
   if(!userAddr){ toast('Connect wallet first','err'); await connectWallet(); return; }
@@ -2239,6 +2377,7 @@ function initPoolChart(){
     wickVisible:true, wickUpColor:'#22c55e', wickDownColor:'#ef4444', priceLineVisible:false,
     priceFormat:{type:'price',precision:10,minMove:0.0000000001}
   });
+  applyMinScale(poolCandleSeries);
   poolVolumeSeries=poolChart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'', color:'#F5C84266' });
   poolVolumeSeries.priceScale().applyOptions({ scaleMargins:{top:0.8,bottom:0} });
   poolChart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 8 });
@@ -2259,9 +2398,17 @@ async function loadPoolChartFromTrades(pid){
     const chained=[]; let prevClose=null;
     for(const t of trades){
       const closePrice=Number(t.price);
+      if(!isFinite(closePrice) || closePrice <= 0) continue;
       const openPrice = prevClose===null ? closePrice : prevClose;
       chained.push({ date:parseTs(t.created_at), open:openPrice, close:closePrice, vol:Number(t.quote_amount)||0 });
       prevClose=closePrice;
+    }
+    if(!chained.length){
+      poolChartTimeMap={0:new Date()};
+      applyPriceFormat(poolCandleSeries, [{low:currentPrice*0.995,high:currentPrice*1.005}]);
+      poolCandleSeries.setData([{time:0,open:currentPrice,high:currentPrice,low:currentPrice,close:currentPrice}]);
+      poolVolumeSeries.setData([{time:0,value:0,color:'#8b909a33'}]);
+      return;
     }
     const buckets={}; const order=[];
     for(const c of chained){
@@ -2272,7 +2419,9 @@ async function loadPoolChartFromTrades(pid){
     const candles=[],volumes=[]; poolChartTimeMap={};
     order.forEach((key,idx)=>{ const b=buckets[key]; poolChartTimeMap[idx]=b.date; candles.push({time:idx,open:b.open,high:b.high,low:b.low,close:b.close}); volumes.push({time:idx,value:b.vol,color:b.close>=b.open?'#22c55e88':'#ef444488'}); });
     applyPriceFormat(poolCandleSeries, candles);
-    poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes); poolChart.timeScale().fitContent();
+    poolCandleSeries.setData(candles); poolVolumeSeries.setData(volumes);
+    if(candles.length > 6) poolChart.timeScale().fitContent();
+    else poolChart.timeScale().applyOptions({ barSpacing: 22, rightOffset: 10 });
     resetChartState(poolChartState, candles, volumes, buckets[order[order.length-1]].date, trades[trades.length-1].created_at);
   }catch(e){}
 }
@@ -2308,10 +2457,15 @@ function renderPoolTradesFeed(trades){
 }
 function subscribePoolTrades(pid){
   if(poolTradesChannel){ sb.removeChannel(poolTradesChannel); poolTradesChannel=null; }
+  setLiveDot('liveDotPool', null);
   poolTradesChannel=sb.channel('pool-trades-'+pid).on('postgres_changes',{event:'INSERT',schema:'public',table:'pool_trades',filter:'pool_id=eq.'+pid},()=>{
     loadPoolTradesFeed(pid); refreshPoolInfo(pid);
     syncPoolChartTail(pid);
-  }).subscribe();
+  }).subscribe((status)=>{
+    console.log('realtime pool_trades:', status);
+    setLiveDot('liveDotPool', status === 'SUBSCRIBED' ? 'on'
+      : (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') ? 'off' : null);
+  });
 }
 // Лёгкое обновление цифр без пересоздания графика и переподписки.
 // Раньше здесь вызывался openPoolTradePage — он сбрасывал масштаб графика
@@ -2458,7 +2612,11 @@ function setPoolLocked(v){
   document.getElementById('lockOptRemovable').classList.toggle('active', !v);
 }
 function openCreatePoolModal(){ document.getElementById('createPoolModal').classList.add('show'); updatePoolLimitNote(); }
-function closeCreatePoolModal(){ document.getElementById('createPoolModal').classList.remove('show'); }
+function closeCreatePoolModal(){
+  poolPendingImage=null;
+  clearPreview(document.getElementById('poolImgPreview'));
+  document.getElementById('createPoolModal').classList.remove('show');
+}
 function openPoolsHowModal(){ document.getElementById('poolsHowModal').classList.add('show'); }
 function closePoolsHowModal(){ document.getElementById('poolsHowModal').classList.remove('show'); }
 
@@ -2530,6 +2688,7 @@ async function submitCreatePool(){
     ['poolTokenAddr','poolTokenAmount','poolQuoteAmount','poolDesc','poolTwitter','poolTelegram','poolWebsite'].forEach(id=>document.getElementById(id).value='');
     poolPendingImage=null;
     document.getElementById('poolImageInput').value='';
+    clearPreview(document.getElementById('poolImgPreview'));
     document.getElementById('poolImgPreview').classList.add('hidden');
     document.getElementById('poolImgDropText').classList.remove('hidden');
     await loadPools();
@@ -2655,6 +2814,7 @@ async function openAdModal(slot){
   adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null; adEditAd=null;
   document.getElementById('adPayBlock').classList.remove('hidden');
   document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
+  clearPreview(document.getElementById('adImgPreview'));
   document.getElementById('adImgPreview').classList.add('hidden');
   document.getElementById('adImgDropText').classList.remove('hidden');
   document.getElementById('adImgDrop').classList.remove('hidden');
@@ -2712,6 +2872,7 @@ async function openAdEditModal(adId){
   document.getElementById('adPayBlock').classList.add('hidden');
 
   document.getElementById('adImageInput').value='';
+  clearPreview(document.getElementById('adImgPreview'));
   document.getElementById('adImgPreview').src = ad.image_url || '';
   document.getElementById('adImgPreview').classList.toggle('hidden', !ad.image_url);
   document.getElementById('adImgDropText').classList.toggle('hidden', !!ad.image_url);
@@ -2805,14 +2966,17 @@ async function openExtendModal(adId){
   document.getElementById('adModal').classList.add('show');
   await updateAdPriceDisplay();
 }
-function closeAdModal(){ adExtendAd=null; adEditAd=null; document.getElementById('adModal').classList.remove('show'); }
+function closeAdModal(){
+  adExtendAd=null; adEditAd=null; adPendingImageFile=null;
+  clearPreview(document.getElementById('adImgPreview'));
+  document.getElementById('adModal').classList.remove('show');
+}
 function previewAdImage(input){
   const f=input.files[0]; if(!f) return;
   if(f.size > 3*1024*1024){ toast('Image too large — max 3MB','err'); input.value=''; return; }
   adPendingImageFile=f;
-  const url=URL.createObjectURL(f);
   const prev=document.getElementById('adImgPreview');
-  prev.src=url; prev.classList.remove('hidden');
+  setPreview(prev, f); prev.classList.remove('hidden');
   document.getElementById('adImgDropText').classList.add('hidden');
 }
 function setAdToken(t){
@@ -3100,8 +3264,8 @@ let _priceTimer = null;
 function startPriceTimer(){ if(!_priceTimer) _priceTimer = setInterval(loadBnbPrice, 60000); }
 function stopPriceTimer(){ if(_priceTimer){ clearInterval(_priceTimer); _priceTimer = null; } }
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden){ stopPriceTimer(); }
-  else { startPriceTimer(); loadBnbPrice(); }
+  if(document.hidden){ stopPriceTimer(); stopCountTimer(); }
+  else { startPriceTimer(); loadBnbPrice(); startCountTimer(); checkForNewTokens(); }
 });
 
 (async function init(){
@@ -3110,6 +3274,7 @@ document.addEventListener('visibilitychange', ()=>{
   await loadAdPricing(); await loadAdBoards();
   const opened = await openFromHash();     // пришли по прямой ссылке на токен
   if(!opened) showHome();
+  subscribeNewTokens(); startCountTimer();
 })();
 </script>
 </body>
