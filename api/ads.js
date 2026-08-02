@@ -54,6 +54,10 @@ export default async function handler(req, res) {
     if (body.action === 'adminBlocked')    return await doListBlocked(body, res);
     if (body.action === 'adminPause')      return await doPause(body, res);
     if (body.action === 'editOwn')         return await doEditOwn(body, res);
+    if (body.action === 'featSubmit')      return await doFeatSubmit(body, res);
+    if (body.action === 'featExtend')      return await doFeatExtend(body, res);
+    if (body.action === 'featRemove')      return await doFeatRemove(body, res);
+    if (body.action === 'featPause')       return await doFeatPause(body, res);
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Failed' });
@@ -71,7 +75,11 @@ async function loadPricing() {
         gold_price_usd:   Number(data.gold_price_usd)   > 0 ? Number(data.gold_price_usd)   : DEFAULT_PRICING.gold_price_usd,
         silver_price_usd: Number(data.silver_price_usd) > 0 ? Number(data.silver_price_usd) : DEFAULT_PRICING.silver_price_usd,
         public_price_usd: Number(data.public_price_usd) > 0 ? Number(data.public_price_usd) : DEFAULT_PRICING.public_price_usd,
-        ads_paused: !!data.ads_paused
+        ads_paused: !!data.ads_paused,
+        feat_gold_usd:   Number(data.feat_gold_usd)   > 0 ? Number(data.feat_gold_usd)   : 5,
+        feat_silver_usd: Number(data.feat_silver_usd) > 0 ? Number(data.feat_silver_usd) : 8,
+        feat_public_usd: Number(data.feat_public_usd) > 0 ? Number(data.feat_public_usd) : 12,
+        feat_paused: !!data.feat_paused
       };
     }
   } catch (e) {}
@@ -346,7 +354,7 @@ async function doAdminRemove(body, res) {
 /* ─── owner updates ad pricing ─── */
 
 async function doSetPricing(body, res) {
-  const { goldPrice, silverPrice, publicPrice, signature } = body;
+  const { goldPrice, silverPrice, publicPrice, featGold, featSilver, featPublic, signature } = body;
   const g = Number(goldPrice), s = Number(silverPrice), p = Number(publicPrice);
   if (!(g > 0 && s > 0 && p > 0)) { res.status(400).json({ error: 'Bad prices' }); return; }
   if (!(g <= 100000 && s <= 100000 && p <= 100000)) { res.status(400).json({ error: 'Price too high' }); return; }
@@ -355,12 +363,15 @@ async function doSetPricing(body, res) {
   if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
 
   const sb = sbClient();
-  const { error } = await sb.from('ad_pricing').upsert({
-    id: 1,
-    gold_price_usd: g,
-    silver_price_usd: s,
-    public_price_usd: p
-  }, { onConflict: 'id' });
+  // Цены мест в верхнем ряду сохраняются той же подписью:
+  // подпись покрывает рекламные цены, а места — отдельные колонки.
+  const row = { id: 1, gold_price_usd: g, silver_price_usd: s, public_price_usd: p };
+  const fg = Number(featGold), fs = Number(featSilver), fp = Number(featPublic);
+  if (fg > 0 && fg <= 100000) row.feat_gold_usd = fg;
+  if (fs > 0 && fs <= 100000) row.feat_silver_usd = fs;
+  if (fp > 0 && fp <= 100000) row.feat_public_usd = fp;
+
+  const { error } = await sb.from('ad_pricing').upsert(row, { onConflict: 'id' });
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
 }
@@ -501,4 +512,183 @@ async function doEditOwn(body, res) {
   const { error } = await sb.from('ad_boards').update(clean).eq('id', id);
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(200).json({ ok: true });
+}
+
+/* ═══════════ ВЕРХНИЙ РЯД ТОКЕНОВ (FEATURED) ═══════════ */
+
+const LAUNCHPAD_V1_ADDR = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
+const LAUNCHPAD_V2_ADDR = '0x672F6a4a78a1650617BFc5FA5E6B1428A594E5FE';
+const CURVE_READ_ABI = [
+  'function getCurve(address) view returns (address creator,uint256 realBNB,uint256 tokensSold,bool graduated,uint256 createdAt)'
+];
+const FEAT_SLOTS = 4;
+
+async function featPricePerDay(wallet) {
+  const p = await loadPricing();
+  if (!wallet || !isAddr(wallet)) return p.feat_public_usd;
+  if (wallet.toLowerCase() === OWNER_WALLET.toLowerCase()) return 0;
+  if (await passBalance(GOLD_PASS, wallet)   > 0n) return p.feat_gold_usd;
+  if (await passBalance(SILVER_PASS, wallet) > 0n) return p.feat_silver_usd;
+  return p.feat_public_usd;
+}
+
+async function featArePaused() {
+  const p = await loadPricing();
+  return !!p.feat_paused;
+}
+
+// Токен должен существовать на площадке — иначе оплатят пустой адрес
+async function findTokenPad(token) {
+  for (const url of RPCS) {
+    for (const [pad, addr] of [['v2', LAUNCHPAD_V2_ADDR], ['v1', LAUNCHPAD_V1_ADDR]]) {
+      try {
+        const c = new ethers.Contract(addr, CURVE_READ_ABI, mkProvider(url));
+        const r = await c.getCurve(token);
+        if (r && r[0] && String(r[0]) !== '0x0000000000000000000000000000000000000000') return pad;
+      } catch (e) {}
+    }
+  }
+  return null;
+}
+
+// Проверка перевода USDT/USDC на кошелёк площадки — та же, что у рекламы
+async function verifyPayment(wallet, token, txHash, needUsd) {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return { err: 'Bad tx hash' };
+  if (!['USDT', 'USDC'].includes(token)) return { err: 'Bad token' };
+  const tokenAddr = token === 'USDT' ? USDT_ADDR : USDC_ADDR;
+
+  let receipt = null;
+  for (const url of RPCS) {
+    try { receipt = await mkProvider(url).getTransactionReceipt(txHash); if (receipt) break; } catch (e) {}
+  }
+  if (!receipt) return { err: 'Tx not found' };
+  if (Number(receipt.status) !== 1) return { err: 'Tx failed' };
+
+  const iface = mkIface(TRANSFER_EVENT);
+  let value = null;
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== tokenAddr.toLowerCase()) continue;
+    let p; try { p = iface.parseLog(log); } catch (e) { continue; }
+    if (!p || p.name !== 'Transfer') continue;
+    if (String(p.args.from).toLowerCase() !== wallet.toLowerCase()) continue;
+    if (String(p.args.to).toLowerCase() !== OWNER_WALLET.toLowerCase()) continue;
+    value = p.args.value; break;
+  }
+  if (value === null) return { err: 'No matching payment found' };
+
+  const paidUsd = Number(fmtEther(value));
+  if (paidUsd < needUsd * 0.999) return { err: 'Payment amount too low' };
+  return { paidUsd };
+}
+
+async function doFeatSubmit(body, res) {
+  const { slot, tokenAddress, wallet, days, token, txHash } = body;
+  if (![1, 2, 3, 4].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (!tokenAddress || !isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad token address' }); return; }
+  const daysNum = Math.floor(Number(days));
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
+
+  if (await featArePaused()) { res.status(403).json({ error: 'Featured slots are temporarily closed' }); return; }
+
+  const sb = sbClient();
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed' }); return; }
+
+  const pad = await findTokenPad(tokenAddress);
+  if (!pad) { res.status(404).json({ error: 'This token is not on LaunchLab' }); return; }
+
+  const perDay = await featPricePerDay(wallet);
+  const pay = await verifyPayment(wallet, token, txHash, perDay * daysNum);
+  if (pay.err) { res.status(400).json({ error: pay.err }); return; }
+
+  const endAt = new Date(Date.now() + daysNum * 86400000).toISOString();
+  const { data: newId, error } = await sb.rpc('place_featured_atomic', {
+    p_slot: Number(slot), p_token: tokenAddress, p_pad: pad, p_wallet: wallet,
+    p_tx_hash: txHash, p_paid_amount: pay.paidUsd, p_paid_token: token,
+    p_days: daysNum, p_end_at: endAt
+  });
+  if (error) {
+    const m = String(error.message || '');
+    if (m.includes('slot_occupied'))          { res.status(409).json({ error: 'Slot already taken' }); return; }
+    if (m.includes('token_already_featured')) { res.status(409).json({ error: 'This token is already featured' }); return; }
+    if (m.includes('tx_used'))                { res.status(409).json({ error: 'Transaction already used' }); return; }
+    res.status(500).json({ error: error.message }); return;
+  }
+  res.status(200).json({ ok: true, id: newId });
+}
+
+async function doFeatExtend(body, res) {
+  const { id, wallet, days, token, txHash } = body;
+  const fid = Math.floor(Number(id));
+  if (!(fid > 0)) { res.status(400).json({ error: 'Bad id' }); return; }
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+  const daysNum = Math.floor(Number(days));
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
+
+  if (await featArePaused()) { res.status(403).json({ error: 'Featured slots are temporarily closed' }); return; }
+
+  const sb = sbClient();
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed' }); return; }
+
+  const { data: row } = await sb.from('featured_tokens').select('id,wallet,removed,end_at').eq('id', fid).maybeSingle();
+  if (!row) { res.status(404).json({ error: 'Not found' }); return; }
+  if (row.removed) { res.status(400).json({ error: 'Already removed' }); return; }
+  if (String(row.wallet).toLowerCase() !== wallet.toLowerCase()) { res.status(403).json({ error: 'Not yours' }); return; }
+  if (new Date(row.end_at).getTime() + daysNum * 86400000 > Date.now() + MAX_AD_DAYS * 86400000) {
+    res.status(400).json({ error: 'Cannot book more than ' + MAX_AD_DAYS + ' days ahead' }); return;
+  }
+
+  const perDay = await featPricePerDay(wallet);
+  const pay = await verifyPayment(wallet, token, txHash, perDay * daysNum);
+  if (pay.err) { res.status(400).json({ error: pay.err }); return; }
+
+  const { data: newEnd, error } = await sb.rpc('extend_featured_atomic', {
+    p_id: fid, p_wallet: wallet, p_tx_hash: txHash,
+    p_paid_amount: pay.paidUsd, p_paid_token: token,
+    p_days: daysNum, p_max_days: MAX_AD_DAYS
+  });
+  if (error) {
+    const m = String(error.message || '');
+    if (m.includes('tx_used'))            { res.status(409).json({ error: 'Transaction already used' }); return; }
+    if (m.includes('not_owner'))          { res.status(403).json({ error: 'Not yours' }); return; }
+    if (m.includes('exceeds_max_window')) { res.status(400).json({ error: 'Cannot book more than ' + MAX_AD_DAYS + ' days ahead' }); return; }
+    res.status(500).json({ error: error.message }); return;
+  }
+  res.status(200).json({ ok: true, endAt: newEnd });
+}
+
+async function doFeatRemove(body, res) {
+  const { id, signature } = body;
+  const fid = Math.floor(Number(id));
+  if (!(fid > 0)) { res.status(400).json({ error: 'Bad id' }); return; }
+
+  // Владелец площадки снимает любое место, покупатель — только своё
+  const asOwner = recoverSigner('OpenGate admin remove featured #' + fid, signature);
+  const asSelf  = recoverSigner('Remove my featured token #' + fid, signature);
+  const signer  = (asOwner && asOwner.toLowerCase() === OWNER_WALLET.toLowerCase()) ? asOwner : asSelf;
+  if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
+
+  const sb = sbClient();
+  const { data: row } = await sb.from('featured_tokens').select('id,wallet,removed').eq('id', fid).maybeSingle();
+  if (!row) { res.status(404).json({ error: 'Not found' }); return; }
+  if (row.removed) { res.status(200).json({ ok: true, alreadyRemoved: true }); return; }
+
+  const isOwner = signer.toLowerCase() === OWNER_WALLET.toLowerCase();
+  if (!isOwner && String(row.wallet).toLowerCase() !== signer.toLowerCase()) {
+    res.status(403).json({ error: 'Not yours' }); return;
+  }
+  const { error } = await sb.from('featured_tokens').update({ removed: true }).eq('id', fid);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+async function doFeatPause(body, res) {
+  const { paused, ts, signature } = body;
+  const want = !!paused;
+  const auth = adminAuth('pause featured', want ? 'on' : 'off', ts, signature);
+  if (auth.err) { res.status(403).json({ error: auth.err }); return; }
+  const sb = sbClient();
+  const { error } = await sb.from('ad_pricing').update({ feat_paused: want }).eq('id', 1);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true, paused: want });
 }
