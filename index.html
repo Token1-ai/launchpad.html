@@ -410,6 +410,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   </div>
 
   <div id="poolsHomeView" class="hidden">
+    <div class="feat-row" id="featRowPool"></div>
     <div class="lab-toolbar">
       <input class="lab-search" id="poolSearchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visiblePools=PAGE_SIZE;renderPoolList()"/>
     </div>
@@ -1375,48 +1376,72 @@ function showHome(){ switchMode('launch'); }
 // ─── Верхний ряд: платные места для токенов ───
 // Устроено как реклама: оплата за день, продление, снятие владельцем.
 const FEAT_SLOTS = 4;
-let featData = {};          // slot -> запись
+// У каждой вкладки свои четыре места: launch и pool
+let featData = { launch:{}, pool:{} };
 let featChannel = null;
 
 async function loadFeatured(){
   try{
     const nowIso = new Date().toISOString();
     const { data, error } = await sb.from('featured_tokens')
-      .select('id,slot,token_address,pad,wallet,end_at')
+      .select('id,slot,token_address,pad,wallet,end_at,kind,pool_id')
       .eq('removed', false).gt('end_at', nowIso).order('slot');
     if(error){ console.error('featured:', error); }
-    featData = {};
-    (data||[]).forEach(f=>{ if(!featData[f.slot]) featData[f.slot]=f; });
+    featData = { launch:{}, pool:{} };
+    (data||[]).forEach(f=>{
+      const k = f.kind === 'pool' ? 'pool' : 'launch';
+      if(!featData[k][f.slot]) featData[k][f.slot] = f;
+    });
   }catch(e){ console.error('loadFeatured:', e); }
   renderFeatured();
 }
 
 function renderFeatured(){
-  const row = document.getElementById('featRow');
+  renderFeatRow('launch', 'featRow');
+  renderFeatRow('pool',  'featRowPool');
+}
+
+function renderFeatRow(kind, elId){
+  const row = document.getElementById(elId);
   if(!row) return;
+  const store = featData[kind] || {};
   let html='';
   for(let slot=1; slot<=FEAT_SLOTS; slot++){
-    const f = featData[slot];
+    const f = store[slot];
     if(!f){
-      html += '<div class="feat-slot" onclick="openFeatModal('+slot+')">'
+      html += '<div class="feat-slot" onclick="openFeatModal('+slot+',\''+kind+'\')">'
             + '<div class="feat-empty">⭐ Feature your token here</div></div>';
       continue;
     }
     const key = String(f.token_address||'').toLowerCase();
-    const t = tokensCache.find(x=>String(x.address||'').toLowerCase()===key);
-    const meta = metaCache[key] || {};
-    const name = (t && t.name) || meta.name || 'Token';
-    const sym  = (t && t.symbol) || meta.symbol || '';
-    const av = meta.image_url
-      ? '<img class="feat-av" src="'+esc(meta.image_url)+'" alt=""/>'
+    let name='Token', sym='', img='', price='';
+    if(kind === 'pool'){
+      const p = poolsCache.find(x=>String(x.token||'').toLowerCase()===key);
+      const m = poolMetaOf(key);
+      name = (p && p.name) || 'Token';
+      sym  = (p && p.symbol) || '';
+      img  = m.image_url || '';
+      if(p) price = fmtUsdPlain(poolLiquidityUsd(p.reserveQuote, p.quote));
+    } else {
+      const t = tokensCache.find(x=>String(x.address||'').toLowerCase()===key);
+      const m = metaCache[key] || {};
+      name = (t && t.name) || m.name || 'Token';
+      sym  = (t && t.symbol) || m.symbol || '';
+      img  = m.image_url || '';
+      if(t) price = fmtPriceUsd(t.price);
+    }
+    const av = img
+      ? '<img class="feat-av" src="'+esc(img)+'" alt=""/>'
       : '<div class="feat-av">'+esc(String(sym||name).charAt(0))+'</div>';
-    const price = t ? fmtPriceUsd(t.price) : '';
-    const mine = userAddr && String(f.wallet||'').toLowerCase()===userAddr.toLowerCase();
+    const mine  = userAddr && String(f.wallet||'').toLowerCase()===userAddr.toLowerCase();
     const owner = userAddr && userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase();
     let btn='';
-    if(mine) btn = '<button class="feat-x" onclick="event.stopPropagation();extendFeatured('+f.id+')">⏱ Extend</button>';
+    if(mine)       btn = '<button class="feat-x" onclick="event.stopPropagation();extendFeatured('+f.id+')">⏱ Extend</button>';
     else if(owner) btn = '<button class="feat-x" onclick="event.stopPropagation();removeFeatured('+f.id+',true)">🗑</button>';
-    html += '<div class="feat-slot taken" onclick="openFeaturedToken(\''+esc(f.token_address)+'\')">'
+    const open = kind === 'pool'
+      ? 'openFeaturedPool(\''+esc(f.token_address)+'\','+(f.pool_id||0)+')'
+      : 'openFeaturedToken(\''+esc(f.token_address)+'\')';
+    html += '<div class="feat-slot taken" onclick="'+open+'">'
           + '<div class="feat-badge">FEATURED</div>'
           + '<div class="feat-head">'+av+'<div style="min-width:0;">'
           + '<div class="feat-name">'+esc(name)+'</div>'
@@ -1427,13 +1452,20 @@ function renderFeatured(){
   row.innerHTML = html;
 }
 
+async function openFeaturedPool(addr, pid){
+  if(pid > 0){ await showPoolTrade(Number(pid)); return; }
+  if(!poolsCache.length){ try{ await loadPools(); }catch(e){} }
+  const p = poolsCache.find(x=>String(x.token||'').toLowerCase()===String(addr).toLowerCase());
+  if(p) await showPoolTrade(p.pid); else toast('Pool not found','err');
+}
+
 async function openFeaturedToken(addr){
   const t = tokensCache.find(x=>String(x.address||'').toLowerCase()===String(addr).toLowerCase());
   if(t){ await showTrade(t.address); return; }
   await showTrade(addr);
 }
 
-let featSlot = null, featExtendId = null, featPayToken = 'USDT';
+let featSlot = null, featExtendId = null, featPayToken = 'USDT', featKind = 'launch';
 
 function setFeatToken(t){
   featPayToken = t;
@@ -1452,7 +1484,7 @@ async function featPricePerDay(){
 async function updateFeatPrice(){
   const note=document.getElementById('featNote'), total=document.getElementById('featTotal');
   if(!userAddr){ note.textContent='Connect your wallet to see your price.'; total.textContent='You pay: —'; return; }
-  const cap = featExtendId ? maxExtendDays(featData._extEnd || new Date().toISOString()) : MAX_AD_DAYS;
+  const cap = featExtendId ? maxExtendDays(featExtEnd || new Date().toISOString()) : MAX_AD_DAYS;
   const input=document.getElementById('featDays');
   let days=Math.max(1, parseInt(input.value)||1);
   if(days>cap){ days=cap; input.value=String(cap); }
@@ -1460,15 +1492,24 @@ async function updateFeatPrice(){
   note.textContent='$'+perDay+' per day. Max '+MAX_AD_DAYS+' days booked ahead at any time.';
   total.textContent='You pay: $'+(perDay*days)+' for '+days+' day'+(days>1?'s':'')+', in '+featPayToken;
 }
-function openFeatModal(slot){
+function openFeatModal(slot, kind){
   if(!userAddr){ connectWallet(); return; }
   if(adPricing.feat_paused){ toast('Featured slots are temporarily closed','err'); return; }
-  featSlot=slot; featExtendId=null;
-  document.getElementById('featTitle').textContent='⭐ Feature your token — slot '+slot;
+  featSlot=slot; featExtendId=null; featKind = kind === 'pool' ? 'pool' : 'launch';
+  document.getElementById('featTitle').textContent =
+    (featKind==='pool' ? '⭐ Feature your pool — slot ' : '⭐ Feature your token — slot ') + slot;
   document.getElementById('featPickBox').classList.remove('hidden');
   const sel=document.getElementById('featToken');
-  const mine=tokensCache.filter(t=>String(t.creator||'').toLowerCase()===userAddr.toLowerCase());
-  const list=mine.length?mine:tokensCache;
+  let list;
+  if(featKind === 'pool'){
+    // Пулы с выведенной ликвидностью продвигать нельзя — они мертвы
+    const alive = poolsCache.filter(p=>!p.pulled);
+    const mine  = alive.filter(p=>String(p.creator||'').toLowerCase()===userAddr.toLowerCase());
+    list = (mine.length?mine:alive).map(p=>({address:p.token, name:p.name, symbol:p.symbol}));
+  } else {
+    const mine = tokensCache.filter(t=>String(t.creator||'').toLowerCase()===userAddr.toLowerCase());
+    list = (mine.length?mine:tokensCache).map(t=>({address:t.address, name:t.name, symbol:t.symbol}));
+  }
   sel.innerHTML = list.length
     ? list.map(t=>'<option value="'+esc(t.address)+'">'+esc(t.name)+' ($'+esc(t.symbol)+')</option>').join('')
     : '<option value="">No tokens available</option>';
@@ -1477,10 +1518,12 @@ function openFeatModal(slot){
   document.getElementById('featModal').classList.add('show');
   updateFeatPrice();
 }
+let featExtEnd = null;
 function extendFeatured(id){
-  const f=Object.values(featData).find(x=>x && x.id===id);
+  const all=[...Object.values(featData.launch||{}), ...Object.values(featData.pool||{})];
+  const f=all.find(x=>x && x.id===id);
   if(!f) return;
-  featExtendId=id; featSlot=f.slot; featData._extEnd=f.end_at;
+  featExtendId=id; featSlot=f.slot; featKind=f.kind==='pool'?'pool':'launch'; featExtEnd=f.end_at;
   document.getElementById('featTitle').textContent='⏱ Extend featured — '+fmtLeft(f.end_at)+' left';
   document.getElementById('featPickBox').classList.add('hidden');
   document.getElementById('featDays').value='1';
@@ -1510,7 +1553,7 @@ async function submitFeatured(){
     btn.textContent=isExt?'Extending...':'Activating...';
     const payload=isExt
       ? { action:'featExtend', id:featExtendId, wallet:userAddr, days, token:featPayToken, txHash:rc.hash }
-      : { action:'featSubmit', slot:featSlot, tokenAddress, wallet:userAddr, days, token:featPayToken, txHash:rc.hash };
+      : { action:'featSubmit', slot:featSlot, kind:featKind, tokenAddress, wallet:userAddr, days, token:featPayToken, txHash:rc.hash };
     // Оплата прошла — при сетевом сбое пробуем ещё, повторный зачёт невозможен
     let ok=false, last='';
     for(let i=1;i<=3;i++){
@@ -2558,7 +2601,7 @@ async function loadPools(_retry){
 
     poolsCache = items;
     visiblePools = PAGE_SIZE;
-    renderPoolList();
+    renderPoolList(); renderFeatured();
   }catch(e){
     if(!_retry){ await pickHealthyProvider(); return loadPools(true); }
     grid.innerHTML='<div class="empty">Failed to load</div>';
