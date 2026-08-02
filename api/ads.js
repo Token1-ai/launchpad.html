@@ -522,6 +522,30 @@ const CURVE_READ_ABI = [
   'function getCurve(address) view returns (address creator,uint256 realBNB,uint256 tokensSold,bool graduated,uint256 createdAt)'
 ];
 const FEAT_SLOTS = 4;
+const POOLS_ADDR = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
+const POOLS_READ_ABI = [
+  'function poolCount() view returns (uint256)',
+  'function getPool(uint256) view returns (address token,uint8 quote,uint256 reserveToken,uint256 reserveQuote,address creator,bool locked,bool liquidityPulled,uint256 createdAt)'
+];
+
+// Для вкладки List & Trade проверяем, что пул существует и жив
+async function findPoolByToken(token) {
+  for (const url of RPCS) {
+    try {
+      const c = new ethers.Contract(POOLS_ADDR, POOLS_READ_ABI, mkProvider(url));
+      const n = Number(await c.poolCount());
+      for (let pid = n; pid >= 1; pid--) {
+        const p = await c.getPool(pid);
+        if (String(p[0]).toLowerCase() === String(token).toLowerCase()) {
+          if (p[6]) return { err: 'Liquidity was withdrawn from this pool' };
+          return { pid };
+        }
+      }
+      return { err: 'No pool found for this token' };
+    } catch (e) {}
+  }
+  return { err: 'Could not read pools' };
+}
 
 async function featPricePerDay(wallet) {
   const p = await loadPricing();
@@ -583,6 +607,7 @@ async function verifyPayment(wallet, token, txHash, needUsd) {
 
 async function doFeatSubmit(body, res) {
   const { slot, tokenAddress, wallet, days, token, txHash } = body;
+  const kind = body.kind === 'pool' ? 'pool' : 'launch';
   if (![1, 2, 3, 4].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
   if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
   if (!tokenAddress || !isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad token address' }); return; }
@@ -594,8 +619,15 @@ async function doFeatSubmit(body, res) {
   const sb = sbClient();
   if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed' }); return; }
 
-  const pad = await findTokenPad(tokenAddress);
-  if (!pad) { res.status(404).json({ error: 'This token is not on LaunchLab' }); return; }
+  let pad = null, poolId = null;
+  if (kind === 'pool') {
+    const found = await findPoolByToken(tokenAddress);
+    if (found.err) { res.status(404).json({ error: found.err }); return; }
+    poolId = found.pid;
+  } else {
+    pad = await findTokenPad(tokenAddress);
+    if (!pad) { res.status(404).json({ error: 'This token is not on LaunchLab' }); return; }
+  }
 
   const perDay = await featPricePerDay(wallet);
   const pay = await verifyPayment(wallet, token, txHash, perDay * daysNum);
@@ -605,7 +637,7 @@ async function doFeatSubmit(body, res) {
   const { data: newId, error } = await sb.rpc('place_featured_atomic', {
     p_slot: Number(slot), p_token: tokenAddress, p_pad: pad, p_wallet: wallet,
     p_tx_hash: txHash, p_paid_amount: pay.paidUsd, p_paid_token: token,
-    p_days: daysNum, p_end_at: endAt
+    p_days: daysNum, p_end_at: endAt, p_kind: kind, p_pool_id: poolId
   });
   if (error) {
     const m = String(error.message || '');
