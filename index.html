@@ -190,6 +190,32 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tfeed{display:grid;grid-template-columns:52px 1fr 1fr 74px;gap:6px;align-items:center;
   padding:8px 2px;border-bottom:1px solid var(--border);font-size:12px;}
 .tfeed:last-child{border-bottom:none;}
+.feat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.feat-slot{position:relative;border-radius:14px;border:1px solid var(--border);background:var(--bg2);
+  padding:12px;cursor:pointer;min-height:104px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+/* Золотое свечение через прозрачность — считает видеокарта, телефон не греется */
+.feat-slot.taken{border-color:rgba(245,200,66,.55);}
+.feat-slot.taken::after{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(245,200,66,.7);opacity:.3;animation:featGlow 2.6s ease-in-out infinite;}
+@keyframes featGlow{0%{opacity:.2;}50%{opacity:.9;}100%{opacity:.2;}}
+@media(prefers-reduced-motion:reduce){.feat-slot.taken::after{animation:none;opacity:.5;}}
+.feat-slot:hover{border-color:var(--gold);}
+.feat-head{display:flex;align-items:center;gap:9px;min-width:0;position:relative;z-index:2;}
+.feat-av{width:34px;height:34px;border-radius:9px;object-fit:cover;flex-shrink:0;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;}
+.feat-name{font-weight:700;font-size:14px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:normal;}
+.feat-tick{color:var(--muted);font-size:11px;}
+.feat-price{font-size:13px;font-weight:700;color:var(--gold);margin-top:auto;position:relative;z-index:2;}
+.feat-badge{position:absolute;top:6px;right:8px;font-size:9px;font-weight:800;color:var(--gold);letter-spacing:.06em;z-index:3;}
+.feat-empty{color:var(--muted);font-size:12px;text-align:center;margin:auto;line-height:1.4;position:relative;z-index:2;}
+.feat-x{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.72);color:#fff;border:none;
+  border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer;z-index:4;min-height:30px;}
+@media(max-width:680px){
+  .feat-row{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .feat-slot{min-height:92px;padding:10px;}
+  .feat-name{font-size:13px;}
+  .feat-x{min-height:36px;}
+}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);
   margin-left:8px;vertical-align:middle;transition:background .2s;}
 .live-dot.on{background:var(--green);box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:livePulse 2s infinite;}
@@ -308,6 +334,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <span class="new-ticker-label">🆕 New</span>
       <div class="new-ticker-items" id="newTickerItems"><span class="nti">Loading...</span></div>
     </div>
+    <div class="feat-row" id="featRow"></div>
     <div class="lab-toolbar">
       <input class="lab-search" id="searchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
       <button class="filter-btn active" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
@@ -557,6 +584,28 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   </div>
 </div>
 
+<div class="modal-overlay" id="featModal">
+  <div class="modal-box">
+    <div class="modal-title" id="featTitle">⭐ Feature your token</div>
+    <div class="limit-note" id="featNote">Connect your wallet to see your price.</div>
+    <div id="featPickBox">
+      <label class="field-label">Your token *</label>
+      <select class="field-input" id="featToken"></select>
+      <div class="field-hint">Only tokens launched on LaunchLab can be featured.</div>
+    </div>
+    <label class="field-label" id="featDaysLabel">Days * (max 30)</label>
+    <input class="field-input" id="featDays" type="number" min="1" max="30" value="1" oninput="updateFeatPrice()"/>
+    <label class="field-label">Pay with</label>
+    <div class="quote-select">
+      <button class="quote-opt active" data-ft="USDT" onclick="setFeatToken('USDT')">USDT</button>
+      <button class="quote-opt" data-ft="USDC" onclick="setFeatToken('USDC')">USDC</button>
+    </div>
+    <div class="fee-note" id="featTotal">You pay: —</div>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="featSubmitBtn" onclick="submitFeatured()">Pay &amp; Feature</button>
+    <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeFeatModal()">Cancel</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="walletModal">
   <div class="modal-box" style="max-width:400px;">
     <div class="modal-title">Choose your wallet</div>
@@ -651,6 +700,19 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="feed-title">⏸ Ad sales</div>
       <div class="img-hint" id="pauseState">Loading…</div>
       <button class="btn-ghost" style="width:100%;padding:11px;" id="pauseBtn" onclick="toggleAdsPause()">Pause new ad sales</button>
+    </div>
+
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="feed-title">⭐ Featured slots</div>
+      <div class="img-hint" id="featPauseState">Loading…</div>
+      <button class="btn-ghost" style="width:100%;padding:11px;" id="featPauseBtn" onclick="toggleFeatPause()">Pause featured sales</button>
+      <label class="field-label">Price per day, USD</label>
+      <div style="display:flex;gap:8px;">
+        <input class="field-input" id="featGoldPrice"   type="number" step="0.01" placeholder="Gold"/>
+        <input class="field-input" id="featSilverPrice" type="number" step="0.01" placeholder="Silver"/>
+        <input class="field-input" id="featPublicPrice" type="number" step="0.01" placeholder="No pass"/>
+      </div>
+      <div class="img-hint">Gold / Silver / no pass. Saved together with ad prices.</div>
     </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
@@ -1310,6 +1372,185 @@ function switchMode(mode){
 }
 function showHome(){ switchMode('launch'); }
 
+// ─── Верхний ряд: платные места для токенов ───
+// Устроено как реклама: оплата за день, продление, снятие владельцем.
+const FEAT_SLOTS = 4;
+let featData = {};          // slot -> запись
+let featChannel = null;
+
+async function loadFeatured(){
+  try{
+    const nowIso = new Date().toISOString();
+    const { data, error } = await sb.from('featured_tokens')
+      .select('id,slot,token_address,pad,wallet,end_at')
+      .eq('removed', false).gt('end_at', nowIso).order('slot');
+    if(error){ console.error('featured:', error); }
+    featData = {};
+    (data||[]).forEach(f=>{ if(!featData[f.slot]) featData[f.slot]=f; });
+  }catch(e){ console.error('loadFeatured:', e); }
+  renderFeatured();
+}
+
+function renderFeatured(){
+  const row = document.getElementById('featRow');
+  if(!row) return;
+  let html='';
+  for(let slot=1; slot<=FEAT_SLOTS; slot++){
+    const f = featData[slot];
+    if(!f){
+      html += '<div class="feat-slot" onclick="openFeatModal('+slot+')">'
+            + '<div class="feat-empty">⭐ Feature your token here</div></div>';
+      continue;
+    }
+    const key = String(f.token_address||'').toLowerCase();
+    const t = tokensCache.find(x=>String(x.address||'').toLowerCase()===key);
+    const meta = metaCache[key] || {};
+    const name = (t && t.name) || meta.name || 'Token';
+    const sym  = (t && t.symbol) || meta.symbol || '';
+    const av = meta.image_url
+      ? '<img class="feat-av" src="'+esc(meta.image_url)+'" alt=""/>'
+      : '<div class="feat-av">'+esc(String(sym||name).charAt(0))+'</div>';
+    const price = t ? fmtPriceUsd(t.price) : '';
+    const mine = userAddr && String(f.wallet||'').toLowerCase()===userAddr.toLowerCase();
+    const owner = userAddr && userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase();
+    let btn='';
+    if(mine) btn = '<button class="feat-x" onclick="event.stopPropagation();extendFeatured('+f.id+')">⏱ Extend</button>';
+    else if(owner) btn = '<button class="feat-x" onclick="event.stopPropagation();removeFeatured('+f.id+',true)">🗑</button>';
+    html += '<div class="feat-slot taken" onclick="openFeaturedToken(\''+esc(f.token_address)+'\')">'
+          + '<div class="feat-badge">FEATURED</div>'
+          + '<div class="feat-head">'+av+'<div style="min-width:0;">'
+          + '<div class="feat-name">'+esc(name)+'</div>'
+          + '<div class="feat-tick">$'+esc(sym)+'</div></div></div>'
+          + (price ? '<div class="feat-price">'+esc(price)+'</div>' : '')
+          + btn + '</div>';
+  }
+  row.innerHTML = html;
+}
+
+async function openFeaturedToken(addr){
+  const t = tokensCache.find(x=>String(x.address||'').toLowerCase()===String(addr).toLowerCase());
+  if(t){ await showTrade(t.address); return; }
+  await showTrade(addr);
+}
+
+let featSlot = null, featExtendId = null, featPayToken = 'USDT';
+
+function setFeatToken(t){
+  featPayToken = t;
+  document.querySelectorAll('[data-ft]').forEach(b=>b.classList.toggle('active', b.dataset.ft===t));
+  updateFeatPrice();
+}
+async function featPricePerDay(){
+  if(!userAddr) return adPricing.feat_public_usd || 12;
+  if(userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase()) return 0;
+  try{ const gp=new ethers.Contract(AD_GOLD_PASS,['function balanceOf(address) view returns (uint256)'],provider);
+       if((await gp.balanceOf(userAddr))>0n) return adPricing.feat_gold_usd||5; }catch(e){}
+  try{ const sp=new ethers.Contract(AD_SILVER_PASS,['function balanceOf(address) view returns (uint256)'],provider);
+       if((await sp.balanceOf(userAddr))>0n) return adPricing.feat_silver_usd||8; }catch(e){}
+  return adPricing.feat_public_usd||12;
+}
+async function updateFeatPrice(){
+  const note=document.getElementById('featNote'), total=document.getElementById('featTotal');
+  if(!userAddr){ note.textContent='Connect your wallet to see your price.'; total.textContent='You pay: —'; return; }
+  const cap = featExtendId ? maxExtendDays(featData._extEnd || new Date().toISOString()) : MAX_AD_DAYS;
+  const input=document.getElementById('featDays');
+  let days=Math.max(1, parseInt(input.value)||1);
+  if(days>cap){ days=cap; input.value=String(cap); }
+  const perDay=await featPricePerDay();
+  note.textContent='$'+perDay+' per day. Max '+MAX_AD_DAYS+' days booked ahead at any time.';
+  total.textContent='You pay: $'+(perDay*days)+' for '+days+' day'+(days>1?'s':'')+', in '+featPayToken;
+}
+function openFeatModal(slot){
+  if(!userAddr){ connectWallet(); return; }
+  if(adPricing.feat_paused){ toast('Featured slots are temporarily closed','err'); return; }
+  featSlot=slot; featExtendId=null;
+  document.getElementById('featTitle').textContent='⭐ Feature your token — slot '+slot;
+  document.getElementById('featPickBox').classList.remove('hidden');
+  const sel=document.getElementById('featToken');
+  const mine=tokensCache.filter(t=>String(t.creator||'').toLowerCase()===userAddr.toLowerCase());
+  const list=mine.length?mine:tokensCache;
+  sel.innerHTML = list.length
+    ? list.map(t=>'<option value="'+esc(t.address)+'">'+esc(t.name)+' ($'+esc(t.symbol)+')</option>').join('')
+    : '<option value="">No tokens available</option>';
+  document.getElementById('featDays').value='1';
+  document.getElementById('featSubmitBtn').textContent='Pay & Feature';
+  document.getElementById('featModal').classList.add('show');
+  updateFeatPrice();
+}
+function extendFeatured(id){
+  const f=Object.values(featData).find(x=>x && x.id===id);
+  if(!f) return;
+  featExtendId=id; featSlot=f.slot; featData._extEnd=f.end_at;
+  document.getElementById('featTitle').textContent='⏱ Extend featured — '+fmtLeft(f.end_at)+' left';
+  document.getElementById('featPickBox').classList.add('hidden');
+  document.getElementById('featDays').value='1';
+  document.getElementById('featSubmitBtn').textContent='Pay & Extend';
+  document.getElementById('featModal').classList.add('show');
+  updateFeatPrice();
+}
+function closeFeatModal(){ featExtendId=null; document.getElementById('featModal').classList.remove('show'); }
+
+async function submitFeatured(){
+  if(!userAddr){ await connectWallet(); return; }
+  const btn=document.getElementById('featSubmitBtn');
+  const isExt=!!featExtendId;
+  const days=Math.max(1, parseInt(document.getElementById('featDays').value)||1);
+  const tokenAddress=isExt?null:document.getElementById('featToken').value;
+  if(!isExt && !tokenAddress){ toast('Pick a token first','err'); return; }
+  btn.disabled=true;
+  try{
+    const perDay=await featPricePerDay();
+    const totalUsd=perDay*days;
+    const tokenAddr=featPayToken==='USDT'?USDT_ADDR:USDC_ADDR;
+    const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+    btn.textContent='Confirm payment in wallet...';
+    const tx=await tk.transfer(OWNER_WALLET_ADDR, ethers.parseEther(String(totalUsd)));
+    toast('Sending payment...','ok');
+    const rc=await tx.wait();
+    btn.textContent=isExt?'Extending...':'Activating...';
+    const payload=isExt
+      ? { action:'featExtend', id:featExtendId, wallet:userAddr, days, token:featPayToken, txHash:rc.hash }
+      : { action:'featSubmit', slot:featSlot, tokenAddress, wallet:userAddr, days, token:featPayToken, txHash:rc.hash };
+    // Оплата прошла — при сетевом сбое пробуем ещё, повторный зачёт невозможен
+    let ok=false, last='';
+    for(let i=1;i<=3;i++){
+      try{
+        const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const j=await r.json().catch(()=>({}));
+        if(r.ok){ ok=true; break; }
+        last=j.error||('HTTP '+r.status);
+        if(r.status>=400 && r.status<500) break;
+      }catch(e){ last=e.message||'network'; }
+      if(i<3){ btn.textContent='Retrying ('+i+'/3)...'; await new Promise(s=>setTimeout(s,2500)); }
+    }
+    if(!ok){ toast('Paid, but activation failed: '+last+'. Tx: '+rc.hash,'err'); console.error('FEATURED FAILED', rc.hash, payload); btn.disabled=false; btn.textContent=isExt?'Pay & Extend':'Pay & Feature'; return; }
+    toast(isExt?'Extended ⏱':'Featured ⭐','ok');
+    closeFeatModal(); await loadFeatured();
+  }catch(e){
+    toast(e.reason||e.shortMessage||e.message||'Failed','err');
+  }
+  btn.disabled=false; btn.textContent=isExt?'Pay & Extend':'Pay & Feature';
+}
+
+async function removeFeatured(id, asOwner){
+  const msg = asOwner ? 'OpenGate admin remove featured #'+id : 'Remove my featured token #'+id;
+  if(!confirm(asOwner?'Remove this featured token? No refund is issued.':'Remove your featured token early? No refund.')) return;
+  try{
+    const signature=await signer.signMessage(msg);
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'featRemove', id, signature})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ toast(j.error||'Failed','err'); return; }
+    toast('Removed','ok'); await loadFeatured();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+
+function subscribeFeatured(){
+  if(featChannel) return;
+  featChannel = sb.channel('featured')
+    .on('postgres_changes',{event:'*',schema:'public',table:'featured_tokens'},()=>loadFeatured())
+    .subscribe();
+}
+
 // ─── Живое появление новых токенов ───
 // Сделки обновлялись сами, а вот новый токен другие люди видели только
 // после перезагрузки страницы. Закрываем двумя путями сразу:
@@ -1465,7 +1706,7 @@ async function loadTokens(_retry){
 
     tokensCache=out;
     visibleTokens = PAGE_SIZE;
-    renderTokenList(); renderNewTicker();
+    renderTokenList(); renderNewTicker(); renderFeatured();
   }catch(e){
     if(!_retry){ await pickHealthyProvider(); return loadTokens(true); }
     grid.innerHTML='<div class="empty">Failed to load: '+esc(e.message||'')+'</div>';
@@ -3442,6 +3683,35 @@ async function loadBlockedList(){
   }catch(e){ el.textContent = e.message || 'Failed to load'; }
 }
 
+function renderFeatPauseState(){
+  const on = !!adPricing.feat_paused;
+  const st = document.getElementById('featPauseState');
+  const btn = document.getElementById('featPauseBtn');
+  if(!st || !btn) return;
+  st.textContent = on
+    ? 'Paused. Nobody can buy or extend featured slots. Already paid ones keep showing.'
+    : 'Open. Anyone can buy a featured slot.';
+  btn.textContent = on ? 'Resume featured sales' : 'Pause featured sales';
+  const g=document.getElementById('featGoldPrice'), sv=document.getElementById('featSilverPrice'), p=document.getElementById('featPublicPrice');
+  if(g && !g.value) g.value = adPricing.feat_gold_usd ?? 5;
+  if(sv && !sv.value) sv.value = adPricing.feat_silver_usd ?? 8;
+  if(p && !p.value) p.value = adPricing.feat_public_usd ?? 12;
+}
+async function toggleFeatPause(){
+  if(!isOwnerWallet()){ toast('Owner only','err'); return; }
+  const want = !adPricing.feat_paused;
+  const btn = document.getElementById('featPauseBtn');
+  btn.disabled = true;
+  try{
+    const { ts, signature } = await adminSign('pause featured', want ? 'on' : 'off');
+    await adminCall({ action:'featPause', paused:want, ts, signature });
+    adPricing.feat_paused = want;
+    toast(want ? 'Featured sales paused' : 'Featured sales resumed','ok');
+    renderFeatPauseState(); await loadFeatured();
+  }catch(e){ toast(e.message||'Failed','err'); }
+  btn.disabled = false;
+}
+
 function renderPauseState(){
   const on = !!adPricing.ads_paused;
   const st = document.getElementById('pauseState');
@@ -3472,7 +3742,7 @@ function openAdAdminModal(){
   document.getElementById('adminGoldPrice').value = adPricing.gold_price_usd;
   document.getElementById('adminSilverPrice').value = adPricing.silver_price_usd;
   document.getElementById('adminPublicPrice').value = adPricing.public_price_usd;
-  renderPauseState();
+  renderPauseState(); renderFeatPauseState();
   document.getElementById('adAdminModal').classList.add('show');
 }
 function closeAdAdminModal(){ document.getElementById('adAdminModal').classList.remove('show'); }
@@ -3485,7 +3755,10 @@ async function submitAdPricing(){
   try{
     const message = 'OpenGate admin set pricing '+g+','+s+','+p;
     const signature = await signer.signMessage(message);
-    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'adminSetPricing', goldPrice:g, silverPrice:s, publicPrice:p, signature })});
+    const fg=Number(document.getElementById('featGoldPrice').value)||adPricing.feat_gold_usd||5;
+    const fs=Number(document.getElementById('featSilverPrice').value)||adPricing.feat_silver_usd||8;
+    const fp=Number(document.getElementById('featPublicPrice').value)||adPricing.feat_public_usd||12;
+    const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'adminSetPricing', goldPrice:g, silverPrice:s, publicPrice:p, featGold:fg, featSilver:fs, featPublic:fp, signature })});
     const j = await r.json();
     if(!r.ok){ toast(j.error||'Failed','err'); return; }
     adPricing = {gold_price_usd:g, silver_price_usd:s, public_price_usd:p};
@@ -3523,6 +3796,7 @@ document.addEventListener('visibilitychange', ()=>{
 
   await side;
   subscribeNewTokens(); startCountTimer();
+  loadFeatured(); subscribeFeatured();
 })();
 </script>
 </body>
