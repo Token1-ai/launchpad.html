@@ -192,14 +192,66 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tfeed:last-child{border-bottom:none;}
 .feat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 .feat-slot{position:relative;border-radius:14px;border:1px solid var(--border);background:var(--bg2);
-  padding:12px;cursor:pointer;min-height:104px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
-/* Золотое свечение через прозрачность — считает видеокарта, телефон не греется */
+  padding:12px;cursor:pointer;min-height:104px;display:flex;flex-direction:column;gap:8px;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+  /* Safari сам по себе не обрезает по скруглению слой, который двигается.
+     Маска заставляет его это делать, иначе блик вылезает за углы. */
+  -webkit-mask-image:-webkit-radial-gradient(#fff,#000);}
+/* Золотое свечение через прозрачность — считает видеокарта, телефон не греется.
+   Анимируются только opacity и transform: браузер не перерисовывает слой,
+   а лишь пересобирает готовые. Тень и фильтры здесь трогать нельзя — грелся телефон.
+   top/right/bottom/left продублированы к inset — iOS до 14.1 inset не понимает. */
 .feat-slot.taken{border-color:rgba(245,200,66,.55);}
-.feat-slot.taken::after{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
-  box-shadow:inset 0 0 0 1px rgba(245,200,66,.7);opacity:.3;animation:featGlow 2.6s ease-in-out infinite;}
-@keyframes featGlow{0%{opacity:.2;}50%{opacity:.9;}100%{opacity:.2;}}
-@media(prefers-reduced-motion:reduce){.feat-slot.taken::after{animation:none;opacity:.5;}}
-.feat-slot:hover{border-color:var(--gold);}
+.feat-slot.taken::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;inset:0;
+  border-radius:14px;pointer-events:none;z-index:1;will-change:opacity;
+  box-shadow:inset 0 0 0 1px rgba(245,200,66,.75);opacity:.3;animation:featGlow 1.7s ease-in-out infinite;}
+@keyframes featGlow{0%{opacity:.18;}50%{opacity:1;}100%{opacity:.18;}}
+/* Блик, пробегающий по карточке: сдвиг готового слоя, самая дешёвая анимация */
+.feat-slot.taken::before{content:'';position:absolute;top:0;bottom:0;left:-55%;width:42%;pointer-events:none;z-index:1;
+  background:linear-gradient(100deg,transparent,rgba(245,200,66,.18),transparent);
+  will-change:transform;-webkit-transform:translateZ(0);transform:translateZ(0);
+  animation:featSweep 3.4s ease-in-out infinite;}
+@keyframes featSweep{0%{-webkit-transform:translateX(0);transform:translateX(0);}
+  55%,100%{-webkit-transform:translateX(380%);transform:translateX(380%);}}
+.feat-slot.taken .feat-badge{animation:featBadge 1.7s ease-in-out infinite;}
+@keyframes featBadge{0%,100%{opacity:.5;}50%{opacity:1;}}
+
+/* Свободные слоты — спокойнее и медленнее, чтобы не спорили с оплаченными */
+.feat-slot.free{border-color:rgba(245,200,66,.18);}
+.feat-slot.free::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;inset:0;
+  border-radius:14px;pointer-events:none;z-index:1;will-change:opacity;
+  box-shadow:inset 0 0 0 1px rgba(245,200,66,.6);opacity:0;animation:featFree 3.6s ease-in-out infinite;}
+@keyframes featFree{0%,100%{opacity:0;}50%{opacity:.6;}}
+.feat-slot.free .feat-empty{animation:featFreeText 3.6s ease-in-out infinite;}
+@keyframes featFreeText{0%,100%{opacity:.7;}50%{opacity:1;}}
+/* Сдвиг по фазе: волна слева направо вместо одновременного моргания */
+.feat-slot.free:nth-child(2)::after,.feat-slot.free:nth-child(2) .feat-empty{animation-delay:.3s;}
+.feat-slot.free:nth-child(3)::after,.feat-slot.free:nth-child(3) .feat-empty{animation-delay:.6s;}
+.feat-slot.free:nth-child(4)::after,.feat-slot.free:nth-child(4) .feat-empty{animation-delay:.9s;}
+/* Пауза при наведении — только для мыши. На тач-экранах :hover залипает
+   после тапа, и слот замер бы навсегда. */
+@media(hover:hover) and (pointer:fine){
+  .feat-slot:hover::after,.feat-slot:hover::before,
+  .feat-slot:hover .feat-empty,.feat-slot:hover .feat-badge{animation-play-state:paused;}
+  .feat-slot:hover{border-color:var(--gold);}
+}
+/* Телефоны: спокойнее и реже. Волна перестроена под сетку 2х2,
+   чтобы шла по строкам, а не по диагонали. */
+@media(max-width:680px){
+  .feat-slot.taken::after{animation-duration:2.3s;}
+  .feat-slot.taken .feat-badge{animation-duration:2.3s;}
+  .feat-slot.taken::before{animation-duration:4.4s;}
+  .feat-slot.free::after,.feat-slot.free .feat-empty{animation-duration:4.4s;}
+  .feat-slot.free:nth-child(2)::after,.feat-slot.free:nth-child(2) .feat-empty{animation-delay:.5s;}
+  .feat-slot.free:nth-child(3)::after,.feat-slot.free:nth-child(3) .feat-empty{animation-delay:1s;}
+  .feat-slot.free:nth-child(4)::after,.feat-slot.free:nth-child(4) .feat-empty{animation-delay:1.5s;}
+}
+@media(prefers-reduced-motion:reduce){
+  .feat-slot.taken::after{animation:none;opacity:.5;}
+  .feat-slot.taken::before,.feat-slot.taken .feat-badge,
+  .feat-slot.free .feat-empty{animation:none;}
+  .feat-slot.free::after{animation:none;opacity:.3;}
+}
 .feat-head{display:flex;align-items:center;gap:9px;min-width:0;position:relative;z-index:2;}
 .feat-av{width:34px;height:34px;border-radius:9px;object-fit:cover;flex-shrink:0;background:var(--bg3);
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;}
@@ -1409,7 +1461,7 @@ function renderFeatRow(kind, elId){
   for(let slot=1; slot<=FEAT_SLOTS; slot++){
     const f = store[slot];
     if(!f){
-      html += '<div class="feat-slot" onclick="openFeatModal('+slot+',\''+kind+'\')">'
+      html += '<div class="feat-slot free" onclick="openFeatModal('+slot+',\''+kind+'\')">'
             + '<div class="feat-empty">⭐ Feature your token here</div></div>';
       continue;
     }
