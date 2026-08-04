@@ -875,15 +875,15 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-      <div class="feed-title">⏸ Ad sales</div>
+      <div class="feed-title">① Big banners — the 2 wide blocks</div>
       <div class="img-hint" id="pauseState">Loading…</div>
-      <button class="btn-ghost" style="width:100%;padding:11px;" id="pauseBtn" onclick="toggleAdsPause()">Pause new ad sales</button>
+      <button class="btn-ghost" style="width:100%;padding:11px;" id="pauseBtn" onclick="toggleAdsPause()">Turn banner ads OFF</button>
     </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-      <div class="feed-title">⭐ Featured slots</div>
+      <div class="feed-title">② Token slots — the 4 small boxes</div>
       <div class="img-hint" id="featPauseState">Loading…</div>
-      <button class="btn-ghost" style="width:100%;padding:11px;" id="featPauseBtn" onclick="toggleFeatPause()">Pause featured sales</button>
+      <button class="btn-ghost" style="width:100%;padding:11px;" id="featPauseBtn" onclick="toggleFeatPause()">Turn featured slots OFF</button>
       <label class="field-label">Price per day, USD</label>
       <div style="display:flex;gap:8px;">
         <input class="field-input" id="featGoldPrice"   type="number" step="0.01" placeholder="Gold"/>
@@ -3930,9 +3930,11 @@ function renderFeatPauseState(){
   const btn = document.getElementById('featPauseBtn');
   if(!st || !btn) return;
   st.textContent = on
-    ? 'Paused. Nobody can buy or extend featured slots. Already paid ones keep showing.'
-    : 'Open. Anyone can buy a featured slot.';
-  btn.textContent = on ? 'Resume featured sales' : 'Pause featured sales';
+    ? 'Featured slots are OFF right now. Nobody can take a slot — not even a free one from a giveaway. Slots already paid for keep showing.'
+    : 'Featured slots are ON. Anyone can take a slot, paid or free.';
+  btn.textContent = on
+      ? 'Turn featured slots back ON'
+      : 'Turn featured slots OFF';
   const g=document.getElementById('featGoldPrice'), sv=document.getElementById('featSilverPrice'), p=document.getElementById('featPublicPrice');
   if(g && !g.value) g.value = adPricing.feat_gold_usd ?? 5;
   if(sv && !sv.value) sv.value = adPricing.feat_silver_usd ?? 8;
@@ -3960,8 +3962,10 @@ function renderPauseState(){
   if(!st || !btn) return;
   st.textContent = on
     ? 'Paused. Nobody can buy or extend ad slots. Ads already running keep showing until they expire.'
-    : 'Open. Anyone can buy an ad slot.';
-  btn.textContent = on ? 'Resume ad sales' : 'Pause new ad sales';
+    : 'Banner ads are ON. Anyone can take a banner, paid or free.';
+  btn.textContent = on
+      ? 'Turn banner ads back ON'
+      : 'Turn banner ads OFF';
 }
 async function toggleAdsPause(){
   if(!isOwnerWallet()){ toast('Owner only','err'); return; }
