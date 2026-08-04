@@ -49,6 +49,14 @@ export default async function handler(req, res) {
     if (body.action === 'removeOwn')       return await doRemoveOwn(body, res);
     if (body.action === 'adminRemove')     return await doAdminRemove(body, res);
     if (body.action === 'adminSetPricing') return await doSetPricing(body, res);
+    if (body.action === 'adminGrant')      return await doAdminGrant(body, res);
+    if (body.action === 'adminGrantFeat')  return await doAdminGrantFeat(body, res);
+    if (body.action === 'adminPromoNew')   return await doPromoNew(body, res);
+    if (body.action === 'adminPromoList')  return await doPromoList(body, res);
+    if (body.action === 'adminPromoStop')  return await doPromoStop(body, res);
+    if (body.action === 'promoCheck')      return await doPromoCheck(body, res);
+    if (body.action === 'submitFree')      return await doSubmitFree(body, res);
+    if (body.action === 'featSubmitFree')  return await doFeatSubmitFree(body, res);
     if (body.action === 'adminBlock')      return await doBlock(body, res);
     if (body.action === 'adminUnblock')    return await doUnblock(body, res);
     if (body.action === 'adminBlocked')    return await doListBlocked(body, res);
@@ -352,6 +360,358 @@ async function doAdminRemove(body, res) {
 }
 
 /* ─── owner updates ad pricing ─── */
+
+/* ═══════════════ БЕСПЛАТНАЯ ВЫДАЧА ВЛАДЕЛЬЦЕМ ═══════════════
+ *
+ * Владелец может подарить баннер или место в верхнем ряду на выбранный срок.
+ * Размещение идёт тем же путём, что и платное — через те же атомарные
+ * функции базы, — поэтому проверки занятости слота и сроков работают
+ * одинаково. Отличий ровно два: платёж в блокчейне не проверяется,
+ * а сумма записывается нулём с пометкой GRANT.
+ *
+ * Зачем: раздавать первым создателям токенов места даром, чтобы привести
+ * настоящих людей. Подарки всегда отличимы от платных в отчётах —
+ * по нулевой сумме и по слову GRANT в поле валюты.
+ */
+
+// Метка вместо хеша транзакции: формат тот же (0x и 64 знака), поэтому
+// проверки формата не спотыкаются, а по началу видно, что это подарок.
+function grantMark() {
+  let hex = '';
+  while (hex.length < 56) hex += Math.floor(Math.random() * 16).toString(16);
+  return '0x' + 'a11f' + Date.now().toString(16).padStart(12, '0') + hex.slice(0, 48);
+}
+
+async function doAdminGrant(body, res) {
+  const { slot, wallet, imageUrl, linkUrl, days, signature,
+          twitter, telegram, website, discord, youtube, tiktok, tokenAddress, headline } = body;
+
+  if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
+  if (!wallet || !isAddr(wallet))     { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) { res.status(400).json({ error: 'Bad image URL' }); return; }
+
+  const daysNum = Math.floor(Number(days));
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
+
+  // Подпись покрывает получателя, слот и срок — подарок нельзя переиграть
+  // на другой кошелёк или другой срок, перехватив запрос.
+  const msg = 'OpenGate admin grant ad ' + Number(slot) + ' ' + wallet.toLowerCase() + ' ' + daysNum;
+  const signer = recoverSigner(msg, signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
+
+  const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
+  const dc = safeUrl(discord), yt = safeUrl(youtube),  tk = safeUrl(tiktok);
+  const ca = safeTokenAddr(tokenAddress);
+  const target = safeUrl(linkUrl) || tw || tg || ws || dc || yt || tk;
+  if (!target && !ca) { res.status(400).json({ error: 'Add at least one link or a token address' }); return; }
+
+  const sb = sbClient();
+  const nowIso = new Date().toISOString();
+  const { data: busy } = await sb.from('ad_boards').select('id')
+    .eq('slot', Number(slot)).eq('removed', false).gt('end_at', nowIso).maybeSingle();
+  if (busy) { res.status(409).json({ error: 'Slot already occupied' }); return; }
+
+  const endAt = new Date(Date.now() + daysNum * 86400000).toISOString();
+
+  const { data: newId, error } = await sb.rpc('place_ad_atomic', {
+    p_slot: Number(slot),
+    p_wallet: wallet.toLowerCase(),
+    p_image_url: String(imageUrl).slice(0, 300),
+    p_link_url: target,
+    p_tx_hash: grantMark(),
+    p_paid_amount: 0,
+    p_paid_token: 'GRANT',
+    p_days: daysNum,
+    p_end_at: endAt
+  });
+  if (error) {
+    const m = String(error.message || '');
+    if (m.includes('slot_occupied')) { res.status(409).json({ error: 'Slot already occupied' }); return; }
+    res.status(500).json({ error: m }); return;
+  }
+
+  const extra = {};
+  if (tw) extra.twitter = tw;
+  if (tg) extra.telegram = tg;
+  if (ws) extra.website = ws;
+  if (dc) extra.discord = dc;
+  if (yt) extra.youtube = yt;
+  if (tk) extra.tiktok = tk;
+  if (ca) extra.token_address = ca;
+  if (headline) extra.headline = String(headline).slice(0, 80);
+  if (Object.keys(extra).length && newId) {
+    await sb.from('ad_boards').update(extra).eq('id', newId);
+  }
+
+  res.status(200).json({ ok: true, id: newId, granted: true, days: daysNum, endAt });
+}
+
+async function doAdminGrantFeat(body, res) {
+  const { slot, tokenAddress, pad, kind, poolId, wallet, days, signature } = body;
+
+  if (!(Number(slot) >= 1 && Number(slot) <= 4)) { res.status(400).json({ error: 'Bad slot' }); return; }
+  if (!wallet || !isAddr(wallet)) { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (!tokenAddress || !isAddr(tokenAddress)) { res.status(400).json({ error: 'Bad token address' }); return; }
+  if (!['launch', 'pool'].includes(String(kind))) { res.status(400).json({ error: 'Bad kind' }); return; }
+
+  const daysNum = Math.floor(Number(days));
+  if (!(daysNum > 0 && daysNum <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Max ' + MAX_AD_DAYS + ' days' }); return; }
+
+  const msg = 'OpenGate admin grant feat ' + Number(slot) + ' ' + String(tokenAddress).toLowerCase() + ' ' + daysNum;
+  const signer = recoverSigner(msg, signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
+
+  const sb = sbClient();
+  const endAt = new Date(Date.now() + daysNum * 86400000).toISOString();
+
+  const { data: newId, error } = await sb.rpc('place_featured_atomic', {
+    p_slot: Number(slot),
+    p_token: String(tokenAddress).toLowerCase(),
+    p_pad: pad || null,
+    p_wallet: wallet.toLowerCase(),
+    p_tx_hash: grantMark(),
+    p_paid_amount: 0,
+    p_paid_token: 'GRANT',
+    p_days: daysNum,
+    p_end_at: endAt,
+    p_kind: String(kind),
+    p_pool_id: poolId || null
+  });
+  if (error) {
+    const m = String(error.message || '');
+    if (m.includes('slot_occupied'))          { res.status(409).json({ error: 'Slot already taken' }); return; }
+    if (m.includes('token_already_featured')) { res.status(409).json({ error: 'This token is already featured' }); return; }
+    res.status(500).json({ error: m }); return;
+  }
+
+  res.status(200).json({ ok: true, id: newId, granted: true, days: daysNum, endAt });
+}
+
+/* ═══════════════ АКЦИИ «БЕСПЛАТНОЕ МЕСТО» ═══════════════
+ *
+ * Владелец объявляет акцию: сколько мест, на сколько дней и кому
+ * (только Gold, только Silver или всем). Дальше места разбирают сами
+ * пользователи — кто первый нажал, тот и получил.
+ *
+ * Одно место на кошелёк в рамках одной акции. Владелец Gold проходит
+ * и по серебряной акции, но не наоборот.
+ *
+ * Гонка при одновременном нажатии решена в базе: уменьшение счётчика и
+ * запись «кто взял» идут одной командой claim_promo_atomic, поэтому
+ * двое не получат одно и то же место.
+ */
+
+// Тариф кошелька: нужен и для проверки доступа к акции, и для показа.
+async function walletTier(wallet) {
+  if (!wallet || !isAddr(wallet)) return { gold: false, silver: false };
+  if (String(wallet).toLowerCase() === OWNER_WALLET.toLowerCase()) return { gold: true, silver: true };
+  const gold   = (await passBalance(GOLD_PASS, wallet))   > 0n;
+  const silver = (await passBalance(SILVER_PASS, wallet)) > 0n;
+  return { gold, silver };
+}
+
+async function doPromoNew(body, res) {
+  const { kind, tier, days, slots, expiresInDays, note, signature } = body;
+
+  if (!['ad', 'feat'].includes(String(kind)))            { res.status(400).json({ error: 'Bad kind' }); return; }
+  if (!['gold', 'silver', 'any'].includes(String(tier))) { res.status(400).json({ error: 'Bad tier' }); return; }
+
+  const d = Math.floor(Number(days));
+  const n = Math.floor(Number(slots));
+  if (!(d > 0 && d <= MAX_AD_DAYS)) { res.status(400).json({ error: 'Days must be 1-' + MAX_AD_DAYS }); return; }
+  if (!(n > 0 && n <= 1000))        { res.status(400).json({ error: 'Slots must be 1-1000' }); return; }
+
+  const msg = 'OpenGate admin promo ' + kind + ' ' + tier + ' ' + d + ' ' + n;
+  const signer = recoverSigner(msg, signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
+
+  const exp = Math.floor(Number(expiresInDays));
+  const expiresAt = (exp > 0 && exp <= 365)
+    ? new Date(Date.now() + exp * 86400000).toISOString()
+    : null;
+
+  const sb = sbClient();
+  const { data, error } = await sb.from('ad_promos').insert({
+    kind: String(kind), tier: String(tier), days: d,
+    slots_total: n, slots_left: n, active: true,
+    expires_at: expiresAt,
+    note: note ? String(note).slice(0, 120) : null
+  }).select('*').single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true, promo: data });
+}
+
+async function doPromoList(body, res) {
+  const signer = recoverSigner('OpenGate admin promo list', body.signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
+  const sb = sbClient();
+  const { data, error } = await sb.from('ad_promos').select('*').order('created_at', { ascending: false }).limit(50);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true, promos: data || [] });
+}
+
+async function doPromoStop(body, res) {
+  const id = Math.floor(Number(body.promoId));
+  if (!(id > 0)) { res.status(400).json({ error: 'Bad promo id' }); return; }
+  const signer = recoverSigner('OpenGate admin promo stop ' + id, body.signature);
+  if (!signer || signer.toLowerCase() !== OWNER_WALLET.toLowerCase()) { res.status(403).json({ error: 'Owner only' }); return; }
+  const sb = sbClient();
+  const { error } = await sb.from('ad_promos').update({ active: false }).eq('id', id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+// Показать пользователю, доступно ли ему бесплатное место. Ничего не
+// расходует — только смотрит.
+async function doPromoCheck(body, res) {
+  const { kind, wallet } = body;
+  if (!['ad', 'feat'].includes(String(kind))) { res.status(400).json({ error: 'Bad kind' }); return; }
+  if (!wallet || !isAddr(wallet)) { res.status(200).json({ ok: true, available: false }); return; }
+
+  const tier = await walletTier(wallet);
+  const sb = sbClient();
+  const { data, error } = await sb.rpc('promo_available', {
+    p_kind: String(kind), p_wallet: String(wallet).toLowerCase(),
+    p_gold: tier.gold, p_silver: tier.silver
+  });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) { res.status(200).json({ ok: true, available: false, tier }); return; }
+  res.status(200).json({ ok: true, available: true, days: row.promo_days, slotsLeft: row.slots_left, tier });
+}
+
+/**
+ * Забрать бесплатное место. Порядок важен: сначала атомарно занимаем
+ * место в акции, и только потом размещаем. Если размещение не удалось —
+ * возвращаем место обратно, иначе оно сгорело бы впустую.
+ */
+async function claimPromoOrFail(sb, kind, wallet, res) {
+  const tier = await walletTier(wallet);
+  const { data, error } = await sb.rpc('claim_promo_atomic', {
+    p_kind: kind, p_wallet: String(wallet).toLowerCase(),
+    p_gold: tier.gold, p_silver: tier.silver
+  });
+  if (error) { res.status(500).json({ error: error.message }); return null; }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || !row.promo_id) {
+    res.status(409).json({ error: 'No free placement available for your wallet right now' });
+    return null;
+  }
+  return { promoId: row.promo_id, days: row.promo_days };
+}
+
+async function releasePromo(sb, promoId, wallet) {
+  try {
+    await sb.from('ad_promo_claims').delete().eq('promo_id', promoId).eq('wallet', String(wallet).toLowerCase());
+    const { data } = await sb.from('ad_promos').select('slots_left,slots_total').eq('id', promoId).maybeSingle();
+    if (data) {
+      await sb.from('ad_promos')
+        .update({ slots_left: Math.min(Number(data.slots_left) + 1, Number(data.slots_total)), active: true })
+        .eq('id', promoId);
+    }
+  } catch (e) { /* место вернуть не удалось — не роняем ответ пользователю */ }
+}
+
+/**
+ * Пользователь забирает бесплатное место (баннер). Отличия от платного
+ * размещения: вместо проверки платежа в блокчейне — проверка акции.
+ * Всё остальное — занятость слота, чёрный список, пауза продаж, ссылки —
+ * проверяется ровно так же.
+ */
+async function doSubmitFree(body, res) {
+  const { slot, wallet, imageUrl, linkUrl, signature,
+          twitter, telegram, website, discord, youtube, tiktok, tokenAddress, headline } = body;
+
+  if (![1, 2].includes(Number(slot))) { res.status(400).json({ error: 'Bad slot' }); return; }
+  if (!wallet || !isAddr(wallet))     { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) { res.status(400).json({ error: 'Bad image URL' }); return; }
+
+  // Подпись владельца кошелька: чтобы место нельзя было забрать за чужой счёт
+  const signer = recoverSigner('OpenGate claim free ad ' + Number(slot) + ' ' + String(wallet).toLowerCase(), signature);
+  if (!signer || signer.toLowerCase() !== String(wallet).toLowerCase()) { res.status(403).json({ error: 'Signature does not match wallet' }); return; }
+
+  const tw = safeUrl(twitter), tg = safeUrl(telegram), ws = safeUrl(website);
+  const dc = safeUrl(discord), yt = safeUrl(youtube),  tk = safeUrl(tiktok);
+  const ca = safeTokenAddr(tokenAddress);
+  const target = safeUrl(linkUrl) || tw || tg || ws || dc || yt || tk;
+  if (!target && !ca) { res.status(400).json({ error: 'Add at least one link or a token address' }); return; }
+
+  const sb = sbClient();
+  if (await adsArePaused())        { res.status(403).json({ error: 'Ad sales are temporarily paused' }); return; }
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
+
+  const nowIso = new Date().toISOString();
+  const { data: busy } = await sb.from('ad_boards').select('id')
+    .eq('slot', Number(slot)).eq('removed', false).gt('end_at', nowIso).maybeSingle();
+  if (busy) { res.status(409).json({ error: 'Slot already occupied' }); return; }
+
+  const claim = await claimPromoOrFail(sb, 'ad', wallet, res);
+  if (!claim) return;
+
+  const endAt = new Date(Date.now() + claim.days * 86400000).toISOString();
+  const { data: newId, error } = await sb.rpc('place_ad_atomic', {
+    p_slot: Number(slot), p_wallet: String(wallet).toLowerCase(),
+    p_image_url: String(imageUrl).slice(0, 300), p_link_url: target,
+    p_tx_hash: grantMark(), p_paid_amount: 0, p_paid_token: 'PROMO',
+    p_days: claim.days, p_end_at: endAt
+  });
+  if (error) {
+    await releasePromo(sb, claim.promoId, wallet);   // место не сгорает зря
+    const m = String(error.message || '');
+    if (m.includes('slot_occupied')) { res.status(409).json({ error: 'Slot already occupied' }); return; }
+    res.status(500).json({ error: m }); return;
+  }
+
+  const extra = {};
+  if (tw) extra.twitter = tw;
+  if (tg) extra.telegram = tg;
+  if (ws) extra.website = ws;
+  if (dc) extra.discord = dc;
+  if (yt) extra.youtube = yt;
+  if (tk) extra.tiktok = tk;
+  if (ca) extra.token_address = ca;
+  if (headline) extra.headline = String(headline).slice(0, 80);
+  if (Object.keys(extra).length && newId) await sb.from('ad_boards').update(extra).eq('id', newId);
+
+  res.status(200).json({ ok: true, id: newId, free: true, days: claim.days, endAt });
+}
+
+/** То же самое для места в верхнем ряду. */
+async function doFeatSubmitFree(body, res) {
+  const { slot, tokenAddress, pad, kind, poolId, wallet, signature } = body;
+
+  if (!(Number(slot) >= 1 && Number(slot) <= 4))   { res.status(400).json({ error: 'Bad slot' }); return; }
+  if (!wallet || !isAddr(wallet))                  { res.status(400).json({ error: 'Bad wallet' }); return; }
+  if (!tokenAddress || !isAddr(tokenAddress))      { res.status(400).json({ error: 'Bad token address' }); return; }
+  if (!['launch', 'pool'].includes(String(kind)))  { res.status(400).json({ error: 'Bad kind' }); return; }
+
+  const signer = recoverSigner('OpenGate claim free feat ' + Number(slot) + ' ' + String(tokenAddress).toLowerCase(), signature);
+  if (!signer || signer.toLowerCase() !== String(wallet).toLowerCase()) { res.status(403).json({ error: 'Signature does not match wallet' }); return; }
+
+  const sb = sbClient();
+  if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed' }); return; }
+
+  const claim = await claimPromoOrFail(sb, 'feat', wallet, res);
+  if (!claim) return;
+
+  const endAt = new Date(Date.now() + claim.days * 86400000).toISOString();
+  const { data: newId, error } = await sb.rpc('place_featured_atomic', {
+    p_slot: Number(slot), p_token: String(tokenAddress).toLowerCase(),
+    p_pad: pad || null, p_wallet: String(wallet).toLowerCase(),
+    p_tx_hash: grantMark(), p_paid_amount: 0, p_paid_token: 'PROMO',
+    p_days: claim.days, p_end_at: endAt, p_kind: String(kind), p_pool_id: poolId || null
+  });
+  if (error) {
+    await releasePromo(sb, claim.promoId, wallet);
+    const m = String(error.message || '');
+    if (m.includes('slot_occupied'))          { res.status(409).json({ error: 'Slot already taken' }); return; }
+    if (m.includes('token_already_featured')) { res.status(409).json({ error: 'This token is already featured' }); return; }
+    res.status(500).json({ error: m }); return;
+  }
+
+  res.status(200).json({ ok: true, id: newId, free: true, days: claim.days, endAt });
+}
 
 async function doSetPricing(body, res) {
   const { goldPrice, silverPrice, publicPrice, featGold, featSilver, featPublic, signature } = body;
