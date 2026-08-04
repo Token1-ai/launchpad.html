@@ -794,22 +794,22 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
     <!-- ═══ Бесплатная выдача: подарить место на выбранный срок ═══ -->
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-      <div class="feed-title">🎁 Give free placement</div>
-      <div class="img-hint">Grants a banner or a featured slot at zero cost. Recorded as GRANT, so it never mixes with paid stats.</div>
+      <div class="feed-title">🎁 Give a place to one person</div>
+      <div class="img-hint">Use this when you want to give a place to one specific wallet. For a giveaway that anyone can take, use the section below instead.</div>
 
-      <label class="field-label">What to give</label>
+      <label class="field-label">Which place</label>
       <select class="field-input" id="grantType" onchange="grantTypeChanged()">
-        <option value="ad">Banner (top slot 1 or 2)</option>
-        <option value="feat">Featured slot (1–4)</option>
+        <option value="ad">Big banner — the 2 wide blocks "Your ad could be here"</option>
+        <option value="feat">Token slot — the 4 small boxes "Feature your token here"</option>
       </select>
 
-      <label class="field-label">Slot number</label>
+      <label class="field-label">Which box exactly (banner: 1-2, token slot: 1-4)</label>
       <input class="field-input" id="grantSlot" type="number" min="1" max="4" value="1"/>
 
       <label class="field-label">Days</label>
       <input class="field-input" id="grantDays" type="number" min="1" max="30" value="7"/>
 
-      <label class="field-label">Recipient wallet</label>
+      <label class="field-label">Wallet of the person who gets it</label>
       <input class="field-input" id="grantWallet" type="text" placeholder="0x..."/>
 
       <div id="grantAdFields">
@@ -831,19 +831,19 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         </select>
       </div>
 
-      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="grantBtn" onclick="submitGrant()">Give for free &amp; Sign</button>
+      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="grantBtn" onclick="submitGrant()">Give it to this wallet</button>
       <div class="img-hint" id="grantMsg"></div>
     </div>
 
     <!-- ═══ Акции: раздать N мест по принципу «кто первый» ═══ -->
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-      <div class="feed-title">🎫 Free placement campaign</div>
-      <div class="img-hint">Announce N free spots. Users take them themselves — first come, first served. One spot per wallet per campaign.</div>
+      <div class="feed-title">🎫 Give away free places</div>
+      <div class="img-hint">You set how many free places to give away. Users take them themselves — first come, first served. No wallet needed here. One place per wallet.</div>
 
-      <label class="field-label">What</label>
+      <label class="field-label">Which place</label>
       <select class="field-input" id="promoKind">
-        <option value="ad">Banner (top slot)</option>
-        <option value="feat">Featured slot</option>
+        <option value="ad">Big banner — the 2 wide blocks "Your ad could be here"</option>
+        <option value="feat">Token slot — the 4 small boxes "Feature your token here"</option>
       </select>
 
       <label class="field-label">Who can take it</label>
@@ -853,23 +853,23 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         <option value="any">Everyone, no pass needed</option>
       </select>
 
-      <label class="field-label">How many spots</label>
+      <label class="field-label">How many free places to give away</label>
       <input class="field-input" id="promoSlots" type="number" min="1" max="1000" value="20"/>
 
-      <label class="field-label">Days each</label>
+      <label class="field-label">How many days each place lasts</label>
       <input class="field-input" id="promoDays" type="number" min="1" max="30" value="7"/>
 
-      <label class="field-label">Campaign expires in (days, 0 = never)</label>
+      <label class="field-label">Stop offering after (days). Put 0 to keep it open</label>
       <input class="field-input" id="promoExpiry" type="number" min="0" max="365" value="0"/>
 
       <label class="field-label">Note for yourself (optional)</label>
       <input class="field-input" id="promoNote" type="text" placeholder="e.g. launch week giveaway"/>
 
-      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="promoBtn" onclick="submitPromo()">Start campaign &amp; Sign</button>
+      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="promoBtn" onclick="submitPromo()">Open the giveaway</button>
       <div class="img-hint" id="promoMsg"></div>
 
       <div style="margin-top:14px;">
-        <button class="btn-ghost" style="width:100%;padding:10px;" onclick="loadPromos()">Show campaigns</button>
+        <button class="btn-ghost" style="width:100%;padding:10px;" onclick="loadPromos()">See what I am giving away</button>
         <div id="promoList" style="margin-top:8px;"></div>
       </div>
     </div>
