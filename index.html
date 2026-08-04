@@ -190,6 +190,29 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .tfeed{display:grid;grid-template-columns:52px 1fr 1fr 74px;gap:6px;align-items:center;
   padding:8px 2px;border-bottom:1px solid var(--border);font-size:12px;}
 .tfeed:last-child{border-bottom:none;}
+/* Предложение бесплатного места по акции */
+.free-offer{display:flex;align-items:center;gap:10px;margin:10px 0;padding:11px 12px;
+  border:1px solid rgba(245,200,66,.45);border-radius:12px;background:rgba(245,200,66,.08);}
+.fo-txt{flex:1;min-width:0;font-size:12px;color:var(--muted);line-height:1.4;}
+.fo-txt b{display:block;color:var(--gold);font-size:13px;margin-bottom:2px;}
+.fo-btn{flex:0 0 auto;background:var(--gold);color:#08090C;border:none;border-radius:9px;
+  padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;}
+@media(max-width:680px){ .free-offer{flex-wrap:wrap;} .fo-btn{flex:1 1 100%;padding:11px;} }
+/* Полоса с доводом для создателей токенов */
+.creator-cut{display:flex;align-items:center;gap:14px;margin:10px 0 4px;padding:12px 14px;
+  border:1px solid rgba(245,200,66,.35);border-radius:14px;background:rgba(245,200,66,.06);}
+.cc-num{font-size:30px;font-weight:800;color:var(--gold);line-height:1;flex:0 0 auto;}
+.cc-txt{font-size:13px;color:var(--muted);line-height:1.45;min-width:0;}
+.cc-txt b{color:var(--text);display:block;font-size:14px;margin-bottom:2px;}
+.cc-go{flex:0 0 auto;background:var(--gold);color:#08090C;border:none;border-radius:10px;
+  padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;}
+@media(max-width:680px){
+  .creator-cut{flex-wrap:wrap;gap:10px;padding:11px 12px;}
+  .cc-num{font-size:24px;}
+  .cc-txt{flex:1 1 100%;order:2;font-size:12px;}
+  .cc-go{order:3;flex:1 1 100%;padding:11px;}
+}
 .feat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 .feat-slot{position:relative;border-radius:14px;border:1px solid var(--border);background:var(--bg2);
   padding:12px;cursor:pointer;min-height:104px;display:flex;flex-direction:column;gap:8px;overflow:hidden;
@@ -387,6 +410,17 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="new-ticker-items" id="newTickerItems"><span class="nti">Loading...</span></div>
     </div>
     <div class="feat-row" id="featRow"></div>
+    <!-- Довод, который раньше был спрятан в окне «How it works»: доля создателя.
+         Это сильнее, чем у большинства площадок, и должно быть видно сразу. -->
+    <div class="creator-cut">
+      <div class="cc-num">10%</div>
+      <div class="cc-txt">
+        <b>You earn 10% of every trade of your token.</b>
+        Forever, paid automatically on each buy and sell — not just at launch.
+        First token is free, no pass needed.
+      </div>
+      <button class="cc-go" onclick="openLaunchModal()">Launch yours</button>
+    </div>
     <div class="lab-toolbar">
       <input class="lab-search" id="searchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
       <button class="filter-btn active" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
@@ -654,6 +688,10 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <button class="quote-opt" data-ft="USDC" onclick="setFeatToken('USDC')">USDC</button>
     </div>
     <div class="fee-note" id="featTotal">You pay: —</div>
+    <div class="free-offer" id="featFreeBox" style="display:none;">
+      <div class="fo-txt"><b>🎁 Free for you</b><span id="featFreeInfo"></span></div>
+      <button class="fo-btn" id="featFreeBtn" onclick="takeFreeFeat()">Take it free</button>
+    </div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="featSubmitBtn" onclick="submitFeatured()">Pay &amp; Feature</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeFeatModal()">Cancel</button>
   </div>
@@ -734,6 +772,11 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       </div>
       <div class="fee-note" id="adTotalNote">You pay: —</div>
     </div>
+    <!-- Появляется, только если кошельку доступно бесплатное место по акции -->
+    <div class="free-offer" id="adFreeBox" style="display:none;">
+      <div class="fo-txt"><b>🎁 Free for you</b><span id="adFreeInfo"></span></div>
+      <button class="fo-btn" id="adFreeBtn" onclick="takeFreeAd()">Take it free</button>
+    </div>
     <button class="btn-gold" style="width:100%;padding:13px;" id="adSubmitBtn" onclick="submitAd()">Pay & Place Ad</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeAdModal()">Cancel</button>
   </div>
@@ -748,6 +791,88 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">No pass price/day (USD)</label>
     <input class="field-input" id="adminPublicPrice" type="number"/>
     <button class="btn-gold" style="width:100%;padding:13px;" onclick="submitAdPricing()">Save & Sign</button>
+
+    <!-- ═══ Бесплатная выдача: подарить место на выбранный срок ═══ -->
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="feed-title">🎁 Give free placement</div>
+      <div class="img-hint">Grants a banner or a featured slot at zero cost. Recorded as GRANT, so it never mixes with paid stats.</div>
+
+      <label class="field-label">What to give</label>
+      <select class="field-input" id="grantType" onchange="grantTypeChanged()">
+        <option value="ad">Banner (top slot 1 or 2)</option>
+        <option value="feat">Featured slot (1–4)</option>
+      </select>
+
+      <label class="field-label">Slot number</label>
+      <input class="field-input" id="grantSlot" type="number" min="1" max="4" value="1"/>
+
+      <label class="field-label">Days</label>
+      <input class="field-input" id="grantDays" type="number" min="1" max="30" value="7"/>
+
+      <label class="field-label">Recipient wallet</label>
+      <input class="field-input" id="grantWallet" type="text" placeholder="0x..."/>
+
+      <div id="grantAdFields">
+        <label class="field-label">Image URL</label>
+        <input class="field-input" id="grantImage" type="text" placeholder="https://..."/>
+        <label class="field-label">Link (or token address below)</label>
+        <input class="field-input" id="grantLink" type="text" placeholder="https://..."/>
+        <label class="field-label">Token address (optional)</label>
+        <input class="field-input" id="grantTokenAd" type="text" placeholder="0x..."/>
+      </div>
+
+      <div id="grantFeatFields" style="display:none;">
+        <label class="field-label">Token address</label>
+        <input class="field-input" id="grantTokenFeat" type="text" placeholder="0x..."/>
+        <label class="field-label">Where</label>
+        <select class="field-input" id="grantKind">
+          <option value="launch">Launch (bonding curve)</option>
+          <option value="pool">List &amp; Trade (pool)</option>
+        </select>
+      </div>
+
+      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="grantBtn" onclick="submitGrant()">Give for free &amp; Sign</button>
+      <div class="img-hint" id="grantMsg"></div>
+    </div>
+
+    <!-- ═══ Акции: раздать N мест по принципу «кто первый» ═══ -->
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="feed-title">🎫 Free placement campaign</div>
+      <div class="img-hint">Announce N free spots. Users take them themselves — first come, first served. One spot per wallet per campaign.</div>
+
+      <label class="field-label">What</label>
+      <select class="field-input" id="promoKind">
+        <option value="ad">Banner (top slot)</option>
+        <option value="feat">Featured slot</option>
+      </select>
+
+      <label class="field-label">Who can take it</label>
+      <select class="field-input" id="promoTier">
+        <option value="gold">Gold Pass holders only</option>
+        <option value="silver">Silver Pass holders (Gold too)</option>
+        <option value="any">Everyone, no pass needed</option>
+      </select>
+
+      <label class="field-label">How many spots</label>
+      <input class="field-input" id="promoSlots" type="number" min="1" max="1000" value="20"/>
+
+      <label class="field-label">Days each</label>
+      <input class="field-input" id="promoDays" type="number" min="1" max="30" value="7"/>
+
+      <label class="field-label">Campaign expires in (days, 0 = never)</label>
+      <input class="field-input" id="promoExpiry" type="number" min="0" max="365" value="0"/>
+
+      <label class="field-label">Note for yourself (optional)</label>
+      <input class="field-input" id="promoNote" type="text" placeholder="e.g. launch week giveaway"/>
+
+      <button class="btn-gold" style="width:100%;padding:13px;margin-top:10px;" id="promoBtn" onclick="submitPromo()">Start campaign &amp; Sign</button>
+      <div class="img-hint" id="promoMsg"></div>
+
+      <div style="margin-top:14px;">
+        <button class="btn-ghost" style="width:100%;padding:10px;" onclick="loadPromos()">Show campaigns</button>
+        <div id="promoList" style="margin-top:8px;"></div>
+      </div>
+    </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
       <div class="feed-title">⏸ Ad sales</div>
@@ -1544,7 +1669,9 @@ async function updateFeatPrice(){
   note.textContent='$'+perDay+' per day. Max '+MAX_AD_DAYS+' days booked ahead at any time.';
   total.textContent='You pay: $'+(perDay*days)+' for '+days+' day'+(days>1?'s':'')+', in '+featPayToken;
 }
-function openFeatModal(slot, kind){
+async function openFeatModal(slot, kind){
+  // Показать предложение бесплатного места, если оно доступно этому кошельку
+  try{ refreshFreeOffer('feat'); }catch(e){}
   if(!userAddr){ connectWallet(); return; }
   if(adPricing.feat_paused){ toast('Featured slots are temporarily closed','err'); return; }
   featSlot=slot; featExtendId=null; featKind = kind === 'pool' ? 'pool' : 'launch';
@@ -3383,6 +3510,8 @@ async function openAdTarget(ad){
   toast('This token is not listed on LaunchLab yet','err');
 }
 async function openAdModal(slot){
+  // Показать предложение бесплатного места, если оно доступно этому кошельку
+  try{ refreshFreeOffer('ad'); }catch(e){}
   adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null; adEditAd=null;
   document.getElementById('adPayBlock').classList.remove('hidden');
   document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
@@ -3841,6 +3970,210 @@ function openAdAdminModal(){
   document.getElementById('adAdminModal').classList.add('show');
 }
 function closeAdAdminModal(){ document.getElementById('adAdminModal').classList.remove('show'); }
+// ═══ Бесплатная выдача мест владельцем ═══
+// Подпись покрывает получателя, слот и срок, поэтому перехваченный запрос
+// нельзя переписать на другой кошелёк или другой период.
+
+function grantTypeChanged(){
+  const t = document.getElementById('grantType').value;
+  document.getElementById('grantAdFields').style.display   = (t === 'ad')   ? '' : 'none';
+  document.getElementById('grantFeatFields').style.display = (t === 'feat') ? '' : 'none';
+  const slot = document.getElementById('grantSlot');
+  slot.max = (t === 'ad') ? 2 : 4;
+  if (Number(slot.value) > Number(slot.max)) slot.value = slot.max;
+}
+
+async function submitGrant(){
+  const msgEl = document.getElementById('grantMsg');
+  const btn   = document.getElementById('grantBtn');
+  const show  = (t) => { msgEl.textContent = t; };
+  try {
+    if (!userAddr) { show('Connect the owner wallet first'); return; }
+    const type   = document.getElementById('grantType').value;
+    const slot   = Math.floor(Number(document.getElementById('grantSlot').value));
+    const days   = Math.floor(Number(document.getElementById('grantDays').value));
+    const wallet = (document.getElementById('grantWallet').value || '').trim();
+
+    if (!(days > 0 && days <= 30)) { show('Days must be 1–30'); return; }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) { show('Recipient wallet looks wrong'); return; }
+
+    btn.disabled = true;
+    const signer = await provider.getSigner();
+    let body;
+
+    if (type === 'ad') {
+      if (!(slot === 1 || slot === 2)) { show('Banner slot is 1 or 2'); btn.disabled = false; return; }
+      const image = (document.getElementById('grantImage').value || '').trim();
+      if (!/^https?:\/\//i.test(image)) { show('Image URL must start with http'); btn.disabled = false; return; }
+      const sig = await signer.signMessage('OpenGate admin grant ad ' + slot + ' ' + wallet.toLowerCase() + ' ' + days);
+      body = { action:'adminGrant', slot, wallet, days, signature: sig,
+               imageUrl: image,
+               linkUrl: (document.getElementById('grantLink').value || '').trim(),
+               tokenAddress: (document.getElementById('grantTokenAd').value || '').trim() };
+    } else {
+      if (!(slot >= 1 && slot <= 4)) { show('Featured slot is 1–4'); btn.disabled = false; return; }
+      const token = (document.getElementById('grantTokenFeat').value || '').trim();
+      if (!/^0x[0-9a-fA-F]{40}$/.test(token)) { show('Token address looks wrong'); btn.disabled = false; return; }
+      const kind = document.getElementById('grantKind').value;
+      const sig = await signer.signMessage('OpenGate admin grant feat ' + slot + ' ' + token.toLowerCase() + ' ' + days);
+      body = { action:'adminGrantFeat', slot, tokenAddress: token, kind, wallet, days, signature: sig,
+               pad: (typeof resolvePad === 'function' ? resolvePad(token) : null) };
+    }
+
+    show('Sending…');
+    const r = await fetch('/api/ads', { method:'POST', headers:{'Content-Type':'application/json'},
+                                        body: JSON.stringify(body) });
+    const j = await r.json().catch(()=>({}));
+    if (!r.ok) { show('Failed: ' + (j.error || r.status)); btn.disabled = false; return; }
+    show('Done — given for ' + j.days + ' day(s), until ' + new Date(j.endAt).toLocaleDateString());
+    btn.disabled = false;
+    if (typeof loadAds === 'function') loadAds();
+    if (typeof loadFeatured === 'function') loadFeatured();
+  } catch (e) {
+    show('Error: ' + (e && e.message ? e.message : e));
+    btn.disabled = false;
+  }
+}
+
+// ── Показ и получение бесплатного места пользователем ──
+
+async function refreshFreeOffer(kind){
+  const box=document.getElementById(kind==='ad'?'adFreeBox':'featFreeBox');
+  const info=document.getElementById(kind==='ad'?'adFreeInfo':'featFreeInfo');
+  if(!box) return;
+  box.style.display='none';
+  const offer=await checkFreePlacement(kind);
+  if(!offer) return;
+  info.textContent=' '+offer.days+' day(s) at no cost — '+offer.slotsLeft+' spot(s) left. First come, first served.';
+  box.style.display='';
+}
+
+async function takeFreeAd(){
+  const btn=document.getElementById('adFreeBtn');
+  try{
+    if(!userAddr){ toast('Connect your wallet first'); return; }
+    const slot=Number(document.getElementById('adSlotNum')?.value||adSlot||1);
+    const image=(document.getElementById('adImageUrl')?.value||'').trim();
+    if(!/^https?:\/\//i.test(image)){ toast('Upload or paste an image first'); return; }
+    btn.disabled=true;
+    const signer=await provider.getSigner();
+    const sig=await signer.signMessage('OpenGate claim free ad '+slot+' '+userAddr.toLowerCase());
+    const pick=id=>(document.getElementById(id)?.value||'').trim();
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'submitFree',slot,wallet:userAddr,imageUrl:image,signature:sig,
+        linkUrl:pick('adLinkUrl'),twitter:pick('adTwitter'),telegram:pick('adTelegram'),
+        website:pick('adWebsite'),discord:pick('adDiscord'),youtube:pick('adYoutube'),
+        tiktok:pick('adTiktok'),tokenAddress:pick('adTokenAddress'),headline:pick('adHeadline')})});
+    const j=await r.json().catch(()=>({}));
+    btn.disabled=false;
+    if(!r.ok){ toast(j.error||('Failed: '+r.status)); return; }
+    toast('Done — your banner is live for '+j.days+' day(s)');
+    if(typeof closeAdModal==='function') closeAdModal();
+    if(typeof loadAds==='function') loadAds();
+  }catch(e){ btn.disabled=false; toast(e&&e.message?e.message:String(e)); }
+}
+
+async function takeFreeFeat(){
+  const btn=document.getElementById('featFreeBtn');
+  try{
+    if(!userAddr){ toast('Connect your wallet first'); return; }
+    const slot=Number(window.featSlot||document.getElementById('featSlotNum')?.value||1);
+    const token=(document.getElementById('featTokenAddr')?.value||window.featToken||'').trim();
+    if(!/^0x[0-9a-fA-F]{40}$/.test(token)){ toast('Pick a token first'); return; }
+    const kind=window.featKind||'launch';
+    btn.disabled=true;
+    const signer=await provider.getSigner();
+    const sig=await signer.signMessage('OpenGate claim free feat '+slot+' '+token.toLowerCase());
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'featSubmitFree',slot,tokenAddress:token,kind,wallet:userAddr,
+        signature:sig,pad:(typeof resolvePad==='function'?resolvePad(token):null),
+        poolId:window.featPoolId||null})});
+    const j=await r.json().catch(()=>({}));
+    btn.disabled=false;
+    if(!r.ok){ toast(j.error||('Failed: '+r.status)); return; }
+    toast('Done — featured for '+j.days+' day(s)');
+    if(typeof closeFeatModal==='function') closeFeatModal();
+    if(typeof loadFeatured==='function') loadFeatured();
+  }catch(e){ btn.disabled=false; toast(e&&e.message?e.message:String(e)); }
+}
+
+// ═══ Акции бесплатных мест ═══
+
+async function submitPromo(){
+  const msgEl=document.getElementById('promoMsg'), btn=document.getElementById('promoBtn');
+  const show=t=>{msgEl.textContent=t;};
+  try{
+    if(!userAddr){ show('Connect the owner wallet first'); return; }
+    const kind=document.getElementById('promoKind').value;
+    const tier=document.getElementById('promoTier').value;
+    const slots=Math.floor(Number(document.getElementById('promoSlots').value));
+    const days=Math.floor(Number(document.getElementById('promoDays').value));
+    const expiresInDays=Math.floor(Number(document.getElementById('promoExpiry').value)||0);
+    const note=(document.getElementById('promoNote').value||'').trim();
+    if(!(slots>0&&slots<=1000)){ show('Spots must be 1-1000'); return; }
+    if(!(days>0&&days<=30)){ show('Days must be 1-30'); return; }
+
+    btn.disabled=true; show('Sign to confirm…');
+    const signer=await provider.getSigner();
+    const sig=await signer.signMessage('OpenGate admin promo '+kind+' '+tier+' '+days+' '+slots);
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'adminPromoNew',kind,tier,days,slots,expiresInDays,note,signature:sig})});
+    const j=await r.json().catch(()=>({}));
+    btn.disabled=false;
+    if(!r.ok){ show('Failed: '+(j.error||r.status)); return; }
+    show('Campaign started: '+slots+' spot(s), '+days+' day(s) each');
+    loadPromos();
+  }catch(e){ show('Error: '+(e&&e.message?e.message:e)); btn.disabled=false; }
+}
+
+async function loadPromos(){
+  const box=document.getElementById('promoList');
+  try{
+    if(!userAddr){ box.textContent='Connect wallet'; return; }
+    const signer=await provider.getSigner();
+    const sig=await signer.signMessage('OpenGate admin promo list');
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'adminPromoList',signature:sig})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ box.textContent='Failed: '+(j.error||r.status); return; }
+    const rows=j.promos||[];
+    if(!rows.length){ box.textContent='No campaigns yet'; return; }
+    const tierName={gold:'Gold only',silver:'Silver+',any:'Everyone'};
+    box.innerHTML=rows.map(p=>{
+      const st=p.active&&p.slots_left>0?'active':'finished';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">'
+        +'<span style="flex:1;min-width:0;">'+(p.kind==='ad'?'Banner':'Featured')+' &middot; '+(tierName[p.tier]||p.tier)
+        +' &middot; '+p.days+'d &middot; <b>'+p.slots_left+'/'+p.slots_total+' left</b>'
+        +(p.note?' &middot; '+String(p.note).replace(/[<>]/g,''):'')+'</span>'
+        +'<span style="color:'+(st==='active'?'var(--gold)':'var(--muted)')+';">'+st+'</span>'
+        +(st==='active'?'<button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="stopPromo('+p.id+')">Stop</button>':'')
+        +'</div>';
+    }).join('');
+  }catch(e){ box.textContent='Error: '+(e&&e.message?e.message:e); }
+}
+
+async function stopPromo(id){
+  try{
+    const signer=await provider.getSigner();
+    const sig=await signer.signMessage('OpenGate admin promo stop '+id);
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'adminPromoStop',promoId:id,signature:sig})});
+    if(r.ok) loadPromos();
+  }catch(e){}
+}
+
+// ── Сторона пользователя: есть ли для него бесплатное место ──
+// Ничего не расходует, только спрашивает.
+async function checkFreePlacement(kind){
+  if(!userAddr) return null;
+  try{
+    const r=await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'promoCheck',kind,wallet:userAddr})});
+    const j=await r.json().catch(()=>({}));
+    return (r.ok&&j.available)?j:null;
+  }catch(e){ return null; }
+}
+
 async function submitAdPricing(){
   if(!userAddr || userAddr.toLowerCase()!==OWNER_WALLET_ADDR.toLowerCase()){ toast('Owner only','err'); return; }
   const g = Number(document.getElementById('adminGoldPrice').value);
