@@ -423,8 +423,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     </div>
     <div class="lab-toolbar">
       <input class="lab-search" id="searchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
-      <button class="filter-btn active" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
-      <button class="filter-btn" id="filter-new" onclick="setFilter('new')">🆕 New</button>
+      <button class="filter-btn" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
+      <button class="filter-btn active" id="filter-new" onclick="setFilter('new')">🆕 New</button>
       <button class="filter-btn" id="filter-graduated" onclick="setFilter('graduated')">🎓 Graduated</button>
     </div>
     <div class="token-grid" id="tokenGrid"><div class="empty">Loading tokens...</div></div>
@@ -957,7 +957,10 @@ const AD_SILVER_PASS = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let provider, signer, userAddr, launchpad;
 let currentToken = null, currentTokenMeta = null, currentGraduated = false;
-let tradeSide = 'buy', activeFilter = 'hot';
+// По умолчанию показываем НОВЫЕ сверху: свежий токен сразу виден,
+// а не тонет под старыми. Раньше стояло 'hot' — сортировка по собранной
+// сумме, из-за чего порядок почти не менялся, пока суммы одинаковые.
+let tradeSide = 'buy', activeFilter = 'new';
 let tokensCache = [], metaCache = {};
 let chart, candleSeries, volumeSeries, tradesChannel, pendingImageFile = null;
 let bnbUsdPrice = 0, _walletListenersSet = false;
@@ -1947,8 +1950,22 @@ function renderTokenList(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
   let list=tokensCache.slice();
   if(activeFilter==='new') list.sort((a,b)=>b.createdAt-a.createdAt);
-  else if(activeFilter==='graduated') list=list.filter(t=>t.graduated);
-  else list.sort((a,b)=>Number(b.realBNB)-Number(a.realBNB));
+  else if(activeFilter==='graduated'){ list=list.filter(t=>t.graduated); list.sort((a,b)=>b.createdAt-a.createdAt); }
+  else {
+    // «Hot» = собранная сумма с поправкой на возраст. Без поправки список
+    // замирал: у новых токенов сумма нулевая, и они навсегда оставались внизу.
+    // Вес падает вдвое за каждые сутки, поэтому вчерашний лидер уступает
+    // сегодняшнему при сопоставимых сборах.
+    const now = Date.now()/1000;
+    const heat = t => {
+      const ageDays = Math.max(0, (now - Number(t.createdAt||0)) / 86400);
+      return (Number(t.realBNB)||0) / Math.pow(2, ageDays);
+    };
+    list.sort((a,b)=>{
+      const d = heat(b) - heat(a);
+      return d !== 0 ? d : Number(b.createdAt||0) - Number(a.createdAt||0);
+    });
+  }
   // Ищем и по названию, и по тикеру, и по адресу контракта —
   // адрес чаще всего и есть то, что человек копирует из рекламы или чата.
   if(q) list=list.filter(t=>t.name.toLowerCase().includes(q)||t.symbol.toLowerCase().includes(q)||String(t.address||'').toLowerCase().includes(q));
