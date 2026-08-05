@@ -638,7 +638,10 @@ async function doSubmitFree(body, res) {
   if (!target && !ca) { res.status(400).json({ error: 'Add at least one link or a token address' }); return; }
 
   const sb = sbClient();
-  if (await adsArePaused())        { res.status(403).json({ error: 'Ad sales are temporarily paused' }); return; }
+  // Пауза зупиняє ПРОДАЖ, а не подарунки. Місце, яке вже роздане в акції,
+  // людина має змогу забрати й під час паузи — інакше акція мертва.
+  // Платні шляхи (doSubmit, doExtend) перевірку паузи зберігають.
+  // Так само поводиться doFeatSubmitFree для токен-слотів.
   if (await isBlocked(sb, wallet)) { res.status(403).json({ error: 'This wallet is not allowed to place ads' }); return; }
 
   const nowIso = new Date().toISOString();
