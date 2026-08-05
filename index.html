@@ -322,6 +322,19 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .img-hint{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4;}
 .fee-note{font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);}
 .fee-note.warn{border-color:var(--red);color:var(--red);}
+/* ── Поповнення гаманця ── */
+.fund-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;text-align:left;}
+.fund-card-t{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:9px;}
+.fund-ol{margin:0;padding-left:19px;}
+.fund-ol li{font-size:13px;line-height:1.6;margin-bottom:8px;}
+.fund-ol li:last-child{margin-bottom:0;}
+.fund-key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--gold);}
+.fund-addr{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 11px;margin-bottom:9px;overflow-wrap:break-word;word-break:break-all;}
+.fund-copy{width:100%;padding:10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);color:var(--fg,inherit);font-size:13px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.fund-warn{font-size:11.5px;line-height:1.55;color:var(--muted);background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.18);border-radius:8px;padding:9px 11px;margin-top:9px;}
+.fund-notes{margin:0 0 14px;padding-left:17px;text-align:left;}
+.fund-notes li{font-size:11.5px;line-height:1.55;color:var(--muted);margin-bottom:6px;}
+.fund-link{background:none;border:none;color:var(--gold);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;margin-top:7px;-webkit-tap-highlight-color:transparent;}
 .how-step{display:flex;gap:12px;margin-bottom:16px;}
 .how-num{width:28px;height:28px;border-radius:100px;background:var(--gold);color:#000;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .how-text{font-size:13px;color:var(--muted);line-height:1.5;}
@@ -593,10 +606,14 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   </div>
 </div>
 
+<div class="modal-overlay" id="fundModal">
+  <div class="modal-box" id="fundModalBody"></div>
+</div>
+
 <div class="modal-overlay" id="howModal">
   <div class="modal-box wide">
     <div class="modal-title">💡 How Launch works</div>
-    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB.</div></div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB. <button class="fund-link" onclick="closeHowModal();openFundModal()">How to add funds</button></div></div>
     <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Everyone gets 1 free token launch</b> — no pass needed. After that: Silver Pass gives up to 7 per week, Gold Pass up to 3 every day.</div></div>
     <div class="how-step"><div class="how-num">3</div><div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div></div>
     <div class="how-step"><div class="how-num">4</div><div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div></div>
@@ -2455,7 +2472,7 @@ async function executeTrade(){
     if(tradeSide==='buy'){
       const bnbIn=ethers.parseEther(amtStr);
       const bal=await provider.getBalance(userAddr);
-      if(bal<bnbIn){ toast('Insufficient BNB balance for this amount','err'); btn.disabled=false; btn.textContent='Buy'; return; }
+      if(bal<bnbIn){ toast('Insufficient BNB balance for this amount','err'); btn.disabled=false; btn.textContent='Buy'; openFundModal(); return; }
       const [tokensOut]=await pad.quoteBuy(currentToken,bnbIn);
       const minOut=tokensOut*95n/100n;
       const tx=await pad.buy(currentToken,minOut,{value:bnbIn});
@@ -2514,7 +2531,7 @@ async function updateFeeNote(){
     const fee=await launchpad.creationFee();
     const bal=await provider.getBalance(userAddr);
     const feeStr=fmtBNB(fee), balStr=fmtBNB(bal);
-    if(bal<fee){ note.className='fee-note warn'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough. Top up your wallet before launching.'; }
+    if(bal<fee){ note.className='fee-note warn'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB — not enough.'; note.innerHTML+='<br><button class="fund-link" onclick="openFundModal()">How to add funds</button>'; }
     else{ note.className='fee-note'; note.textContent='Creation fee: '+feeStr+' BNB + gas. Your balance: '+balStr+' BNB.'; }
   }catch(e){ note.textContent='Price rises as people buy on the curve.'; note.className='fee-note'; }
 
@@ -2556,7 +2573,7 @@ async function submitLaunch(){
     }
     const fee=await launchpad.creationFee();
     const bal=await provider.getBalance(userAddr);
-    if(bal<fee){ toast('Not enough BNB for the creation fee ('+fmtBNB(fee)+' BNB required)','err'); btn.disabled=false; btn.textContent='Launch Token'; return; }
+    if(bal<fee){ toast('Not enough BNB for the creation fee ('+fmtBNB(fee)+' BNB required)','err'); btn.disabled=false; btn.textContent='Launch Token'; openFundModal(); return; }
     let imageUrl='';
     if(pendingImageFile){ try{ toast('Uploading image...','ok'); imageUrl=await uploadTokenImage(pendingImageFile); }catch(e){ toast('Image upload failed: '+(e.message||'')+' — continuing without image','err'); } }
     const tx=await launchpad.createToken(name,symbol,{value:fee});
@@ -2602,6 +2619,99 @@ function closeLaunchModal(){
   clearPreview(document.getElementById('imgPreview'));
   document.getElementById('launchModal').classList.remove('show');
 }
+
+// ── ADD FUNDS ──
+// We do not sell crypto and we never touch a card. This only explains where
+// the "Buy" button already sits inside the person's own wallet, and shows
+// their own address so they can buy anywhere and send it to themselves.
+function ogWalletInfo(){
+  var e = window.ethereum || {};
+  var ps = Array.isArray(e.providers) ? e.providers : [];
+  function any(f){
+    try{ if(f(e)) return true; }catch(_){}
+    for(var i=0;i<ps.length;i++){ try{ if(f(ps[i])) return true; }catch(_){} }
+    return false;
+  }
+  // MetaMask is checked LAST on purpose: many wallets set isMetaMask=true for
+  // compatibility, so checking it first would label all of them MetaMask.
+  if(window.trustwallet || any(function(p){return p.isTrust||p.isTrustWallet;})) return {k:'trust',n:'Trust Wallet'};
+  if(any(function(p){return p.isCoinbaseWallet||p.isCoinbaseBrowser;}))          return {k:'coinbase',n:'Coinbase Wallet'};
+  if(window.okxwallet || any(function(p){return p.isOkxWallet||p.isOKExWallet;}))return {k:'okx',n:'OKX Wallet'};
+  if(window.bitkeep || any(function(p){return p.isBitKeep||p.isBitget;}))        return {k:'bitget',n:'Bitget Wallet'};
+  if(window.BinanceChain || any(function(p){return p.isBinance;}))               return {k:'binance',n:'Binance Wallet'};
+  if(any(function(p){return p.isTokenPocket;}))                                 return {k:'tokenpocket',n:'TokenPocket'};
+  if(any(function(p){return p.isSafePal;}))                                     return {k:'safepal',n:'SafePal'};
+  if(any(function(p){return p.isRabby;}))                                       return {k:'rabby',n:'Rabby'};
+  if(any(function(p){return p.isBraveWallet;}))                                 return {k:'brave',n:'Brave Wallet'};
+  if(any(function(p){return p.isMetaMask;}))                                    return {k:'metamask',n:'MetaMask'};
+  return {k:'unknown',n:''};
+}
+
+// Wallet button names stay untranslated: page translation would turn "Buy"
+// into another word and the person would not find it on the wallet screen.
+function fundEsc(s){
+  return esc(s||'').replace(/\u27EA(.+?)\u27EB/g,'<span class="fund-key notranslate" translate="no">$1</span>');
+}
+
+function fundSteps(){
+  var w = ogWalletInfo();
+  var isMob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(w.k==='metamask') return {w:w, s:[
+    isMob ? 'Open MetaMask and tap \u27EABuy\u27EB under your balance.'
+          : 'In the MetaMask extension click \u27EABuy/Sell\u27EB \u2014 it opens MetaMask Portfolio in a new tab.',
+    'Pick BNB and the BNB Smart Chain network.',
+    'Enter the amount and pick a payment method \u2014 card, bank transfer, Apple Pay or Google Pay.',
+    'On a first purchase the provider asks you to verify your identity.',
+    'Confirm the order. The BNB lands in this same wallet.']};
+  if(w.k==='trust') return {w:w, s:[
+    'Open Trust Wallet and tap \u27EABuy\u27EB.',
+    'Pick BNB \u2014 card purchases cover BNB Chain.',
+    'Enter the amount and pick a payment method.',
+    'Confirm the order.']};
+  if(w.k==='coinbase') return {w:w, s:[
+    'Open Coinbase Wallet and tap \u27EABuy\u27EB.',
+    'Pick BNB and the BNB Smart Chain network.',
+    'Pay by card or from a linked Coinbase account.']};
+  return {w:w, s:[
+    'Open your wallet app.',
+    'Look for \u27EABuy\u27EB or \u27EADeposit\u27EB on the main screen \u2014 most wallets have it built in.',
+    'Pick BNB and the BNB Smart Chain network, then a payment method.']};
+}
+
+function openFundModal(){
+  var d = fundSteps();
+  var body = document.getElementById('fundModalBody');
+  if(!body) return;
+  var h = '<div class="modal-title">\uD83D\uDCB3 How to add funds</div>';
+  h += '<div class="fund-card"><div class="fund-card-t">'
+     + fundEsc(d.w.n ? 'In ' + d.w.n : 'In your wallet app') + '</div><ol class="fund-ol">';
+  d.s.forEach(function(x){ h += '<li>' + fundEsc(x) + '</li>'; });
+  h += '</ol></div>';
+
+  if(typeof userAddr !== 'undefined' && userAddr){
+    h += '<div class="fund-card"><div class="fund-card-t">Or buy anywhere and send it to yourself</div>';
+    h += '<div class="fund-addr" id="fundAddr">' + esc(userAddr) + '</div>';
+    h += '<button class="fund-copy" onclick="fundCopyAddr()">Copy my address</button>';
+    h += '<div class="fund-warn">Send on the BNB Smart Chain network only. Coins sent on a different network are lost.</div></div>';
+  }
+
+  h += '<ul class="fund-notes">'
+     + '<li>Every trade also costs a little BNB in network fees, so leave a small reserve.</li>'
+     + '<li>The wallet and the payment provider each take a cut, so you receive slightly less than you pay.</li>'
+     + '<li>Card purchases are handled by your wallet and its providers, not by OpenGate, and are unavailable in some countries.</li>'
+     + '</ul>';
+  h += '<button class="btn-gold" style="width:100%;padding:13px;" onclick="closeFundModal()">Got it</button>';
+
+  body.innerHTML = h;
+  document.getElementById('fundModal').classList.add('show');
+}
+function closeFundModal(){ var m=document.getElementById('fundModal'); if(m) m.classList.remove('show'); }
+function fundCopyAddr(){
+  var a=document.getElementById('fundAddr'); if(!a) return;
+  try{ navigator.clipboard.writeText(a.textContent.trim()); }catch(e){}
+  toast('Address copied','ok');
+}
+
 function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
 function closeHowModal(){ document.getElementById('howModal').classList.remove('show'); }
 </script>
