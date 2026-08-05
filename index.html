@@ -700,6 +700,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <select class="field-input" id="featToken"></select>
       <div class="field-hint">Only tokens launched on LaunchLab can be featured.</div>
     </div>
+    <div id="featPayBlock">
     <label class="field-label" id="featDaysLabel">Days * (max 30)</label>
     <input class="field-input" id="featDays" type="number" min="1" max="30" value="1" oninput="updateFeatPrice()"/>
     <label class="field-label">Pay with</label>
@@ -708,6 +709,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <button class="quote-opt" data-ft="USDC" onclick="setFeatToken('USDC')">USDC</button>
     </div>
     <div class="fee-note" id="featTotal">You pay: —</div>
+    </div>
     <div class="free-offer" id="featFreeBox" style="display:none;">
       <div class="fo-txt"><b>🎁 Free for you</b><span id="featFreeInfo"></span></div>
       <button class="fo-btn" id="featFreeBtn" onclick="takeFreeFeat()">Take it free</button>
@@ -1694,9 +1696,13 @@ async function updateFeatPrice(){
 }
 async function openFeatModal(slot, kind){
   // Показать предложение бесплатного места, если оно доступно этому кошельку
-  try{ refreshFreeOffer('feat'); }catch(e){}
   if(!userAddr){ connectWallet(); return; }
-  if(adPricing.feat_paused){ toast('Featured slots are temporarily closed','err'); return; }
+  let _freeFeat=null;
+  try{ _freeFeat = await refreshFreeOffer('feat'); }catch(e){}
+  if(adPricing.feat_paused && !_freeFeat){
+    toast('Featured slots are temporarily closed','err'); return;
+  }
+  applyPausedFreeMode('feat', adPricing.feat_paused && _freeFeat);
   featSlot=slot; featExtendId=null; featKind = kind === 'pool' ? 'pool' : 'launch';
   document.getElementById('featTitle').textContent =
     (featKind==='pool' ? '⭐ Feature your pool — slot ' : '⭐ Feature your token — slot ') + slot;
@@ -1718,7 +1724,7 @@ async function openFeatModal(slot, kind){
   document.getElementById('featDays').value='1';
   document.getElementById('featSubmitBtn').textContent='Pay & Feature';
   document.getElementById('featModal').classList.add('show');
-  updateFeatPrice();
+  if(!(adPricing.feat_paused && _freeFeat)) updateFeatPrice();
 }
 let featExtEnd = null;
 function extendFeatured(id){
@@ -1729,6 +1735,10 @@ function extendFeatured(id){
   document.getElementById('featTitle').textContent='⏱ Extend featured — '+fmtLeft(f.end_at)+' left';
   document.getElementById('featPickBox').classList.add('hidden');
   document.getElementById('featDays').value='1';
+  applyPausedFreeMode('feat', false);
+  // Пропозицію безкоштовного місця тут ховаємо: продовження оплаченого
+  // слота — завжди платне, і кнопка «взяти безкоштовно» тут збивала б з пантелику.
+  var _fb=document.getElementById('featFreeBox'); if(_fb) _fb.style.display='none';
   document.getElementById('featSubmitBtn').textContent='Pay & Extend';
   document.getElementById('featModal').classList.add('show');
   updateFeatPrice();
@@ -3610,10 +3620,14 @@ function renderAdSlot(slot){
     if(img.complete && img.naturalWidth) decide(); else img.addEventListener('load', decide, {once:true});
   }
 }
-function handleAdSlotClick(slot){
+async function handleAdSlotClick(slot){
   if(!adBoardsData[slot] && adPricing.ads_paused){
-    toast('Ad slots are temporarily closed. Please check back later.','err');
-    return;
+    // Подароване місце пауза не забирає
+    const free = userAddr ? await checkFreePlacement('ad') : null;
+    if(!free){
+      toast('Ad slots are temporarily closed. Please check back later.','err');
+      return;
+    }
   }
   if(adBoardsData[slot]){
     const ad = adBoardsData[slot];
@@ -3641,9 +3655,10 @@ async function openAdTarget(ad){
 }
 async function openAdModal(slot){
   // Показать предложение бесплатного места, если оно доступно этому кошельку
-  try{ refreshFreeOffer('ad'); }catch(e){}
+  let _freeAd=null;
+  try{ _freeAd = await refreshFreeOffer('ad'); }catch(e){}
+  applyPausedFreeMode('ad', adPricing.ads_paused && _freeAd);
   adSlotTarget = slot; adPendingImageFile=null; adExtendAd=null; adEditAd=null;
-  document.getElementById('adPayBlock').classList.remove('hidden');
   document.getElementById('adModalTitle').textContent = '📢 Place an Ad — Board '+slot;
   clearPreview(document.getElementById('adImgPreview'));
   document.getElementById('adImgPreview').classList.add('hidden');
@@ -3661,7 +3676,7 @@ async function openAdModal(slot){
   document.getElementById('adDays').value='1';
   document.getElementById('adSubmitBtn').textContent='Pay & Place Ad';
   document.getElementById('adModal').classList.add('show');
-  await updateAdPriceDisplay();
+  if(!(adPricing.ads_paused && _freeAd)) await updateAdPriceDisplay();
 }
 // Правка объявления, пока оплаченный срок не вышел.
 // Платить второй раз не нужно — меняется только содержимое.
@@ -4174,12 +4189,24 @@ async function submitGrant(){
 async function refreshFreeOffer(kind){
   const box=document.getElementById(kind==='ad'?'adFreeBox':'featFreeBox');
   const info=document.getElementById(kind==='ad'?'adFreeInfo':'featFreeInfo');
-  if(!box) return;
+  if(!box) return null;
   box.style.display='none';
   const offer=await checkFreePlacement(kind);
-  if(!offer) return;
+  if(!offer) return null;
   info.textContent=' '+offer.days+' day(s) at no cost — '+offer.slotsLeft+' spot(s) left. First come, first served.';
   box.style.display='';
+  return offer;
+}
+
+// Ховає/показує платну частину вікна, коли продаж на паузі,
+// а безкоштовне місце в людини є.
+function applyPausedFreeMode(which, on){
+  const pay = document.getElementById(which==='ad'?'adPayBlock':'featPayBlock');
+  const btn = document.getElementById(which==='ad'?'adSubmitBtn':'featSubmitBtn');
+  const note= document.getElementById(which==='ad'?'adPriceNote':'featNote');
+  if(pay) pay.classList.toggle('hidden', !!on);
+  if(btn) btn.classList.toggle('hidden', !!on);
+  if(on && note) note.textContent='Paid places are closed right now — but you have a free one. Take it below.';
 }
 
 async function takeFreeAd(){
