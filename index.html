@@ -334,6 +334,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .fund-warn{font-size:11.5px;line-height:1.55;color:var(--muted);background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.18);border-radius:8px;padding:9px 11px;margin-top:9px;}
 .fund-notes{margin:0 0 14px;padding-left:17px;text-align:left;}
 .fund-notes li{font-size:11.5px;line-height:1.55;color:var(--muted);margin-bottom:6px;}
+.pct-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0 10px;}
+.pct-btn{padding:8px 4px;border-radius:9px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pct-btn:active{border-color:var(--gold);color:var(--gold);}
 .fund-inline{background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;padding:0 3px;line-height:1;-webkit-tap-highlight-color:transparent;}
 @media(max-width:560px){.fund-nav-text{display:none;}}
 .fund-link{background:none;border:none;color:var(--gold);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;margin-top:7px;-webkit-tap-highlight-color:transparent;}
@@ -491,6 +494,14 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="bs-label"><span id="amountLabel">Amount (BNB)</span><span id="balanceLabel"></span><button class="fund-inline" onclick="openFundModal()" title="How to add funds">💳</button></div>
           <div class="bs-input-row">
             <input class="bs-input" id="tradeAmount" type="number" placeholder="0.0" oninput="updateReceive()"/>
+          </div>
+          <div class="pct-row">
+            <button class="pct-btn" onclick="setPct('trade',25)">25%</button>
+            <button class="pct-btn" onclick="setPct('trade',50)">50%</button>
+            <button class="pct-btn" onclick="setPct('trade',75)">75%</button>
+            <button class="pct-btn" onclick="setPct('trade',100)">Max</button>
+          </div>
+          <div style="display:none;">
             <span class="bs-cur" id="tradeCur">BNB</span>
           </div>
           <div class="bs-presets" id="buyPresets">
@@ -566,6 +577,14 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="bs-label"><span id="poolAmountLabel">Amount</span><span id="poolBalanceLabel"></span></div>
           <div class="bs-input-row">
             <input class="bs-input" id="poolTradeAmount" type="number" placeholder="0.0" oninput="updatePoolReceive()"/>
+          </div>
+          <div class="pct-row">
+            <button class="pct-btn" onclick="setPct('pool',25)">25%</button>
+            <button class="pct-btn" onclick="setPct('pool',50)">50%</button>
+            <button class="pct-btn" onclick="setPct('pool',75)">75%</button>
+            <button class="pct-btn" onclick="setPct('pool',100)">Max</button>
+          </div>
+          <div style="display:none;">
             <span class="bs-cur" id="poolTradeCur">BNB</span>
           </div>
           <div class="bs-receive">You receive: <b id="poolReceiveAmount">—</b></div>
@@ -2464,8 +2483,8 @@ function updateTradeButton(){
   if(!userAddr){ btn.textContent='Connect Wallet'; btn.disabled=false; return; }
   btn.textContent=tradeSide==='buy'?'Buy':'Sell'; btn.disabled=false;
   if(currentToken){(async()=>{try{
-    if(tradeSide==='sell'){ const tk=new ethers.Contract(currentToken,TOKEN_ABI,provider); balLabel.textContent='Balance: '+fmtTokens(await tk.balanceOf(userAddr)); }
-    else{ balLabel.textContent='Balance: '+fmtBNB(await provider.getBalance(userAddr))+' BNB'; }
+    if(tradeSide==='sell'){ const tk=new ethers.Contract(currentToken,TOKEN_ABI,provider); const _b=await tk.balanceOf(userAddr); _tradeBal={raw:_b,dec:18,native:false}; balLabel.textContent='Balance: '+fmtTokens(_b); }
+    else{ const _b=await provider.getBalance(userAddr); _tradeBal={raw:_b,dec:18,native:true}; balLabel.textContent='Balance: '+fmtBNB(_b)+' BNB'; }
   }catch(e){ balLabel.textContent=''; }})();}
 }
 
@@ -2495,7 +2514,7 @@ async function executeTrade(){
       const tokensIn=ethers.parseEther(amtStr);
       const tk=new ethers.Contract(currentToken,TOKEN_ABI,signer);
       const allowance=await tk.allowance(userAddr,padAddress);
-      if(allowance<tokensIn){ const atx=await tk.approve(padAddress,tokensIn); toast('Approving...','ok'); await atx.wait(); }
+      if(allowance<tokensIn){ toast('One-time approval \u2014 your next sells will be instant','ok'); await approveMax(tk,padAddress); }
       const [bnbOut]=await pad.quoteSell(currentToken,tokensIn);
       const minOut=bnbOut*95n/100n;
       const tx=await pad.sell(currentToken,tokensIn,minOut);
@@ -2723,6 +2742,51 @@ function fundCopyAddr(){
   var a=document.getElementById('fundAddr'); if(!a) return;
   try{ navigator.clipboard.writeText(a.textContent.trim()); }catch(e){}
   toast('Address copied','ok');
+}
+
+
+// ── Кнопки 25 / 50 / 75 / Max ──
+var _tradeBal = null;   // {raw, dec, native} — баланс кривої
+var _poolBal  = null;   // те саме для пулів
+
+// Скільки нативної монети лишаємо на газ, коли тиснуть Max при покупці за BNB.
+// Без запасу гаманець віддав би все і транзакція впала б через брак газу.
+var GAS_RESERVE = 2000000000000000n;   // 0.002 BNB
+
+function setPct(which, pct){
+  var bal   = which === 'pool' ? _poolBal : _tradeBal;
+  var input = document.getElementById(which === 'pool' ? 'poolTradeAmount' : 'tradeAmount');
+  var side  = which === 'pool' ? poolTradeSide : tradeSide;
+  if (!input) return;
+  if (!userAddr) { connectWallet(); return; }
+  if (!bal || bal.raw === undefined) { toast('Balance is still loading', 'err'); return; }
+
+  var amount;
+  if (pct === 100) {
+    amount = bal.raw;
+    // Покупка за BNB: лишаємо запас на газ, інакше Max гарантовано впаде.
+    // Часткові відсотки чіпати не треба — там запас і так лишається.
+    if (side === 'buy' && bal.native) {
+      amount = amount > GAS_RESERVE ? amount - GAS_RESERVE : 0n;
+    }
+    // Продаж усього обсягу на СТАРИХ токенах (пад v1) не проходить:
+    // не вистачає одного вея через округлення. На нових повний баланс
+    // проходить, тому й не псуємо число зайвими знаками.
+    if (side === 'sell' && typeof currentPad !== 'undefined' && currentPad === 'v1' && amount > 0n) {
+      amount -= 1n;
+    }
+  } else {
+    amount = (bal.raw * BigInt(pct)) / 100n;
+  }
+
+  if (amount <= 0n) { toast('Not enough balance', 'err'); return; }
+
+  var str = ethers.formatUnits(amount, bal.dec);
+  // Прибираємо хвіст нулів, щоб у полі не було «0.5000000000000000»
+  if (str.indexOf('.') >= 0) str = str.replace(/0+$/, '').replace(/\.$/, '');
+  input.value = str;
+
+  if (which === 'pool') updatePoolReceive(); else updateReceive();
 }
 
 function openHowModal(){ document.getElementById('howModal').classList.add('show'); }
@@ -3221,20 +3285,40 @@ async function updatePoolTradeButton(){
   try{
     if(poolTradeSide==='sell'){
       const tk=new ethers.Contract(currentPoolData.token, ERC20_ABI, provider);
-      lbl.textContent='Balance: '+fmtUnitsShort(await tk.balanceOf(userAddr), currentPoolData.tDec||18)+' '+currentPoolData.symbol;
+      const _b=await tk.balanceOf(userAddr);
+      _poolBal={raw:_b,dec:currentPoolData.tDec||18,native:false};
+      lbl.textContent='Balance: '+fmtUnitsShort(_b, currentPoolData.tDec||18)+' '+currentPoolData.symbol;
     } else if(currentPoolData.quote===0){
-      lbl.textContent='Balance: '+fmtBNB(await provider.getBalance(userAddr))+' BNB';
+      const _b=await provider.getBalance(userAddr);
+      _poolBal={raw:_b,dec:18,native:true};
+      lbl.textContent='Balance: '+fmtBNB(_b)+' BNB';
     } else {
       const tk=new ethers.Contract(quoteAddr(currentPoolData.quote), ERC20_ABI, provider);
       const b=await tk.balanceOf(userAddr);
+      _poolBal={raw:b,dec:currentPoolData.qDec||18,native:false};
       lbl.textContent='Balance: '+Number(ethers.formatUnits(b, currentPoolData.qDec||18)).toFixed(4)+' '+quoteLabel(currentPoolData.quote);
     }
   }catch(e){ lbl.textContent=''; }
 }
+
+// Одноразовий дозвіл без ліміту. Окремі токени забороняють міняти
+// ненульовий дозвіл напряму (спадок USDT) — тоді спершу обнуляємо.
+async function approveMax(tk, spender){
+  try{
+    const tx = await tk.approve(spender, ethers.MaxUint256);
+    await tx.wait();
+  }catch(e){
+    const tx0 = await tk.approve(spender, 0n);
+    await tx0.wait();
+    const tx1 = await tk.approve(spender, ethers.MaxUint256);
+    await tx1.wait();
+  }
+}
+
 async function ensureApproval(tokenAddr, spender, amountWei){
   const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
   const allowance = await tk.allowance(userAddr, spender);
-  if(allowance < amountWei){ toast('Approving token...','ok'); const tx = await tk.approve(spender, amountWei); await tx.wait(); }
+  if(allowance < amountWei){ toast('One-time approval \u2014 your next trades will be instant','ok'); await approveMax(tk, spender); }
 }
 async function executePoolTrade(){
   if(!userAddr){ connectWallet(); return; }
