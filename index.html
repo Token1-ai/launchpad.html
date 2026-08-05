@@ -334,6 +334,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 .fund-warn{font-size:11.5px;line-height:1.55;color:var(--muted);background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.18);border-radius:8px;padding:9px 11px;margin-top:9px;}
 .fund-notes{margin:0 0 14px;padding-left:17px;text-align:left;}
 .fund-notes li{font-size:11.5px;line-height:1.55;color:var(--muted);margin-bottom:6px;}
+.fund-inline{background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;padding:0 3px;line-height:1;-webkit-tap-highlight-color:transparent;}
+@media(max-width:560px){.fund-nav-text{display:none;}}
 .fund-link{background:none;border:none;color:var(--gold);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;margin-top:7px;-webkit-tap-highlight-color:transparent;}
 .how-step{display:flex;gap:12px;margin-bottom:16px;}
 .how-num{width:28px;height:28px;border-radius:100px;background:var(--gold);color:#000;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -408,6 +410,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 List Token</button>
     <button class="btn-ghost hidden" id="adAdminBtn" onclick="openAdAdminModal()">⚙️ Ad Pricing</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
+    <button class="btn-ghost" id="fundNavBtn" onclick="openFundModal()" title="How to add funds">💳<span class="fund-nav-text"> Add funds</span></button>
     <button id="connectBtn" class="btn-ghost" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </nav>
@@ -485,7 +488,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
             <button class="bs-tab active-buy" id="tabBuy" onclick="setTradeSide('buy')">Buy</button>
             <button class="bs-tab" id="tabSell" onclick="setTradeSide('sell')">Sell</button>
           </div>
-          <div class="bs-label"><span id="amountLabel">Amount (BNB)</span><span id="balanceLabel"></span></div>
+          <div class="bs-label"><span id="amountLabel">Amount (BNB)</span><span id="balanceLabel"></span><button class="fund-inline" onclick="openFundModal()" title="How to add funds">💳</button></div>
           <div class="bs-input-row">
             <input class="bs-input" id="tradeAmount" type="number" placeholder="0.0" oninput="updateReceive()"/>
             <span class="bs-cur" id="tradeCur">BNB</span>
