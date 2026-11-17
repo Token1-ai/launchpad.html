@@ -6,7 +6,12 @@ const mkProvider = u => V6 ? new ethers.JsonRpcProvider(u) : new ethers.provider
 const mkIface = a => V6 ? new ethers.Interface(a) : new ethers.utils.Interface(a);
 const fmtEther = v => V6 ? ethers.formatEther(v) : ethers.utils.formatEther(v);
 
-const POOLS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
+// Новый передаваемый контракт пулов. Старый оставлен в списке, чтобы
+// сделки в уже созданных пулах по-прежнему записывались в ленту.
+const POOLS = '0x8923bF72154A10af579030162C6F945Df2F1b351';
+const POOLS_OLD = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
+const POOLS_ALL = [POOLS, POOLS_OLD];
+const isPools = a => !!a && POOLS_ALL.some(x => x.toLowerCase() === String(a).toLowerCase());
 const RPCS = [
   'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
   'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
@@ -65,12 +70,12 @@ async function doTrade(body, res) {
   }
   if (!receipt) { res.status(404).json({ error: 'Tx not found' }); return; }
   if (Number(receipt.status) !== 1) { res.status(400).json({ error: 'Tx failed' }); return; }
-  if (!receipt.to || receipt.to.toLowerCase() !== POOLS.toLowerCase()) { res.status(400).json({ error: 'Wrong contract' }); return; }
+  if (!isPools(receipt.to)) { res.status(400).json({ error: 'Wrong contract' }); return; }
 
   const iface = mkIface(EVENT_ABI);
   let found = null;
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== POOLS.toLowerCase()) continue;
+    if (!isPools(log.address)) continue;
     let p; try { p = iface.parseLog(log); } catch (e) { continue; }
     if (!p) continue;
     if (String(p.args.poolId) !== String(poolId)) continue;

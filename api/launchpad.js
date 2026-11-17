@@ -12,7 +12,13 @@ const ZERO = '0x0000000000000000000000000000000000000000';
 // где у людей без пропуска есть один бесплатный токен.
 const LAUNCHPAD_V1 = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
 const LAUNCHPAD_V2 = '0x672F6a4a78a1650617BFc5FA5E6B1428A594E5FE';
-const LAUNCHPADS = [LAUNCHPAD_V1, LAUNCHPAD_V2];
+// V3 — передаваемый контракт, на нём создаются все новые токены.
+// Без него сервер отвечал «Wrong contract» на каждую сделку (покупка
+// проходила в сети, но не попадала в ленту) и не давал сохранить
+// описание с картинкой: создателя он искал только на V1 и V2.
+const LAUNCHPAD_V3 = '0x9740e2C9214965d68A731b1af49Ed1b5814664ff';
+// V3 первым: новых токенов больше, и поиск завершится на первом же запросе.
+const LAUNCHPADS = [LAUNCHPAD_V3, LAUNCHPAD_V2, LAUNCHPAD_V1];
 const isLaunchpad = a => !!a && LAUNCHPADS.some(x => x.toLowerCase() === String(a).toLowerCase());
 const RPCS = [
   'https://bsc-dataseed.binance.org/',
@@ -158,7 +164,7 @@ async function doToken(body, res) {
   if (!signer) { res.status(400).json({ error: 'Bad signature' }); return; }
 
   // Создателя берём ИЗ БЛОКЧЕЙНА, а не из запроса — это и есть суть правки
-  // Токен может жить на любом из двух контрактов — спрашиваем оба
+  // Токен может жить на любом из контрактов — спрашиваем все по очереди
   let creator = null;
   outer:
   for (const url of RPCS) {
