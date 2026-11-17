@@ -26,7 +26,14 @@ const verifyMsg = (m, sig) => V6 ? ethers.verifyMessage(m, sig) : ethers.utils.v
 const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
 const safeUrl = v => { const x = String(v || '').trim().slice(0, 300); return /^https?:\/\//i.test(x) ? x : ''; };
 
-const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+// Кошелёк владельца площадки: даёт права модерации и работу без
+// ограничений. БЫЛ ВШИТ В КОД — при продаже его пришлось бы искать и
+// править в пяти файлах двух репозиториев, и что-то почти наверняка
+// осталось бы незамеченным. Теперь задаётся переменной окружения
+// PLATFORM_OWNER (Vercel -> Settings -> Environment Variables).
+// Пока переменной нет — берётся прежнее значение, поэтому сейчас
+// ничего не меняется.
+const OWNER_WALLET = process.env.PLATFORM_OWNER || '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
 const POOLS_META_ABI = [
   'function poolByTokenQuote(address,uint8) view returns (uint256)',
   'function getPool(uint256) view returns (address token,uint8 quote,uint256 reserveToken,uint256 reserveQuote,address creator,bool locked,bool liquidityPulled,uint256 createdAt)'

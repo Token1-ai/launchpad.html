@@ -8,9 +8,19 @@ const fmtEther = v => V6 ? ethers.formatEther(v) : ethers.utils.formatEther(v);
 const isAddr = a => V6 ? ethers.isAddress(a) : ethers.utils.isAddress(a);
 const verifyMsg = (m, s) => V6 ? ethers.verifyMessage(m, s) : ethers.utils.verifyMessage(m, s);
 
-const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
-const GOLD_PASS    = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
-const SILVER_PASS  = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
+// Кошелёк владельца площадки: даёт права модерации и работу без
+// ограничений. БЫЛ ВШИТ В КОД — при продаже его пришлось бы искать и
+// править в пяти файлах двух репозиториев, и что-то почти наверняка
+// осталось бы незамеченным. Теперь задаётся переменной окружения
+// PLATFORM_OWNER (Vercel -> Settings -> Environment Variables).
+// Пока переменной нет — берётся прежнее значение, поэтому сейчас
+// ничего не меняется.
+const OWNER_WALLET = process.env.PLATFORM_OWNER || '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+// Пропуска. Вынесены в переменные окружения GOLD_PASS_CONTRACT и
+// SILVER_PASS_CONTRACT, чтобы новый владелец мог подключить свои,
+// не правя код. Без переменных берутся нынешние.
+const GOLD_PASS    = process.env.GOLD_PASS_CONTRACT   || '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
+const SILVER_PASS  = process.env.SILVER_PASS_CONTRACT || '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
 const USDT_ADDR    = '0x55d398326f99059fF775485246999027B3197955';
 const USDC_ADDR    = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 

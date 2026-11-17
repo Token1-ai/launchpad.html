@@ -34,7 +34,14 @@ const CURVE_ABI = ['function getCurve(address) view returns (address creator,uin
 const clip = (s, n) => String(s || '').slice(0, n);
 const safeUrl = s => { const v = clip(s, 200).trim(); return /^https?:\/\//i.test(v) ? v : ''; };
 const verifyMsg = (m, sig) => V6 ? ethers.verifyMessage(m, sig) : ethers.utils.verifyMessage(m, sig);
-const OWNER_WALLET = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+// Кошелёк владельца площадки: даёт права модерации и работу без
+// ограничений. БЫЛ ВШИТ В КОД — при продаже его пришлось бы искать и
+// править в пяти файлах двух репозиториев, и что-то почти наверняка
+// осталось бы незамеченным. Теперь задаётся переменной окружения
+// PLATFORM_OWNER (Vercel -> Settings -> Environment Variables).
+// Пока переменной нет — берётся прежнее значение, поэтому сейчас
+// ничего не меняется.
+const OWNER_WALLET = process.env.PLATFORM_OWNER || '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
 
 // Подпись покрывает САМО содержимое, а не только адрес токена.
 // Иначе тот, кто однажды увидел подпись, подставил бы под неё свой текст.
