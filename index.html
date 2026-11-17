@@ -999,7 +999,29 @@ const ERC20_ABI = ['function name() view returns (string)','function symbol() vi
 
 // ЕДИНСТВЕННОЕ место в этом файле, где указан кошелёк владельца площадки.
 // При продаже новый владелец меняет только эту строку.
-const OWNER_WALLET_ADDR = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+// Кошелёк владельца площадки — сюда приходят деньги за рекламу и за показ
+// токена. Платёж идёт переводом НАПРЯМУЮ на этот кошелёк, без контракта и
+// без посредника: деньги оказываются у владельца в ту же секунду.
+//
+// Адрес ниже — только запасной. Настоящий сайт спрашивает у сервера
+// (api/ads, action=owner), где он задан переменной PLATFORM_OWNER. Поэтому
+// после продажи новому владельцу достаточно поменять одну переменную в
+// настройках Vercel — и выручка пойдёт ему. В код лезть не нужно.
+let OWNER_WALLET_ADDR = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
+let _ownerAddrPromise = null;
+function loadOwnerAddr(){
+  if(_ownerAddrPromise) return _ownerAddrPromise;
+  _ownerAddrPromise = (async function(){
+    try{
+      const r = await fetch('/api/ads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'owner'})});
+      const j = await r.json();
+      if(j && /^0x[0-9a-fA-F]{40}$/.test(String(j.owner||''))) OWNER_WALLET_ADDR = j.owner;
+    }catch(e){ /* сервер недоступен — остаётся запасной адрес */ }
+    return OWNER_WALLET_ADDR;
+  })();
+  return _ownerAddrPromise;
+}
+loadOwnerAddr();
 const AD_GOLD_PASS = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
 const AD_SILVER_PASS = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
 
@@ -1786,6 +1808,7 @@ async function submitFeatured(){
     const tokenAddr=featPayToken==='USDT'?USDT_ADDR:USDC_ADDR;
     const tk=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
     btn.textContent='Confirm payment in wallet...';
+    await loadOwnerAddr(); // платим ровно тому кошельку, который указан на сервере
     const tx=await tk.transfer(OWNER_WALLET_ADDR, ethers.parseEther(String(totalUsd)));
     toast('Sending payment...','ok');
     const rc=await tx.wait();
@@ -4056,6 +4079,7 @@ async function submitAd(){
     const tk = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
     const amountWei = ethers.parseEther(String(totalUsd));
     btn.textContent='Confirm payment in wallet...';
+    await loadOwnerAddr(); // платим ровно тому кошельку, который указан на сервере
     const tx = await tk.transfer(OWNER_WALLET_ADDR, amountWei);
     toast('Sending payment...','ok');
     const rc = await tx.wait();
