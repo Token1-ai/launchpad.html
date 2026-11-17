@@ -2464,10 +2464,18 @@ function setTradeSide(side){
 }
 function setAmount(v){ document.getElementById('tradeAmount').value=v; updateReceive(); }
 async function setMaxAmount(){
-  if(!userAddr) return;
+  if(!userAddr) { connectWallet(); return; }
   if(tradeSide==='buy'){
     const bal=await provider.getBalance(userAddr);
-    const max=bal>ethers.parseEther('0.01')?bal-ethers.parseEther('0.01'):0n;
+    // БЫЛО: запас на газ 0.01 BNB. Это больше, чем нужно на деле (покупка
+    // стоит доли тысячной), и при балансе меньше 0.01 кнопка Max молча
+    // подставляла 0.0 — человек жал «Buy» и получал «Enter amount».
+    // Теперь запас тот же, что у процентных кнопок: GAS_RESERVE (0.002).
+    const max = bal > GAS_RESERVE ? bal - GAS_RESERVE : 0n;
+    if(max === 0n){
+      toast('Not enough BNB: some must stay for the network fee','err');
+      return;
+    }
     document.getElementById('tradeAmount').value=ethers.formatEther(max);
   }else{
     const tk=new ethers.Contract(currentToken,TOKEN_ABI,provider);
