@@ -963,8 +963,12 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 // Новые токены создаются только на новом; старый остаётся для торговли.
 const LAUNCHPAD_V1 = '0xFf06CfB755f5d08eB0A60fC6fA56dc525DbAca0d';
 const LAUNCHPAD_V2 = '0x672F6a4a78a1650617BFc5FA5E6B1428A594E5FE';
-const LAUNCHPAD_ADDRESS = LAUNCHPAD_V2;   // куда создавать новые токены
-const PAD_ADDR = { v1: LAUNCHPAD_V1, v2: LAUNCHPAD_V2 };
+// V3 — передаваемый контракт: владелец и кошелёк комиссии меняются,
+// вшитых адресов нет. Новые токены создаются только здесь; V1 и V2
+// остаются подключёнными, чтобы уже созданными токенами можно было торговать.
+const LAUNCHPAD_V3 = '0x9740e2C9214965d68A731b1af49Ed1b5814664ff';
+const LAUNCHPAD_ADDRESS = LAUNCHPAD_V3;   // куда создавать новые токены
+const PAD_ADDR = { v1: LAUNCHPAD_V1, v2: LAUNCHPAD_V2, v3: LAUNCHPAD_V3 };
 const SUPABASE_URL = 'https://hgzthbidfdqomuotdocb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnenRoYmlkZmRxb211b3Rkb2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTI2NjEsImV4cCI6MjA5NjU4ODY2MX0.otgk-jq2k0COrIE3cUEnRBPYKGnzAHRi3LEIQhE7khA';
 const BNB_PARAMS = {
@@ -985,12 +989,16 @@ const LAUNCHPAD_V2_EXTRA = [
 ];
 const TOKEN_ABI = [{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}];
 
-const POOLS_ADDRESS = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
+// Передаваемый контракт пулов: владелец и кошелёк комиссии меняются.
+// Прежний (непередаваемый): 0xe848d695801EfF59B13104493aAD8Eeb24935663
+const POOLS_ADDRESS = '0x8923bF72154A10af579030162C6F945Df2F1b351';
 const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
 const USDC_ADDR = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const POOLS_ABI = [{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"addPassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"uint256","name":"minTokensOut","type":"uint256"}],"name":"buy","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_passes","type":"address[]"},{"internalType":"address","name":"_goldPass","type":"address"},{"internalType":"address","name":"_silverPass","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"quoteIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokensOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Buy","type":"event"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"quoteAmount","type":"uint256"},{"internalType":"bool","name":"locked","type":"bool"}],"name":"createPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteAmount","type":"uint256"}],"name":"LiquidityRemoved","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":false,"internalType":"uint8","name":"quote","type":"uint8"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"bool","name":"locked","type":"bool"}],"name":"PoolCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"removeLiquidity","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"removePassContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"},{"internalType":"uint256","name":"minQuoteOut","type":"uint256"}],"name":"sell","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"poolId","type":"uint256"},{"indexed":true,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokensIn","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"quoteOut","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"Sell","type":"event"},{"inputs":[{"internalType":"uint16","name":"_trade","type":"uint16"},{"internalType":"uint16","name":"_creator","type":"uint16"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setGoldPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_p","type":"address"}],"name":"setSilverPass","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_usdt","type":"address"},{"internalType":"address","name":"_usdc","type":"address"}],"name":"setStablecoins","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"},{"inputs":[],"name":"creatorFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"dailyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getGoldUsedToday","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPool","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"}],"name":"getPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getSilverUsedThisWeek","outputs":[{"internalType":"uint256","name":"used","type":"uint256"},{"internalType":"uint256","name":"limit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"GOLD_DAILY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"goldPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"hasPass","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPassContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"OWNER_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"passContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"passCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint8","name":"","type":"uint8"}],"name":"poolByTokenQuote","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"poolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"pools","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint8","name":"quote","type":"uint8"},{"internalType":"uint256","name":"reserveToken","type":"uint256"},{"internalType":"uint256","name":"reserveQuote","type":"uint256"},{"internalType":"address","name":"creator","type":"address"},{"internalType":"bool","name":"locked","type":"bool"},{"internalType":"bool","name":"liquidityPulled","type":"bool"},{"internalType":"uint256","name":"createdAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"quoteIn","type":"uint256"}],"name":"quoteBuy","outputs":[{"internalType":"uint256","name":"tokensOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"pid","type":"uint256"},{"internalType":"uint256","name":"tokensIn","type":"uint256"}],"name":"quoteSell","outputs":[{"internalType":"uint256","name":"quoteOut","type":"uint256"},{"internalType":"uint256","name":"fee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SILVER_WEEKLY_LIMIT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"silverPass","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tradeFeeBps","outputs":[{"internalType":"uint16","name":"","type":"uint16"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDC","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"USDT","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weeklyCreateCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
 const ERC20_ABI = ['function name() view returns (string)','function symbol() view returns (string)','function decimals() view returns (uint8)','function balanceOf(address) view returns (uint256)','function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)','function transfer(address,uint256) returns (bool)'];
 
+// ЕДИНСТВЕННОЕ место в этом файле, где указан кошелёк владельца площадки.
+// При продаже новый владелец меняет только эту строку.
 const OWNER_WALLET_ADDR = '0xC85b148F3EbD09e9072706166B4CD99cF7Ed3108';
 const AD_GOLD_PASS = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
 const AD_SILVER_PASS = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
@@ -1136,18 +1144,18 @@ async function multicall(calls){
 }
 
 function getReadLaunchpad(which){
-  return new ethers.Contract(PAD_ADDR[which||'v2'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), getReadProvider());
+  return new ethers.Contract(PAD_ADDR[which||'v3'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), getReadProvider());
 }
 function getWriteLaunchpad(which){
-  return new ethers.Contract(PAD_ADDR[which||'v2'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
+  return new ethers.Contract(PAD_ADDR[which||'v3'], LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
 }
 // К какому контракту относится открытый сейчас токен
-let currentPad = 'v2';
+let currentPad = 'v3';
 function padOf(address){
   const t = tokensCache.find(x => String(x.address||'').toLowerCase() === String(address||'').toLowerCase());
   if(t) return t.pad;
   const known = _padProbe[String(address||'').toLowerCase()];
-  return known || 'v2';
+  return known || 'v3';
 }
 // По прямой ссылке страница токена открывается раньше, чем загрузился список,
 // и определить контракт по кэшу невозможно. Спрашиваем оба контракта:
@@ -1158,7 +1166,7 @@ async function resolvePad(address){
   const cached = tokensCache.find(x => String(x.address||'').toLowerCase() === key);
   if(cached) return cached.pad;
   if(_padProbe[key]) return _padProbe[key];
-  for(const which of ['v2','v1']){
+  for(const which of ['v3','v2','v1']){
     try{
       const c = await withTimeout(getReadLaunchpad(which).getCurve(address), 6000);
       if(c && c[0] && c[0] !== '0x0000000000000000000000000000000000000000'){
@@ -1167,7 +1175,7 @@ async function resolvePad(address){
       }
     }catch(e){}
   }
-  return 'v2';
+  return 'v3';
 }
 function getReadPools(){ return new ethers.Contract(POOLS_ADDRESS, POOLS_ABI, getReadProvider()); }
 // Ликвидность пула в долларах: обе стороны вместе.
@@ -1557,7 +1565,7 @@ async function connectWallet(chosen){
     provider = new ethers.BrowserProvider(eth);
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
-    launchpad = new ethers.Contract(LAUNCHPAD_V2, LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
+    launchpad = new ethers.Contract(LAUNCHPAD_V3, LAUNCHPAD_ABI.concat(LAUNCHPAD_V2_EXTRA), signer);
     document.getElementById('connectBtn').classList.add('hidden');
     const chip=document.getElementById('walletChip');
     chip.classList.remove('hidden'); chip.textContent=shortAddr(userAddr);
@@ -1863,7 +1871,7 @@ async function checkForNewTokens(){
   if(!onLaunchList && !onPoolList) return;
   try{
     if(onLaunchList){
-      for(const which of ['v1','v2']){
+      for(const which of ['v1','v2','v3']){
         const c = Number(await withTimeout(getReadLaunchpad(which).tokenCount(), 6000));
         if(_lastCounts[which] !== null && c > _lastCounts[which]){ _lastCounts[which] = c; queueListReload('счётчик '+which); return; }
         _lastCounts[which] = c;
@@ -1909,22 +1917,23 @@ async function loadTokens(_retry){
     // адреса, данные, названия — восемь обращений подряд. Теперь всё, что
     // не зависит друг от друга, идёт одновременно. Запросов столько же,
     // просто они не стоят в очереди.
-    const [metaRes, cntV1, cntV2] = await Promise.all([
+    const [metaRes, cntV1, cntV2, cntV3] = await Promise.all([
       sb.from('launchpad_tokens').select('*'),
       withTimeout(getReadLaunchpad('v1').tokenCount()).catch(()=>0),
-      withTimeout(getReadLaunchpad('v2').tokenCount()).catch(()=>0)
+      withTimeout(getReadLaunchpad('v2').tokenCount()).catch(()=>0),
+      withTimeout(getReadLaunchpad('v3').tokenCount()).catch(()=>0)
     ]);
     metaCache={}; ((metaRes && metaRes.data)||[]).forEach(m=>metaCache[m.address.toLowerCase()]=m);
 
-    const counts = { v1: Number(cntV1)||0, v2: Number(cntV2)||0 };
-    if(!counts.v1 && !counts.v2){
+    const counts = { v1: Number(cntV1)||0, v2: Number(cntV2)||0, v3: Number(cntV3)||0 };
+    if(!counts.v1 && !counts.v2 && !counts.v3){
       grid.innerHTML='<div class="empty">No tokens yet. Be the first to launch! 🚀</div>';
       tokensCache=[]; renderNewTicker(); return;
     }
 
     // Адреса с обоих контрактов — одной пачкой
     const addrCalls=[]; const addrOwner=[];
-    for(const which of ['v1','v2']){
+    for(const which of ['v1','v2','v3']){
       const count = counts[which];
       if(!count) continue;
       const start=Math.max(0,count-100);
