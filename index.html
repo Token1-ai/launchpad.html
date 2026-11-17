@@ -403,15 +403,15 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
   <div class="lab-logo" onclick="switchMode('launch')"><img class="dot" id="navLogo" alt="OpenGate" src="/logo.png" onerror="this.outerHTML='<div class=&quot;dot dotletter&quot;>O</div>'"/> OpenGate <span style="color:var(--gold);">LaunchLab</span></div>
   <div class="lab-nav-actions">
     <div class="mode-tabs">
-      <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 Launch</button>
-      <button class="mode-tab" id="modePools" onclick="switchMode('pools')">🔄 List & Trade</button>
+      <button class="mode-tab active" id="modeLaunch" onclick="switchMode('launch')">🚀 New token</button>
+      <button class="mode-tab" id="modePools" onclick="switchMode('pools')">🔄 Trade a token</button>
     </div>
     <a class="btn-ghost nav-home" href="https://opengate.bond" target="_blank" rel="noopener noreferrer" title="OpenGate — main site"><img src="/logo.png" alt=""/><span class="nav-home-text">OpenGate</span></a>
-    <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How Launch works?">?</button>
-    <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How List & Trade works?">?</button>
-    <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Launch Token</button>
-    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 List Token</button>
-    <button class="btn-ghost hidden" id="adAdminBtn" onclick="openAdAdminModal()">⚙️ Ad Pricing</button>
+    <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How a new token works">?</button>
+    <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How trading works">?</button>
+    <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Make a token</button>
+    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 Open trading</button>
+    <button class="btn-ghost hidden" id="adAdminBtn" onclick="openAdAdminModal()">⚙️ Ad prices</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
     <button class="btn-ghost" id="fundNavBtn" onclick="openFundModal()" title="How to add funds">💳<span class="fund-nav-text"> Add funds</span></button>
     <button id="connectBtn" class="btn-ghost" onclick="connectWallet()">Connect Wallet</button>
@@ -419,8 +419,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 </nav>
 <div class="lab-wrap">
   <div class="ad-boards-row">
-    <div id="adSlot1" class="ad-slot" onclick="handleAdSlotClick(1)"><div class="ad-empty"><div class="ad-empty-title">📢 Your ad could be here</div><div class="ad-empty-sub">Tap to place a banner</div></div></div>
-    <div id="adSlot2" class="ad-slot" onclick="handleAdSlotClick(2)"><div class="ad-empty"><div class="ad-empty-title">📢 Your ad could be here</div><div class="ad-empty-sub">Tap to place a banner</div></div></div>
+    <div id="adSlot1" class="ad-slot" onclick="handleAdSlotClick(1)"><div class="ad-empty"><div class="ad-empty-title">📢 Your advert can be here</div><div class="ad-empty-sub">Tap here to put your advert in this spot</div></div></div>
+    <div id="adSlot2" class="ad-slot" onclick="handleAdSlotClick(2)"><div class="ad-empty"><div class="ad-empty-title">📢 Your advert can be here</div><div class="ad-empty-sub">Tap here to put your advert in this spot</div></div></div>
   </div>
 
   <div id="homeView">
@@ -444,7 +444,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <input class="lab-search" id="searchInput" placeholder="🔍 Search by name, ticker or contract address" oninput="visibleTokens=PAGE_SIZE;renderTokenList()"/>
       <button class="filter-btn" id="filter-hot" onclick="setFilter('hot')">🔥 Hot</button>
       <button class="filter-btn active" id="filter-new" onclick="setFilter('new')">🆕 New</button>
-      <button class="filter-btn" id="filter-graduated" onclick="setFilter('graduated')">🎓 Graduated</button>
+      <button class="filter-btn" id="filter-graduated" onclick="setFilter('graduated')">🎓 Finished</button>
     </div>
     <div class="token-grid" id="tokenGrid"><div class="empty">Loading tokens...</div></div>
   </div>
@@ -512,7 +512,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           </div>
           <div class="bs-receive">You receive: <b id="receiveAmount">—</b></div>
           <button class="bs-action buy" id="tradeActionBtn" onclick="executeTrade()">Connect Wallet</button>
-          <div class="grad-note" id="gradNote">🎓 This token graduated. Trade it on <a id="gradPancake" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">PancakeSwap ↗</a></div>
+          <div class="grad-note" id="gradNote">🎓 This token is finished and moved on. Trade it on <a id="gradPancake" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">PancakeSwap ↗</a></div>
         </div>
         <div class="feed-box">
           <div class="feed-title">💱 Recent Trades<span class="live-dot" id="liveDotLaunch" title="Live updates"></span></div>
@@ -553,9 +553,9 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         <div class="info-box">
           <div class="info-row"><span class="k">Price</span><span class="v" id="poolInfoPrice">—</span></div>
           <div class="info-row"><span class="k">Tokens in pool</span><span class="v" id="poolReserveToken">—</span></div>
-          <div class="info-row"><span class="k">Liquidity in pool</span><span class="v" id="poolReserveQuote">—</span></div>
-          <div class="info-row"><span class="k">Total liquidity</span><span class="v" id="poolLiqUsd">—</span></div>
-          <div class="info-row"><span class="k">Liquidity type</span><span class="v" id="poolLockStatus">—</span></div>
+          <div class="info-row"><span class="k">Money in pool</span><span class="v" id="poolReserveQuote">—</span></div>
+          <div class="info-row"><span class="k">Pool size in dollars</span><span class="v" id="poolLiqUsd">—</span></div>
+          <div class="info-row"><span class="k">Money can be taken back</span><span class="v" id="poolLockStatus">—</span></div>
           <div class="info-row"><span class="k">Token address</span><span class="v" id="poolContract">—</span></div>
           <div class="info-row"><span class="k">Creator</span><span class="v" id="poolCreator">—</span></div>
           <div class="price-hint">Prices are tiny, so <b>0.0<sub>8</sub>125</b> is short for 0.00000000125 — the small number counts the zeros after the dot.</div>
@@ -565,7 +565,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           <div class="token-about-text" id="poolDescText"></div>
         </div>
         <div id="removeLiqBox" class="hidden" style="margin-top:16px;">
-          <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Withdraw Liquidity</button>
+          <button class="btn-ghost" style="width:100%;padding:12px;border-color:var(--red);color:var(--red);" onclick="removePoolLiquidity()">⚠️ Take my money out</button>
         </div>
       </div>
       <div>
@@ -589,7 +589,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
           </div>
           <div class="bs-receive">You receive: <b id="poolReceiveAmount">—</b></div>
           <button class="bs-action buy" id="poolTradeActionBtn" onclick="executePoolTrade()">Connect Wallet</button>
-          <div class="dead-note" id="poolDeadNote">⚠️ The lister withdrew all liquidity from this pool. Trading here is no longer possible.</div>
+          <div class="dead-note" id="poolDeadNote">⚠️ The owner took all the money out of this pool. You cannot trade here any more.</div>
         </div>
         <div class="feed-box">
           <div class="feed-title">💱 Recent Trades<span class="live-dot" id="liveDotPool" title="Live updates"></span></div>
@@ -623,7 +623,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <label class="field-label">Website (optional)</label>
     <input class="field-input" id="launchWebsite" placeholder="https://..." onblur="fixUrlField('launchWebsite')"/>
     <div class="fee-note" id="feeNote">Checking creation fee…</div>
-    <button class="btn-gold" style="width:100%;padding:13px;" id="launchSubmitBtn" onclick="submitLaunch()">Launch Token</button>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="launchSubmitBtn" onclick="submitLaunch()">Make my token</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeLaunchModal()">Cancel</button>
   </div>
 </div>
@@ -634,29 +634,29 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
 <div class="modal-overlay" id="howModal">
   <div class="modal-box wide">
-    <div class="modal-title">💡 How Launch works</div>
-    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy or sell</b> — no pass needed. Just connect a wallet with some BNB. <button class="fund-link" onclick="closeHowModal();openFundModal()">How to add funds</button></div></div>
-    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Everyone gets 1 free token launch</b> — no pass needed. After that: Silver Pass gives up to 7 per week, Gold Pass up to 3 every day.</div></div>
-    <div class="how-step"><div class="how-num">3</div><div class="how-text">Every token starts on a <b>bonding curve</b> — a formula, not a person, sets the price. The more people buy, the higher the price climbs. Selling brings it back down.</div></div>
-    <div class="how-step"><div class="how-num">4</div><div class="how-text">Every trade has an <b>11% fee</b>: 10% goes straight to the token's creator, 1% to the platform. Paid automatically, every single trade.</div></div>
-    <div class="how-step"><div class="how-num">5</div><div class="how-text">Once a token raises enough BNB, it <b>"graduates"</b>: liquidity moves to PancakeSwap automatically and the LP is burned forever — nobody, not even the creator, can pull the liquidity out. That's the anti-rug guarantee.</div></div>
+    <div class="modal-title">💡 Make your own token</div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>Anyone can buy and sell here.</b> You only need a wallet with some BNB in it. <button class="fund-link" onclick="closeHowModal();openFundModal()">How to add funds</button></div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>Your first token is free.</b> After that you need a pass: Silver — 7 tokens a week, Gold — 3 a day.</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>Nobody sets the price — the math does.</b> People buy, the price goes up. People sell, it goes down.</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>You earn 10% of every trade</b> of your token. It lands in your wallet on its own. The site takes 1%.</div></div>
+    <div class="how-step"><div class="how-num">5</div><div class="how-text"><b>When enough BNB is collected,</b> the token moves to PancakeSwap and the money behind it is locked forever. Nobody can take it out — not you, not us. That is what stops the owner running off with the money.</div></div>
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closeHowModal()">Got it</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="createPoolModal">
   <div class="modal-box">
-    <div class="modal-title">🔄 List a Token</div>
+    <div class="modal-title">🔄 Open trading for your token</div>
     <div class="limit-note" id="poolLimitNote">Connect your wallet to see your remaining launches.</div>
-    <label class="field-label">Token Address *</label>
+    <label class="field-label">Token address *</label>
     <input class="field-input" id="poolTokenAddr" placeholder="0x..." oninput="onPoolTokenAddrInput()"/>
-    <label class="field-label">Quote Currency *</label>
+    <label class="field-label">People will pay with *</label>
     <div class="quote-select">
       <button class="quote-opt active" data-q="0" onclick="setPoolQuote(0)">BNB</button>
       <button class="quote-opt" data-q="1" onclick="setPoolQuote(1)">USDT</button>
       <button class="quote-opt" data-q="2" onclick="setPoolQuote(2)">USDC</button>
     </div>
-    <label class="field-label">Token Amount *</label>
+    <label class="field-label">How many of your tokens to put in *</label>
     <input class="field-input" id="poolTokenAmount" type="number" placeholder="e.g. 500000"/>
     <div class="bs-presets" id="poolTokenPresets">
       <button class="bs-preset" onclick="setPoolTokenPct(25)">25%</button>
@@ -665,7 +665,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <button class="bs-preset" onclick="setPoolTokenPct(100)">Max</button>
     </div>
     <div class="field-hint" id="poolTokenBalance">Paste the token address above to see your balance.</div>
-    <label class="field-label" id="poolQuoteAmountLabel">Quote Amount (BNB) *</label>
+    <label class="field-label" id="poolQuoteAmountLabel">How much BNB to put in *</label>
     <input class="field-input" id="poolQuoteAmount" type="number" placeholder="e.g. 1"/>
     <div class="bs-presets" id="poolQuotePresets">
       <button class="bs-preset" onclick="setPoolQuotePct(25)">25%</button>
@@ -688,36 +688,36 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <input class="field-input" id="poolTelegram" placeholder="@yourchannel or t.me/yourchannel" onblur="fixUrlField('poolTelegram','telegram')"/>
     <label class="field-label">Website (optional)</label>
     <input class="field-input" id="poolWebsite" placeholder="https://..." onblur="fixUrlField('poolWebsite')"/>
-    <label class="field-label">Liquidity Type</label>
+    <label class="field-label">Can you take this money back later?</label>
     <div class="lock-choice">
-      <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 Locked</b>Permanent. Builds trust, can't be undone.</div>
-      <div class="lock-opt" id="lockOptRemovable" onclick="setPoolLocked(false)"><b>⚠️ Removable</b>You can withdraw later. Riskier for buyers.</div>
+      <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 No, never</b>People trust this much more. Cannot be changed later.</div>
+      <div class="lock-opt" id="lockOptRemovable" onclick="setPoolLocked(false)"><b>⚠️ Yes, I can</b>You can take it back. People trust this less.</div>
     </div>
-    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">List Token</button>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">Open trading</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeCreatePoolModal()">Cancel</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="poolsHowModal">
   <div class="modal-box wide">
-    <div class="modal-title">💡 How List & Trade works</div>
-    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>List a token you already have</b> — your own project token, or one created on our Launch tab.</div></div>
-    <div class="how-step"><div class="how-num">2</div><div class="how-text">Choose the quote currency: <b>BNB, USDT, or USDC</b>. You deposit both your token and the quote currency to seed the market.</div></div>
-    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>🔒 Locked</b> means the liquidity stays forever — nobody can withdraw it. This builds trust with buyers. <b>⚠️ Removable</b> means you can withdraw it later, but buyers take on more risk.</div></div>
-    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy or sell</b>, no pass required. Listing a token requires a Silver or Gold Pass, same limits as Launch.</div></div>
-    <div class="how-step"><div class="how-num">5</div><div class="how-text">Every trade has a <b>1% fee</b>: 0.5% to the lister automatically, 0.5% to the platform.</div></div>
+    <div class="modal-title">💡 Let people trade your token</div>
+    <div class="how-step"><div class="how-num">1</div><div class="how-text"><b>This is for a token you already have</b> — your own, or one you made here.</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text"><b>You put in two things:</b> your token, and money people will pay with — BNB, USDT or USDC. That is what makes trading possible.</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text"><b>You choose: can you take that money back or not.</b> If you can't, people trust you more. If you can, they take a risk.</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text"><b>Anyone can buy and sell.</b> To open trading you need a Silver or Gold pass.</div></div>
+    <div class="how-step"><div class="how-num">5</div><div class="how-text"><b>You earn 0.5% of every trade</b> of your token. The site takes 0.5%.</div></div>
     <button class="btn-gold" style="width:100%;padding:13px;margin-top:6px;" onclick="closePoolsHowModal()">Got it</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="featModal">
   <div class="modal-box">
-    <div class="modal-title" id="featTitle">⭐ Feature your token</div>
+    <div class="modal-title" id="featTitle">⭐ Show your token on top</div>
     <div class="limit-note" id="featNote">Connect your wallet to see your price.</div>
     <div id="featPickBox">
       <label class="field-label">Your token *</label>
       <select class="field-input" id="featToken"></select>
-      <div class="field-hint">Only tokens launched on LaunchLab can be featured.</div>
+      <div class="field-hint">Only tokens made here can be shown on top.</div>
     </div>
     <div id="featPayBlock">
     <label class="field-label" id="featDaysLabel">Days * (max 30)</label>
@@ -840,8 +840,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
       <label class="field-label">Which place</label>
       <select class="field-input" id="grantType" onchange="grantTypeChanged()">
-        <option value="ad">Big banner — the 2 wide blocks "Your ad could be here"</option>
-        <option value="feat">Token slot — the 4 small boxes "Feature your token here"</option>
+        <option value="ad">Big banner — the 2 wide spots at the top</option>
+        <option value="feat">Small box — the 4 small spots for a token</option>
       </select>
 
       <label class="field-label">Which box exactly (banner: 1-2, token slot: 1-4)</label>
@@ -867,8 +867,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
         <input class="field-input" id="grantTokenFeat" type="text" placeholder="0x..."/>
         <label class="field-label">Where</label>
         <select class="field-input" id="grantKind">
-          <option value="launch">Launch (bonding curve)</option>
-          <option value="pool">List &amp; Trade (pool)</option>
+          <option value="launch">New token</option>
+          <option value="pool">Traded token</option>
         </select>
       </div>
 
@@ -883,8 +883,8 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
       <label class="field-label">Which place</label>
       <select class="field-input" id="promoKind">
-        <option value="ad">Big banner — the 2 wide blocks "Your ad could be here"</option>
-        <option value="feat">Token slot — the 4 small boxes "Feature your token here"</option>
+        <option value="ad">Big banner — the 2 wide spots at the top</option>
+        <option value="feat">Small box — the 4 small spots for a token</option>
       </select>
 
       <label class="field-label">Who can take it</label>
@@ -1639,7 +1639,7 @@ function renderFeatRow(kind, elId){
     const f = store[slot];
     if(!f){
       html += '<div class="feat-slot free" onclick="openFeatModal('+slot+',\''+kind+'\')">'
-            + '<div class="feat-empty">⭐ Feature your token here</div></div>';
+            + '<div class="feat-empty">⭐ Show your token here</div></div>';
       continue;
     }
     const key = String(f.token_address||'').toLowerCase();
@@ -1732,7 +1732,7 @@ async function openFeatModal(slot, kind){
   applyPausedFreeMode('feat', adPricing.feat_paused && _freeFeat);
   featSlot=slot; featExtendId=null; featKind = kind === 'pool' ? 'pool' : 'launch';
   document.getElementById('featTitle').textContent =
-    (featKind==='pool' ? '⭐ Feature your pool — slot ' : '⭐ Feature your token — slot ') + slot;
+    (featKind==='pool' ? '⭐ Show your pool here — spot ' : '⭐ Show your token here — spot ') + slot;
   document.getElementById('featPickBox').classList.remove('hidden');
   const sel=document.getElementById('featToken');
   let list;
@@ -3454,7 +3454,7 @@ function setPoolQuote(q){
   poolQuoteChoice=q;
   updatePoolQuoteBalance();
   document.querySelectorAll('#createPoolModal .quote-opt').forEach(el=>el.classList.toggle('active', Number(el.dataset.q)===q));
-  document.getElementById('poolQuoteAmountLabel').textContent='Quote Amount ('+quoteLabel(q)+') *';
+  document.getElementById('poolQuoteAmountLabel').textContent='How much '+quoteLabel(q)+' to put in *';
 }
 function setPoolLocked(v){
   poolLockedChoice=v;
@@ -3700,7 +3700,7 @@ function renderAdSlot(slot){
     el.innerHTML = adPricing.ads_paused
       ? '<span class="ad-paused-note">⏸ Ad slots are temporarily closed</span>'
       : '<div class="ad-empty">'
-        + '<div class="ad-empty-title">📢 Your ad could be here</div>'
+        + '<div class="ad-empty-title">📢 Your advert can be here</div>'
         + '<div class="ad-empty-sub">Tap to place a banner — your token, channel or website, seen by everyone on LaunchLab</div>'
         + '</div>';
     return;
