@@ -13,8 +13,8 @@ const POOLS_OLD = '0xe848d695801EfF59B13104493aAD8Eeb24935663';
 const POOLS_ALL = [POOLS, POOLS_OLD];
 const isPools = a => !!a && POOLS_ALL.some(x => x.toLowerCase() === String(a).toLowerCase());
 const RPCS = [
-  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
-  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  process.env.ALCHEMY_BNB_RPC || 'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  process.env.ALCHEMY_BNB_RPC || 'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
   'https://bsc-dataseed.binance.org/'
 ];
 const EVENT_ABI = [

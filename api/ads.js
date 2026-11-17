@@ -25,7 +25,7 @@ const USDT_ADDR    = '0x55d398326f99059fF775485246999027B3197955';
 const USDC_ADDR    = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 
 const RPCS = [
-  'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
+  process.env.ALCHEMY_BNB_RPC || 'https://bnb-mainnet.g.alchemy.com/v2/9xLdJVjBnhaD8S0QJZcBA',
   'https://bsc-dataseed.binance.org/',
   'https://bsc-dataseed1.defibit.io/',
   'https://bsc-dataseed1.ninicoin.io/'
