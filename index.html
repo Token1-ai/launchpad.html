@@ -2270,11 +2270,32 @@ function pushTradeToChart(state, series, volSeries, timeMap, price, vol, date){
 // Догружает сделки, появившиеся после последней нарисованной, и дописывает
 // их по одной. Вызывается и после своей сделки, и по событию Supabase —
 // поэтому график не зависит от того, дошло событие или потерялось.
+// Сделки, которые уже нарисованы на графике сразу после подтверждения.
+// Нужны, чтобы та же сделка не попала на график второй раз, когда её
+// потом принесёт сервер.
+const _localTrades = new Set();
+
+// Рисует свечу СРАЗУ после подтверждения сделки в сети.
+// Раньше график ждал всю цепочку: сервер проверяет транзакцию в сети,
+// пишет в базу, оттуда приходит realtime-уведомление — и только тогда
+// двигалась свеча. Отсюда и была заметная задержка.
+async function drawTradeNow(pad, token, txHash, bnbVolume){
+  try{
+    const st = lpChartState;
+    if(st.lastIndex < 0) return;            // график ещё не построен — дополнять нечего
+    const price = Number(ethers.formatEther(await pad.getPrice(token)));
+    if(!isFinite(price) || price <= 0) return;
+    if(pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, price, Number(bnbVolume)||0, new Date())){
+      if(txHash) _localTrades.add(String(txHash).toLowerCase());
+    }
+  }catch(e){ console.error('instant candle failed:', e); }
+}
+
 async function syncChartTail(token){
   try{
     const st = lpChartState;
     if(st.lastIndex < 0){ await loadChartFromTrades(token); return; }
-    let q = sb.from('launchpad_trades').select('price,bnb_amount,created_at')
+    let q = sb.from('launchpad_trades').select('price,bnb_amount,created_at,tx_hash')
               .eq('token_address', token.toLowerCase()).order('created_at',{ascending:true}).limit(200);
     if(st.lastTradeAt) q = q.gt('created_at', st.lastTradeAt);
     const { data, error } = await q;
@@ -2282,6 +2303,9 @@ async function syncChartTail(token){
     if(!data || !data.length) return;
     for(const t of data){
       if(!isFinite(Number(t.price)) || Number(t.price) <= 0){ st.lastTradeAt = t.created_at; continue; }
+      // Эту сделку уже нарисовали сразу после подтверждения — пропускаем,
+      // иначе одна покупка дала бы на графике две свечи.
+      if(t.tx_hash && _localTrades.has(String(t.tx_hash).toLowerCase())){ st.lastTradeAt = t.created_at; continue; }
       const okk = pushTradeToChart(st, candleSeries, volumeSeries, chartTimeMap, Number(t.price), Number(t.bnb_amount)||0, parseTs(t.created_at));
       if(!okk){ await loadChartFromTrades(token); return; }
       st.lastTradeAt = t.created_at;
@@ -2527,6 +2551,7 @@ async function executeTrade(){
       const tx=await pad.buy(currentToken,minOut,{value:bnbIn});
       toast('Buying... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Bought! 🎉','ok');
+      await drawTradeNow(pad, currentToken, txHash, ethers.formatEther(bnbIn));
     }else{
       const tokensIn=ethers.parseEther(amtStr);
       const tk=new ethers.Contract(currentToken,TOKEN_ABI,signer);
@@ -2537,6 +2562,7 @@ async function executeTrade(){
       const tx=await pad.sell(currentToken,tokensIn,minOut);
       toast('Selling... confirm in wallet','ok');
       const rc=await tx.wait(); txHash=rc.hash; toast('Sold! 🎉','ok');
+      await drawTradeNow(pad, currentToken, txHash, ethers.formatEther(bnbOut));
     }
     try{
       const rr = await fetch('/api/launchpad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trade',txHash,tokenAddress:currentToken,wallet:userAddr})});
