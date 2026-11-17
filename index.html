@@ -410,7 +410,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
     <button class="btn-how" id="howBtnLaunch" onclick="openHowModal()" title="How a new token works">?</button>
     <button class="btn-how hidden" id="howBtnPools" onclick="openPoolsHowModal()" title="How trading works">?</button>
     <button class="btn-gold" id="launchNavBtn" onclick="openLaunchModal()">🚀 Make a token</button>
-    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 Start trading</button>
+    <button class="btn-gold hidden" id="poolsNavBtn" onclick="openCreatePoolModal()">🔄 Launch your token</button>
     <button class="btn-ghost hidden" id="adAdminBtn" onclick="openAdAdminModal()">⚙️ Ad prices</button>
     <span id="walletChip" class="wallet-chip hidden"></span>
     <button class="btn-ghost" id="fundNavBtn" onclick="openFundModal()" title="How to add funds">💳<span class="fund-nav-text"> Add funds</span></button>
@@ -646,7 +646,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
 
 <div class="modal-overlay" id="createPoolModal">
   <div class="modal-box">
-    <div class="modal-title">🔄 Start trading your token</div>
+    <div class="modal-title">🔄 Launch your token</div>
     <div class="limit-note" id="poolLimitNote">Connect your wallet to see your remaining launches.</div>
     <label class="field-label">Token address *</label>
     <input class="field-input" id="poolTokenAddr" placeholder="0x..." oninput="onPoolTokenAddrInput()"/>
@@ -693,7 +693,7 @@ input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:var(--t
       <div class="lock-opt active" id="lockOptLocked" onclick="setPoolLocked(true)"><b>🔒 No, never</b>People trust this much more. Cannot be changed later.</div>
       <div class="lock-opt" id="lockOptRemovable" onclick="setPoolLocked(false)"><b>⚠️ Yes, I can</b>You can take it back. People trust this less.</div>
     </div>
-    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">Start trading</button>
+    <button class="btn-gold" style="width:100%;padding:13px;" id="createPoolBtn" onclick="submitCreatePool()">Launch my token</button>
     <button class="btn-ghost" style="width:100%;padding:11px;margin-top:8px;" onclick="closeCreatePoolModal()">Cancel</button>
   </div>
 </div>
