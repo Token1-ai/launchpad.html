@@ -51,8 +51,10 @@ api/         serverless functions (Vercel)
 | --- | --- |
 | Launchpad V3 | `0x9740e2C9214965d68A731b1af49Ed1b5814664ff` |
 | Trading pools V2 | `0x8923bF72154A10af579030162C6F945Df2F1b351` |
-| Gold Pass | `0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c` |
-| Silver Pass | `0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89` |
+| Gold Pass (V2, current) | `0xCF2B61D76F2140D8270e612918DEE1501EcC637C` |
+| Silver Pass (V2, current) | `0x543a0Bd90387768BE17E038ff685be7DD8d9791A` |
+| Gold Pass (V1, retired) | `0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c` |
+| Silver Pass (V1, retired) | `0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89` |
 
 Older versions (V1, V2) are still read so that tokens launched on them keep working.
 
@@ -87,7 +89,7 @@ panel.
 | --- | --- |
 | `PLATFORM_OWNER` | the owner's wallet: advertising income and admin rights |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | database access |
-| `GOLD_PASS_CONTRACT`, `SILVER_PASS_CONTRACT` | only if new passes are issued |
+| `GOLD_PASS_CONTRACT`, `SILVER_PASS_CONTRACT` | the current pass contracts; `..._V1` for the retired ones |
 
 After changing any of these press **Redeploy**.
 

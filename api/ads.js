@@ -19,8 +19,11 @@ const OWNER_WALLET = process.env.PLATFORM_OWNER || '0xC85b148F3EbD09e9072706166B
 // Пропуска. Вынесены в переменные окружения GOLD_PASS_CONTRACT и
 // SILVER_PASS_CONTRACT, чтобы новый владелец мог подключить свои,
 // не правя код. Без переменных берутся нынешние.
-const GOLD_PASS    = process.env.GOLD_PASS_CONTRACT   || '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
-const SILVER_PASS  = process.env.SILVER_PASS_CONTRACT || '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
+// V2 — нынешние (без ограничения количества), V1 — старые, остаются действительными.
+const GOLD_PASS    = process.env.GOLD_PASS_CONTRACT   || '0xCF2B61D76F2140D8270e612918DEE1501EcC637C';
+const SILVER_PASS  = process.env.SILVER_PASS_CONTRACT || '0x543a0Bd90387768BE17E038ff685be7DD8d9791A';
+const GOLD_PASS_V1   = process.env.GOLD_PASS_CONTRACT_V1   || '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
+const SILVER_PASS_V1 = process.env.SILVER_PASS_CONTRACT_V1 || '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
 const USDT_ADDR    = '0x55d398326f99059fF775485246999027B3197955';
 const USDC_ADDR    = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 
@@ -110,14 +113,24 @@ async function loadPricing() {
 }
 
 async function passBalance(passAddr, wallet) {
-  for (const url of RPCS) {
-    try {
-      const c = new ethers.Contract(passAddr, PASS_ABI, mkProvider(url));
-      const b = await c.balanceOf(wallet);
-      return BigInt(b.toString());
-    } catch (e) {}
+  // Пропуск засчитывается и новый, и старый: GOLD_PASS/SILVER_PASS — нынешние
+  // контракты, рядом проверяется прежний того же цвета.
+  const older = passAddr === GOLD_PASS ? GOLD_PASS_V1
+              : passAddr === SILVER_PASS ? SILVER_PASS_V1
+              : null;
+  const addresses = older && older !== passAddr ? [passAddr, older] : [passAddr];
+  let total = 0n;
+  for (const addr of addresses) {
+    for (const url of RPCS) {
+      try {
+        const c = new ethers.Contract(addr, PASS_ABI, mkProvider(url));
+        const b = await c.balanceOf(wallet);
+        total += BigInt(b.toString());
+        break;
+      } catch (e) {}
+    }
   }
-  return 0n;
+  return total;
 }
 
 async function getPricePerDay(wallet) {

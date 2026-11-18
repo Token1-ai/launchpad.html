@@ -1023,8 +1023,24 @@ function loadOwnerAddr(){
   return _ownerAddrPromise;
 }
 loadOwnerAddr();
-const AD_GOLD_PASS = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
-const AD_SILVER_PASS = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
+/* Пропуска V2 — нынешние (без ограничения количества). Старые V1 остаются
+   действительными: цена рекламы смотрит на оба контракта. */
+const AD_GOLD_PASS = '0xCF2B61D76F2140D8270e612918DEE1501EcC637C';
+const AD_SILVER_PASS = '0x543a0Bd90387768BE17E038ff685be7DD8d9791A';
+const AD_GOLD_PASS_V1 = '0x4D26Ec2f8edbb3F567953CC7573FF60cA009258c';
+const AD_SILVER_PASS_V1 = '0xeaDF62931f8ef2Ec546E77fBC5E56F1B3157Af89';
+const AD_GOLD_PASSES = [AD_GOLD_PASS, AD_GOLD_PASS_V1];
+const AD_SILVER_PASSES = [AD_SILVER_PASS, AD_SILVER_PASS_V1];
+/* Есть ли у кошелька пропуск: хватает одного из контрактов. */
+async function adHasPass(addresses, wallet){
+  for(const a of addresses){
+    try{
+      const c = new ethers.Contract(a, ['function balanceOf(address) view returns (uint256)'], provider);
+      if((await c.balanceOf(wallet)) > 0n) return true;
+    }catch(e){}
+  }
+  return false;
+}
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let provider, signer, userAddr, launchpad;
@@ -1727,10 +1743,8 @@ function setFeatToken(t){
 async function featPricePerDay(){
   if(!userAddr) return adPricing.feat_public_usd || 12;
   if(userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase()) return 0;
-  try{ const gp=new ethers.Contract(AD_GOLD_PASS,['function balanceOf(address) view returns (uint256)'],provider);
-       if((await gp.balanceOf(userAddr))>0n) return adPricing.feat_gold_usd||5; }catch(e){}
-  try{ const sp=new ethers.Contract(AD_SILVER_PASS,['function balanceOf(address) view returns (uint256)'],provider);
-       if((await sp.balanceOf(userAddr))>0n) return adPricing.feat_silver_usd||8; }catch(e){}
+  if(await adHasPass(AD_GOLD_PASSES, userAddr)) return adPricing.feat_gold_usd||5;
+  if(await adHasPass(AD_SILVER_PASSES, userAddr)) return adPricing.feat_silver_usd||8;
   return adPricing.feat_public_usd||12;
 }
 async function updateFeatPrice(){
@@ -3984,10 +3998,8 @@ function setAdToken(t){
 async function getAdPriceInfo(){
   if(!userAddr) return { perDay: adPricing.public_price_usd, tier: 'no pass' };
   if(userAddr.toLowerCase()===OWNER_WALLET_ADDR.toLowerCase()) return { perDay: 0, tier: 'owner' };
-  try{ const gp = new ethers.Contract(AD_GOLD_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await gp.balanceOf(userAddr)) > 0n) return { perDay: adPricing.gold_price_usd, tier: 'Gold Pass' }; }
-  catch(e){ console.warn('проверка Gold Pass не удалась, тариф может оказаться выше:', e && e.message); }
-  try{ const sp = new ethers.Contract(AD_SILVER_PASS, ['function balanceOf(address) view returns (uint256)'], provider); if((await sp.balanceOf(userAddr)) > 0n) return { perDay: adPricing.silver_price_usd, tier: 'Silver Pass' }; }
-  catch(e){ console.warn('проверка Silver Pass не удалась, тариф может оказаться выше:', e && e.message); }
+  if(await adHasPass(AD_GOLD_PASSES, userAddr)) return { perDay: adPricing.gold_price_usd, tier: 'Gold Pass' };
+  if(await adHasPass(AD_SILVER_PASSES, userAddr)) return { perDay: adPricing.silver_price_usd, tier: 'Silver Pass' };
   return { perDay: adPricing.public_price_usd, tier: 'no pass' };
 }
 async function getAdPricePerDay(){ return (await getAdPriceInfo()).perDay; }
